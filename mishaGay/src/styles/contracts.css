@@ -1,0 +1,64 @@
+.status-active {
+  background: #22c55e;
+  color: #fff;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.status-overdue {
+  background: #ef4444;
+  color: #fff;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.status-closed {
+  background: #9ca3af;
+  color: #fff;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.status-terminated {
+  background: #374151;
+  color: #fff;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.btn-danger {
+  background: #dc2626;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.btn-danger:hover {
+  background: #b91c1c;
+}
+
+.btn-danger:disabled {
+  background: #ef9a9a;
+  cursor: not-allowed;
+}
+
+table.contracts {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+table.contracts th {
+  padding: 8px;
+  text-align: left;
+  border: 1px solid #ddd;
+  background: #f3f4f6;
+}
+
+table.contracts td {
+  padding: 8px;
+  border: 1px solid #ddd;
+}
+

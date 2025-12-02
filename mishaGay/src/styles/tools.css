@@ -1,0 +1,68 @@
+.tools-filter {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.tools-filter select {
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  background: white;
+  cursor: pointer;
+}
+
+.tools-filter select:hover {
+  border-color: #9ca3af;
+}
+
+.tools-filter select:focus {
+  outline: none;
+  border-color: #1976d2;
+  box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.1);
+}
+
+.tools-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+}
+
+.tools-table th,
+.tools-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.tools-table th {
+  background: #f3f4f6;
+  font-weight: 600;
+  color: #111827;
+}
+
+.tools-table tbody tr:hover {
+  background: #f9fafb;
+}
+
+.badge {
+  padding: 4px 8px;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
+  display: inline-block;
+}
+
+.badge-green {
+  background: #16a34a;
+}
+
+.badge-yellow {
+  background: #f59e0b;
+}
+
+.badge-red {
+  background: #dc2626;
+}
