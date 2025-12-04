@@ -16,6 +16,7 @@ export interface PassportDto {
   issuedBy?: string;
   subdivisionCode?: string;
   issueDate?: string; // YYYY-MM-DD
+  inn?: string;
 }
 
 export interface ClientImageMeta {

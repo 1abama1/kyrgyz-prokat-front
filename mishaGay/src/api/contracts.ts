@@ -6,9 +6,14 @@ import type { RentalDocument } from "../types/RentalDocument";
 export interface CreateContractPayload {
   clientId: number;
   toolId: number;
-  contractNumber: string;
   expectedReturnDate: string; // YYYY-MM-DD
   totalAmount: number;
+}
+
+export interface UpdateContractPayload {
+  expectedReturnDate?: string;
+  amount?: number;
+  comment?: string;
 }
 
 export interface BackendError {
@@ -128,7 +133,31 @@ export async function createContract(
 }
 
 /**
- * 3) Сгенерировать и скачать Excel-договор
+ * 3) Обновить договор
+ *    PUT /api/admin/contracts/{contractId}
+ */
+export async function updateContract(
+  contractId: number,
+  payload: UpdateContractPayload
+): Promise<RentalDocument> {
+  const response = await fetch(`${API_BASE_URL}/api/admin/contracts/${contractId}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      ...buildAuthHeaders()
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    await raiseError(response);
+  }
+
+  return await response.json();
+}
+
+/**
+ * 4) Сгенерировать и скачать Excel-договор
  *    POST /api/admin/contracts/excel
  *    → возвращает xlsx как Blob
  *    ⚠️ Для Excel может потребоваться старый формат с датами
@@ -150,18 +179,13 @@ export async function downloadExcelContract(
   }
 
   const blob = await response.blob();
-  const filename = extractFilename(
-    response,
-    payload.contractNumber
-      ? `Договор_${payload.contractNumber}.xlsx`
-      : "contract.xlsx"
-  );
+  const filename = extractFilename(response, "contract.xlsx");
 
   return { blob, filename };
 }
 
 /**
- * 4) Закрыть договор по id RentalDocument
+ * 5) Закрыть договор по id RentalDocument
  *    POST /api/admin/contracts/{contractId}/close
  */
 export async function closeContract(contractId: number): Promise<unknown> {
@@ -188,7 +212,7 @@ export async function closeContract(contractId: number): Promise<unknown> {
 }
 
 /**
- * 5) Разорвать договор досрочно
+ * 6) Разорвать договор досрочно
  *    POST /api/admin/contracts/{contractId}/terminate
  */
 export async function terminateContract(
@@ -222,6 +246,7 @@ export const contractsAPI = {
   getClientDocuments,
   getAvailableTools,
   createContract,
+  update: updateContract,
   close: closeContract,
   terminate: terminateContract,
   downloadExcel: downloadExcelContract

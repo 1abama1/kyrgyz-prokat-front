@@ -11,9 +11,11 @@ import { ClientDocumentsTable } from "./ClientDocumentsTable";
 
 interface Props {
   clientId: number;
+  fullName?: string | null;
+  phone?: string | null;
 }
 
-export const ClientExpandableCard: FC<Props> = ({ clientId }) => {
+export const ClientExpandableCard: FC<Props> = ({ clientId, fullName, phone }) => {
   const navigate = useNavigate();
   const [data, setData] = useState<Client | null>(null);
   const [documents, setDocuments] = useState<RentalDocument[]>([]);
@@ -60,7 +62,7 @@ export const ClientExpandableCard: FC<Props> = ({ clientId }) => {
         boxShadow: open ? "0 4px 12px rgba(0,0,0,0.08)" : "none",
         transition: "box-shadow 0.3s ease"
       }}
-    >
+      >
       <div
         onClick={toggle}
         style={{
@@ -74,14 +76,17 @@ export const ClientExpandableCard: FC<Props> = ({ clientId }) => {
         }}
       >
         <div>
-          <span style={{ fontSize: 18, fontWeight: 600 }}>
-            {data?.fullName ? data.fullName : `Клиент #${clientId}`}
-          </span>
-          {data?.createdAt && (
-            <span style={{ marginLeft: 12, color: "#777", fontSize: 14 }}>
-              с {formatDate(data.createdAt)}
-            </span>
-          )}
+          <div style={{ fontSize: 18, fontWeight: 600 }}>
+            {data?.fullName || fullName || `Клиент #${clientId}`}
+          </div>
+          <div style={{ marginTop: 4, fontSize: 14, color: "#6b7280" }}>
+            {data?.phone || phone || "—"}
+            {data?.createdAt && (
+              <span style={{ marginLeft: 12 }}>
+                с {formatDate(data.createdAt)}
+              </span>
+            )}
+          </div>
         </div>
         <span
           style={{

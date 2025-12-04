@@ -1,14 +1,13 @@
 .create-client-page {
   display: flex;
-  justify-content: center;
-  padding: 40px 20px;
-  background: #f3f4f6;
-  min-height: calc(100vh - 80px);
+  justify-content: flex-start;
+  padding: 0;
+  background: transparent;
+  min-height: 100%;
 }
 
 .client-form-card {
   width: 100%;
-  max-width: 900px;
   background: #fff;
   border-radius: 14px;
   padding: 32px;

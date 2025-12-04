@@ -3,11 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { Layout } from "../components/Layout";
 import { clientsAPI } from "../api/clients";
 import { toolsAPI } from "../api/tools";
-import { contractsAPI, CreateContractPayload } from "../api/contracts";
+import { contractsAPI } from "../api/contracts";
 import { Client, ClientCard } from "../types/client.types";
 import { Tool } from "../types/tool.types";
 import { ErrorMessage } from "../components/ErrorMessage";
-import { generateContractNumber } from "../utils/formatters";
 import "../styles/create-rental.css";
 
 export const CreateDocumentPage: FC = () => {
@@ -19,7 +18,6 @@ export const CreateDocumentPage: FC = () => {
   const [clientCard, setClientCard] = useState<ClientCard | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<number | "">("");
   const [selectedTool, setSelectedTool] = useState<number | "">("");
-  const [contractNumber, setContractNumber] = useState("");
   const [totalAmount, setTotalAmount] = useState("");
   const [expectedReturnDate, setExpectedReturnDate] = useState("");
 
@@ -42,9 +40,6 @@ export const CreateDocumentPage: FC = () => {
 
       setClients(clientsData);
       setTemplates(templateData);
-      
-      // Автогенерация номера договора при загрузке
-      setContractNumber(generateContractNumber());
     } catch (err: any) {
       setError(err.message || "Ошибка загрузки данных");
     } finally {
@@ -70,7 +65,7 @@ export const CreateDocumentPage: FC = () => {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
-    if (!selectedClient || !selectedTemplate || !selectedTool || !contractNumber || !totalAmount || !expectedReturnDate) {
+    if (!selectedClient || !selectedTemplate || !selectedTool || !totalAmount || !expectedReturnDate) {
       setError("Все поля обязательны");
       return;
     }
@@ -88,7 +83,6 @@ export const CreateDocumentPage: FC = () => {
       await contractsAPI.createContract({
         clientId: selectedClient.id,
         toolId: Number(selectedTool),
-        contractNumber,
         expectedReturnDate,
         totalAmount: amount
       });
@@ -215,36 +209,6 @@ export const CreateDocumentPage: FC = () => {
               Нет свободных инструментов этой модели 😢
             </div>
           )}
-        </div>
-
-        <div style={{ marginBottom: 16 }}>
-          <label>
-            Номер договора:
-            <button
-              type="button"
-              onClick={() => setContractNumber(generateContractNumber())}
-              style={{
-                marginLeft: 8,
-                padding: "4px 8px",
-                fontSize: 12,
-                background: "#f0f0f0",
-                border: "1px solid #ccc",
-                borderRadius: 4,
-                cursor: "pointer"
-              }}
-              title="Сгенерировать новый номер"
-            >
-              🔄
-            </button>
-          </label>
-          <input
-            type="text"
-            value={contractNumber}
-            onChange={(e) => setContractNumber(e.target.value)}
-            placeholder="Например: R-2025-11-30-123"
-            required
-            style={{ width: "100%", padding: 8 }}
-          />
         </div>
 
         <div style={{ marginBottom: 16 }}>

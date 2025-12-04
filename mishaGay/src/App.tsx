@@ -104,6 +104,14 @@ function App() {
           }
         />
         <Route
+          path="/rentals/create"
+          element={
+            <ProtectedRoute>
+              <CreateRentalContractPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/documents/:id"
           element={
             <ProtectedRoute>

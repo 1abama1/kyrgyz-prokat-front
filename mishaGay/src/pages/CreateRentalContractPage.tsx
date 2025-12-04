@@ -7,7 +7,6 @@ import { contractsAPI } from "../api/contracts";
 import { Client } from "../types/client.types";
 import { Tool } from "../types/tool.types";
 import { ErrorMessage } from "../components/ErrorMessage";
-import { generateContractNumber } from "../utils/formatters";
 import "../styles/create-rental.css";
 
 export const CreateRentalContractPage: FC = () => {
@@ -18,8 +17,6 @@ export const CreateRentalContractPage: FC = () => {
 
   const [clientId, setClientId] = useState<number | "">("");
   const [toolId, setToolId] = useState<number | "">("");
-
-  const [contractNumber, setContractNumber] = useState("");
   const [expectedReturnDate, setExpectedReturnDate] = useState("");
   const [totalAmount, setTotalAmount] = useState("");
 
@@ -28,14 +25,12 @@ export const CreateRentalContractPage: FC = () => {
 
   useEffect(() => {
     clientsAPI.getAll().then(setClients).catch(err => setError(err.message || "Ошибка загрузки клиентов"));
-    toolsAPI.getAll().then(setTools).catch(err => setError(err.message || "Ошибка загрузки инструментов"));
-    
-    // Автогенерация номера договора при загрузке
-    setContractNumber(generateContractNumber());
+    // Используем только доступные для аренды инструменты
+    toolsAPI.getAvailable().then(setTools).catch(err => setError(err.message || "Ошибка загрузки инструментов"));
   }, []);
 
   const onCreate = async () => {
-    if (!clientId || !toolId || !expectedReturnDate || !totalAmount || !contractNumber) {
+    if (!clientId || !toolId || !expectedReturnDate || !totalAmount) {
       setError("Заполните все обязательные поля");
       return;
     }
@@ -53,7 +48,6 @@ export const CreateRentalContractPage: FC = () => {
       await contractsAPI.createContract({
         clientId: Number(clientId),
         toolId: Number(toolId),
-        contractNumber,
         expectedReturnDate,
         totalAmount: amount
       });
@@ -108,31 +102,6 @@ export const CreateRentalContractPage: FC = () => {
               </option>
             ))}
           </select>
-
-          <label>
-            Номер договора
-            <button
-              type="button"
-              onClick={() => setContractNumber(generateContractNumber())}
-              style={{
-                marginLeft: 8,
-                padding: "4px 8px",
-                fontSize: 12,
-                background: "#f0f0f0",
-                border: "1px solid #ccc",
-                borderRadius: 4,
-                cursor: "pointer"
-              }}
-              title="Сгенерировать новый номер"
-            >
-              🔄
-            </button>
-          </label>
-          <input 
-            value={contractNumber} 
-            onChange={e => setContractNumber(e.target.value)} 
-            placeholder="Например: R-2025-11-30-123"
-          />
 
           <label>Плановая дата возврата</label>
           <input 

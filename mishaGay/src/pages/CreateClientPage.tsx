@@ -28,6 +28,7 @@ export const CreateClientPage: FC = () => {
   const [issuedBy, setIssuedBy] = useState("");
   const [subdivisionCode, setSubdivisionCode] = useState("");
   const [issueDate, setIssueDate] = useState("");
+  const [inn, setInn] = useState("");
 
   // Фото
   const [files, setFiles] = useState<File[]>([]);
@@ -63,6 +64,7 @@ export const CreateClientPage: FC = () => {
           setIssuedBy(client.passport.issuedBy || "");
           setSubdivisionCode(client.passport.subdivisionCode || "");
           setIssueDate(client.passport.issueDate || "");
+          setInn(client.passport.inn || "");
         }
       })
       .catch((e: any) => {
@@ -92,12 +94,13 @@ export const CreateClientPage: FC = () => {
         address: address || undefined,
         birthDate: birthDate || undefined,
         comment: comment || undefined,
-        passport: series || number ? {
+        passport: series || number || inn ? {
           series: series || undefined,
           number: number || undefined,
           issuedBy: issuedBy || undefined,
           subdivisionCode: subdivisionCode || undefined,
-          issueDate: issueDate || undefined
+          issueDate: issueDate || undefined,
+          inn: inn || undefined
         } : undefined
       };
 
@@ -175,6 +178,8 @@ export const CreateClientPage: FC = () => {
               <input placeholder="Код подразделения" value={subdivisionCode} onChange={e => setSubdivisionCode(e.target.value)} />
               <input type="date" value={issueDate} onChange={e => setIssueDate(e.target.value)} />
             </div>
+
+            <input placeholder="ИНН" value={inn} onChange={e => setInn(e.target.value)} />
           </section>
 
           {/* ---- Фото ---- */}

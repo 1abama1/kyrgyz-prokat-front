@@ -1,4 +1,5 @@
 import { FC, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Layout } from "../components/Layout";
 import { clientsAPI } from "../api/clients";
 import { documentsAPI } from "../api/documents";
@@ -6,6 +7,8 @@ import { toolsAPI } from "../api/tools";
 import { ErrorMessage } from "../components/ErrorMessage";
 
 export const DashboardPage: FC = () => {
+  const navigate = useNavigate();
+
   const [clientsCount, setClientsCount] = useState<number>(0);
   const [documentsCount, setDocumentsCount] = useState<number>(0);
   const [toolsCount, setToolsCount] = useState<number>(0);
@@ -41,52 +44,41 @@ export const DashboardPage: FC = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <Layout>
-        <div>Загрузка...</div>
-      </Layout>
-    );
-  }
-
   return (
     <Layout>
-      <h1>Главная страница</h1>
-      <ErrorMessage error={error} onClose={() => setError(null)} />
-      
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "20px", marginTop: "20px" }}>
-        <div style={{
-          border: "1px solid #ddd",
-          borderRadius: "8px",
-          padding: "20px",
-          background: "#e3f2fd"
-        }}>
-          <h2>Клиенты</h2>
-          <p style={{ fontSize: "32px", margin: 0 }}>{clientsCount}</p>
+      <div className="dashboard-page">
+        <div className="dashboard-header">
+          <h1>Главная страница</h1>
+          <button onClick={() => navigate("/rentals/create")}>
+            ➕ Новая аренда
+          </button>
         </div>
-        
-        <div style={{
-          border: "1px solid #ddd",
-          borderRadius: "8px",
-          padding: "20px",
-          background: "#f3e5f5"
-        }}>
-          <h2>Договоры</h2>
-          <p style={{ fontSize: "32px", margin: 0 }}>{documentsCount}</p>
-          <p style={{ fontSize: "14px", color: "#666" }}>
-            Активных: {activeDocumentsCount}
-          </p>
-        </div>
-        
-        <div style={{
-          border: "1px solid #ddd",
-          borderRadius: "8px",
-          padding: "20px",
-          background: "#e8f5e9"
-        }}>
-          <h2>Инструменты</h2>
-          <p style={{ fontSize: "32px", margin: 0 }}>{toolsCount}</p>
-        </div>
+
+        <ErrorMessage error={error} onClose={() => setError(null)} />
+
+        {loading ? (
+          <div>Загрузка...</div>
+        ) : (
+          <div className="dashboard-grid">
+            <div className="dashboard-card dashboard-card-blue">
+              <h2>Клиенты</h2>
+              <p className="dashboard-card-value">{clientsCount}</p>
+            </div>
+
+            <div className="dashboard-card dashboard-card-purple">
+              <h2>Договоры</h2>
+              <p className="dashboard-card-value">{documentsCount}</p>
+              <p className="dashboard-card-sub">
+                Активных: {activeDocumentsCount}
+              </p>
+            </div>
+
+            <div className="dashboard-card dashboard-card-green">
+              <h2>Инструменты</h2>
+              <p className="dashboard-card-value">{toolsCount}</p>
+            </div>
+          </div>
+        )}
       </div>
     </Layout>
   );

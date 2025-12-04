@@ -9,6 +9,7 @@ export interface RentalDocument {
   contractNumber: string;
   expectedReturnDate?: string;
   amount: number;
+  comment?: string;
   status: ContractStatus;
 }
 

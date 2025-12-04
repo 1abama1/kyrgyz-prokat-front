@@ -12,7 +12,7 @@ export const formatDate = (dateString: string): string => {
 export const formatCurrency = (amount: number): string => {
   return new Intl.NumberFormat('ru-RU', {
     style: 'currency',
-    currency: 'RUB'
+    currency: 'KGS'
   }).format(amount);
 };
 

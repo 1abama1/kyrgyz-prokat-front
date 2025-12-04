@@ -3,9 +3,8 @@ import { contractsAPI } from "../api/contracts";
 import { clientsAPI } from "../api/clients";
 import { toolsAPI } from "../api/tools";
 import { Tool } from "../types/tool.types";
-import { Client } from "../types/client.types";
+import { Client } from "../types.client.types";
 import { ErrorMessage } from "./ErrorMessage";
-import { generateContractNumber } from "../utils/formatters";
 import "../styles/create-rental.css";
 
 export interface CreateRentalInlineProps {
@@ -18,8 +17,6 @@ export const CreateRentalInline: FC<CreateRentalInlineProps> = ({ defaultClientI
   const [clientId, setClientId] = useState<number | "">(defaultClientId ?? "");
   const [tools, setTools] = useState<Tool[]>([]);
   const [toolId, setToolId] = useState<number | "">("");
-
-  const [contractNumber, setContractNumber] = useState("");
   const [expectedReturnDate, setExpectedReturnDate] = useState("");
   const [totalAmount, setTotalAmount] = useState("");
 
@@ -34,13 +31,10 @@ export const CreateRentalInline: FC<CreateRentalInlineProps> = ({ defaultClientI
     toolsAPI.getAvailable().then(setTools).catch(err => {
       setError(err.message || "Ошибка загрузки инструментов");
     });
-    
-    // Автогенерация номера договора при загрузке
-    setContractNumber(generateContractNumber());
   }, []);
 
   const create = async () => {
-    if (!clientId || !toolId || !expectedReturnDate || !totalAmount || !contractNumber) {
+    if (!clientId || !toolId || !expectedReturnDate || !totalAmount) {
       setError("Заполните все обязательные поля");
       return;
     }
@@ -58,14 +52,12 @@ export const CreateRentalInline: FC<CreateRentalInlineProps> = ({ defaultClientI
       await contractsAPI.createContract({
         clientId: Number(clientId),
         toolId: Number(toolId),
-        contractNumber,
         expectedReturnDate,
         totalAmount: amount
       });
 
       // Сброс формы
       setToolId("");
-      setContractNumber(generateContractNumber()); // Генерируем новый номер
       setExpectedReturnDate("");
       setTotalAmount("");
 
@@ -120,31 +112,6 @@ export const CreateRentalInline: FC<CreateRentalInlineProps> = ({ defaultClientI
             </option>
           ))}
         </select>
-
-        <label>
-          Номер договора
-          <button
-            type="button"
-            onClick={() => setContractNumber(generateContractNumber())}
-            style={{
-              marginLeft: 8,
-              padding: "4px 8px",
-              fontSize: 12,
-              background: "#f0f0f0",
-              border: "1px solid #ccc",
-              borderRadius: 4,
-              cursor: "pointer"
-            }}
-            title="Сгенерировать новый номер"
-          >
-            🔄
-          </button>
-        </label>
-        <input
-          value={contractNumber}
-          onChange={e => setContractNumber(e.target.value)}
-          placeholder="Например: R-2025-11-30-123"
-        />
 
         <label>Плановая дата возврата</label>
         <input

@@ -23,8 +23,6 @@ export default function ClientCard({ clientId }: ClientCardProps) {
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [selectedTemplate, setSelectedTemplate] = useState<number | null>(null);
   const [selectedTool, setSelectedTool] = useState<number | null>(null);
-
-  const [contractNumber, setContractNumber] = useState("");
   const [totalAmount, setTotalAmount] = useState("");
   const [expectedReturnDate, setExpectedReturnDate] = useState("");
 
@@ -84,7 +82,7 @@ export default function ClientCard({ clientId }: ClientCardProps) {
   };
 
   const downloadExcel = async () => {
-    if (!selectedTemplate || !selectedTool || !contractNumber.trim() || !totalAmount || !expectedReturnDate) {
+    if (!selectedTemplate || !selectedTool || !totalAmount || !expectedReturnDate) {
       alert("Заполните все поля перед скачиванием");
       return;
     }
@@ -100,7 +98,6 @@ export default function ClientCard({ clientId }: ClientCardProps) {
       const { blob, filename } = await downloadExcelContract({
         clientId,
         toolId: selectedTool,
-        contractNumber: contractNumber.trim(),
         expectedReturnDate,
         totalAmount: amount
       });
@@ -230,13 +227,6 @@ export default function ClientCard({ clientId }: ClientCardProps) {
               Нет доступных инструментов для выбранного шаблона
             </div>
           )}
-
-          <input
-            className="form-control mt-2"
-            placeholder="Номер договора"
-            value={contractNumber}
-            onChange={(e) => setContractNumber(e.target.value)}
-          />
 
           <input
             className="form-control mt-2"

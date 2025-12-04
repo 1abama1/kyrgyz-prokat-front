@@ -4,7 +4,6 @@ import { Tool } from "../types/tool.types";
 import { toolsAPI } from "../api/tools";
 import { contractsAPI } from "../api/contracts";
 import { ErrorMessage } from "./ErrorMessage";
-import { generateContractNumber } from "../utils/formatters";
 
 interface Props {
   client: ClientCardResponse;
@@ -19,7 +18,6 @@ export const CreateExcelContractInline: FC<Props> = ({ client, onContractCreated
   const [category, setCategory] = useState<string>("");
   const [templateId, setTemplateId] = useState<number | "">("");
   const [toolId, setToolId] = useState<number | "">("");
-  const [contractNumber, setContractNumber] = useState("");
   const [totalAmount, setTotalAmount] = useState("");
   const [expectedReturnDate, setExpectedReturnDate] = useState("");
 
@@ -54,7 +52,6 @@ export const CreateExcelContractInline: FC<Props> = ({ client, onContractCreated
     setTemplateId("");
     setToolId("");
     setFreeTools([]);
-    setContractNumber(generateContractNumber()); // Автогенерация номера
     setTotalAmount("");
     setExpectedReturnDate("");
     setError(null);
@@ -90,7 +87,7 @@ export const CreateExcelContractInline: FC<Props> = ({ client, onContractCreated
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!templateId || !toolId || !totalAmount || !contractNumber.trim() || !expectedReturnDate) {
+    if (!templateId || !toolId || !totalAmount || !expectedReturnDate) {
       setError("Заполните все поля!");
       return;
     }
@@ -108,7 +105,6 @@ export const CreateExcelContractInline: FC<Props> = ({ client, onContractCreated
       const res = await contractsAPI.createContract({
         clientId: client.id,
         toolId: Number(toolId),
-        contractNumber: contractNumber.trim(),
         expectedReturnDate,
         totalAmount: amount
       });
@@ -132,7 +128,7 @@ export const CreateExcelContractInline: FC<Props> = ({ client, onContractCreated
   };
 
   const handleDownloadExcel = async () => {
-    if (!templateId || !toolId || !totalAmount || !contractNumber.trim() || !expectedReturnDate) {
+    if (!templateId || !toolId || !totalAmount || !expectedReturnDate) {
       setError("Заполните все поля!");
       return;
     }
@@ -143,7 +139,6 @@ export const CreateExcelContractInline: FC<Props> = ({ client, onContractCreated
       const { blob, filename } = await contractsAPI.downloadExcel({
         clientId: client.id,
         toolId: Number(toolId),
-        contractNumber: contractNumber.trim(),
         expectedReturnDate,
         totalAmount: Number(totalAmount)
       });
@@ -174,7 +169,6 @@ export const CreateExcelContractInline: FC<Props> = ({ client, onContractCreated
     !templateId ||
     !toolId ||
     !totalAmount ||
-    !contractNumber.trim() ||
     !expectedReturnDate ||
     shouldHideToolSelect;
 
@@ -279,33 +273,6 @@ export const CreateExcelContractInline: FC<Props> = ({ client, onContractCreated
           ))}
         </select>
       )}
-
-      <label style={{ display: "block", marginTop: 12 }}>
-        Номер договора:
-        <button
-          type="button"
-          onClick={() => setContractNumber(generateContractNumber())}
-          style={{
-            marginLeft: 8,
-            padding: "4px 8px",
-            fontSize: 12,
-            background: "#f0f0f0",
-            border: "1px solid #ccc",
-            borderRadius: 4,
-            cursor: "pointer"
-          }}
-          title="Сгенерировать новый номер"
-        >
-          🔄
-        </button>
-      </label>
-      <input
-        type="text"
-        value={contractNumber}
-        onChange={(e) => setContractNumber(e.target.value)}
-        placeholder="Например: R-2025-11-30-123"
-        style={{ width: "100%", padding: 8, marginTop: 4 }}
-      />
 
       <label style={{ display: "block", marginTop: 12 }}>Плановая дата возврата:</label>
       <input
