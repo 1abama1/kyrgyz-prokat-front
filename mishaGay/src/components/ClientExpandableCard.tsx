@@ -6,7 +6,6 @@ import type { Client } from "../types/client.types";
 import type { RentalDocument } from "../types/RentalDocument";
 import { formatDate } from "../utils/formatters";
 import { ErrorMessage } from "./ErrorMessage";
-import { CreateRentalInline } from "./CreateRentalInline";
 import { ClientDocumentsTable } from "./ClientDocumentsTable";
 
 interface Props {
@@ -22,7 +21,6 @@ export const ClientExpandableCard: FC<Props> = ({ clientId, fullName, phone }) =
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showCreateRental, setShowCreateRental] = useState(false);
 
   const loadClient = async () => {
     try {
@@ -144,8 +142,7 @@ export const ClientExpandableCard: FC<Props> = ({ clientId, fullName, phone }) =
               <p><strong>Email:</strong> {data.email || "—"}</p>
               <p><strong>Адрес:</strong> {data.address || "—"}</p>
               <p><strong>Дата рождения:</strong> {data.birthDate || "—"}</p>
-              <p><strong>Комментарий:</strong> {data.comment || "—"}</p>
-              <p><strong>Тег:</strong> {data.tag || "—"}</p>
+              <p><strong>Тег:</strong> {data.tag || "Обычный"}</p>
               {data.createdAt && (
                 <p><strong>Создан:</strong> {formatDate(data.createdAt)}</p>
               )}
@@ -160,6 +157,7 @@ export const ClientExpandableCard: FC<Props> = ({ clientId, fullName, phone }) =
                 <p><strong>Кем выдан:</strong> {data.passport.issuedBy || "—"}</p>
                 <p><strong>Код подразделения:</strong> {data.passport.subdivisionCode || "—"}</p>
                 <p><strong>Дата выдачи:</strong> {data.passport.issueDate || "—"}</p>
+                <p><strong>ИНН:</strong> {data.passport.inn || "—"}</p>
               </div>
             )}
 
@@ -194,9 +192,12 @@ export const ClientExpandableCard: FC<Props> = ({ clientId, fullName, phone }) =
 
             <div style={{ marginBottom: 16 }}>
               <button
-                onClick={() => setShowCreateRental(v => !v)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate(`/rentals/create?clientId=${clientId}`);
+                }}
                 style={{
-                  background: showCreateRental ? "#757575" : "#1d6ef2",
+                  background: "#1d6ef2",
                   color: "#fff",
                   border: "none",
                   borderRadius: 6,
@@ -205,19 +206,9 @@ export const ClientExpandableCard: FC<Props> = ({ clientId, fullName, phone }) =
                   fontWeight: 500
                 }}
               >
-                {showCreateRental ? "✕ Скрыть форму" : "➕ Создать аренду"}
+                ➕ Создать аренду
               </button>
             </div>
-
-            {showCreateRental && (
-              <CreateRentalInline
-                defaultClientId={clientId}
-                onCreated={() => {
-                  setShowCreateRental(false);
-                  loadClient();
-                }}
-              />
-            )}
           </>
         )}
       </div>

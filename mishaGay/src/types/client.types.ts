@@ -1,11 +1,9 @@
 import type { Document } from "./document.types";
 
 export const CLIENT_TAGS = [
-  "УСТАРЕВШИЙ",
-  "В_АРЕНДЕ",
-  "ДОЛЖНИК",
-  "ПОСТОЯННЫЙ",
-  "ОБЫЧНЫЙ"
+  "Постоянник",
+  "Должник",
+  "Проблемный"
 ] as const;
 
 export type ClientTag = (typeof CLIENT_TAGS)[number];

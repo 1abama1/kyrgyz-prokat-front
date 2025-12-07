@@ -1,5 +1,5 @@
 import { FC, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Layout } from "../components/Layout";
 import { clientsAPI } from "../api/clients";
 import { toolsAPI } from "../api/tools";
@@ -11,6 +11,7 @@ import "../styles/create-rental.css";
 
 export const CreateRentalContractPage: FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const [clients, setClients] = useState<Client[]>([]);
   const [tools, setTools] = useState<Tool[]>([]);
@@ -28,6 +29,17 @@ export const CreateRentalContractPage: FC = () => {
     // Используем только доступные для аренды инструменты
     toolsAPI.getAvailable().then(setTools).catch(err => setError(err.message || "Ошибка загрузки инструментов"));
   }, []);
+
+  // Автоматически выбираем клиента из URL параметра
+  useEffect(() => {
+    const clientIdParam = searchParams.get("clientId");
+    if (clientIdParam) {
+      const id = Number(clientIdParam);
+      if (!isNaN(id) && id > 0) {
+        setClientId(id);
+      }
+    }
+  }, [searchParams]);
 
   const onCreate = async () => {
     if (!clientId || !toolId || !expectedReturnDate || !totalAmount) {

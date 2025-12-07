@@ -67,11 +67,22 @@ api.interceptors.response.use(
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
     // ✅ Если 403 и мы ещё не пытались refresh
+    // Пропускаем refresh для самого refresh запроса (чтобы избежать бесконечного цикла)
+    const requestUrl = originalRequest?.url || "";
+    const fullUrl = originalRequest?.baseURL 
+      ? `${originalRequest.baseURL}${requestUrl}` 
+      : requestUrl;
+    const isRefreshRequest = 
+      requestUrl.includes("/api/auth/refresh") ||
+      requestUrl.includes("auth/refresh") ||
+      fullUrl.includes("/api/auth/refresh") ||
+      fullUrl.includes("auth/refresh");
+    
     if (
       error.response?.status === 403 &&
       originalRequest &&
       !originalRequest._retry &&
-      !originalRequest.url?.includes("/api/auth/refresh")
+      !isRefreshRequest
     ) {
       originalRequest._retry = true;
 

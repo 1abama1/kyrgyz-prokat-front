@@ -94,7 +94,7 @@ export const ToolsPage = () => {
         }}
       />
 
-      <div style={{ overflowX: "auto", marginTop: "20px" }}>
+      <div style={{ marginTop: "20px", width: "100%", maxWidth: "100%", overflowX: "hidden", boxSizing: "border-box" }}>
         <table className="tools-table">
           <thead>
             <tr>

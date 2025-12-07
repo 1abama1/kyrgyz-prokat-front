@@ -3,6 +3,7 @@ import { Layout } from "../components/Layout";
 import { useNavigate, useParams } from "react-router-dom";
 import { clientsAPI } from "../api/clients";
 import { ErrorMessage } from "../components/ErrorMessage";
+import { CLIENT_TAGS, type ClientTag } from "../types/client.types";
 import "../styles/create-client.css";
 
 export const CreateClientPage: FC = () => {
@@ -21,6 +22,7 @@ export const CreateClientPage: FC = () => {
   const [address, setAddress] = useState("");
   const [birthDate, setBirthDate] = useState("");
   const [comment, setComment] = useState("");
+  const [tag, setTag] = useState<ClientTag | "">("");
 
   // Паспорт
   const [series, setSeries] = useState("");
@@ -57,6 +59,7 @@ export const CreateClientPage: FC = () => {
         setAddress(client.address || "");
         setBirthDate(client.birthDate || "");
         setComment(client.comment || "");
+        setTag(client.tag || "");
 
         if (client.passport) {
           setSeries(client.passport.series || "");
@@ -94,6 +97,7 @@ export const CreateClientPage: FC = () => {
         address: address || undefined,
         birthDate: birthDate || undefined,
         comment: comment || undefined,
+        tag: tag || undefined,
         passport: series || number || inn ? {
           series: series || undefined,
           number: number || undefined,
@@ -148,19 +152,40 @@ export const CreateClientPage: FC = () => {
             <h2>Данные клиента</h2>
 
             <div className="grid-3">
-              <input placeholder="Фамилия *" value={lastName} onChange={e => setLastName(e.target.value)} />
-              <input placeholder="Имя *" value={firstName} onChange={e => setFirstName(e.target.value)} />
-              <input placeholder="Отчество" value={middleName} onChange={e => setMiddleName(e.target.value)} />
+              <div>
+                <label>Фамилия *</label>
+                <input placeholder="Фамилия *" value={lastName} onChange={e => setLastName(e.target.value)} />
+              </div>
+              <div>
+                <label>Имя *</label>
+                <input placeholder="Имя *" value={firstName} onChange={e => setFirstName(e.target.value)} />
+              </div>
+              <div>
+                <label>Отчество</label>
+                <input placeholder="Отчество" value={middleName} onChange={e => setMiddleName(e.target.value)} />
+              </div>
             </div>
 
             <div className="grid-2">
-              <input placeholder="Телефон *" value={phone} onChange={e => setPhone(e.target.value)} />
-              <input placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} />
+              <div>
+                <label>Телефон *</label>
+                <input placeholder="Телефон *" value={phone} onChange={e => setPhone(e.target.value)} />
+              </div>
+              <div>
+                <label>Email</label>
+                <input placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} />
+              </div>
             </div>
 
-            <input placeholder="Адрес" value={address} onChange={e => setAddress(e.target.value)} />
-            <input type="date" value={birthDate} onChange={e => setBirthDate(e.target.value)} />
-            <textarea placeholder="Комментарий" value={comment} onChange={e => setComment(e.target.value)} />
+            <div>
+              <label>Адрес</label>
+              <input placeholder="Адрес" value={address} onChange={e => setAddress(e.target.value)} />
+            </div>
+
+            <div>
+              <label>Дата рождения</label>
+              <input type="date" value={birthDate} onChange={e => setBirthDate(e.target.value)} />
+            </div>
           </section>
 
           {/* ---- Паспорт ---- */}
@@ -168,18 +193,62 @@ export const CreateClientPage: FC = () => {
             <h2>Паспорт</h2>
 
             <div className="grid-2">
-              <input placeholder="Серия" value={series} onChange={e => setSeries(e.target.value)} />
-              <input placeholder="Номер" value={number} onChange={e => setNumber(e.target.value)} />
+              <div>
+                <label>Серия</label>
+                <input placeholder="Серия" value={series} onChange={e => setSeries(e.target.value)} />
+              </div>
+              <div>
+                <label>Номер</label>
+                <input placeholder="Номер" value={number} onChange={e => setNumber(e.target.value)} />
+              </div>
             </div>
 
-            <input placeholder="Кем выдан" value={issuedBy} onChange={e => setIssuedBy(e.target.value)} />
+            <div>
+              <label>Кем выдан</label>
+              <input placeholder="Кем выдан" value={issuedBy} onChange={e => setIssuedBy(e.target.value)} />
+            </div>
 
             <div className="grid-2">
-              <input placeholder="Код подразделения" value={subdivisionCode} onChange={e => setSubdivisionCode(e.target.value)} />
-              <input type="date" value={issueDate} onChange={e => setIssueDate(e.target.value)} />
+              <div>
+                <label>Код подразделения</label>
+                <input placeholder="Код подразделения" value={subdivisionCode} onChange={e => setSubdivisionCode(e.target.value)} />
+              </div>
+              <div>
+                <label>Дата выдачи</label>
+                <input type="date" value={issueDate} onChange={e => setIssueDate(e.target.value)} />
+              </div>
             </div>
 
-            <input placeholder="ИНН" value={inn} onChange={e => setInn(e.target.value)} />
+            <div>
+              <label>ИНН</label>
+              <input placeholder="ИНН" value={inn} onChange={e => setInn(e.target.value)} />
+            </div>
+          </section>
+
+          {/* ---- Тег ---- */}
+          <section>
+            <div>
+              <label>Тег клиента</label>
+              <select 
+                value={tag} 
+                onChange={e => setTag(e.target.value as ClientTag | "")}
+                style={{
+                  padding: "10px 12px",
+                  borderRadius: "10px",
+                  border: "1px solid #d1d5db",
+                  fontSize: "14px",
+                  width: "100%",
+                  fontFamily: "inherit"
+                }}
+              >
+                <option value="">Не выбран</option>
+                {CLIENT_TAGS.map(tagOption => (
+                  <option key={tagOption} value={tagOption}>
+                    {tagOption}
+                  </option>
+                ))}
+              </select>
+            </div>
           </section>
 
           {/* ---- Фото ---- */}

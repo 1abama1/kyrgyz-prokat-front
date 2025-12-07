@@ -30,6 +30,7 @@ body {
   margin: 0;
   background-color: #e5e7eb;
   color: #111827;
+  overflow-x: hidden;
 }
 
 a {
