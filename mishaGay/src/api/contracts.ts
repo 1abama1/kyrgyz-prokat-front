@@ -1,11 +1,14 @@
 import { API_BASE_URL } from "../utils/constants";
 import { getToken } from "../utils/auth";
-import type { Tool } from "../types/tool.types";
+import type { ToolInstance } from "../types/tool.types";
 import type { RentalDocument } from "../types/RentalDocument";
+import { apiCall } from "./client";
 
 export interface CreateContractPayload {
   clientId: number;
-  toolId: number;
+  toolId: number; // ID конкретного экземпляра инструмента (Tool), а не модели
+  contractNumber?: string; // Опционально, если бэкенд генерирует автоматически
+  startDateTime?: string; // Опционально, ISO 8601 формат (2025-12-07T10:30:00)
   expectedReturnDate: string; // YYYY-MM-DD
   totalAmount: number;
 }
@@ -92,10 +95,11 @@ export async function getClientDocuments(clientId: number): Promise<RentalDocume
 }
 
 /**
- * 1) Получить список доступных физических инструментов по шаблону
+ * 1) Получить список доступных физических инструментов по шаблону (модели)
  *    GET /api/admin/contracts/available?templateId=...
+ *    Возвращает только AVAILABLE экземпляры конкретной модели
  */
-export async function getAvailableTools(templateId: number): Promise<Tool[]> {
+export async function getAvailableTools(templateId: number): Promise<ToolInstance[]> {
   const response = await fetch(
     `${API_BASE_URL}/api/admin/contracts/available?templateId=${templateId}`,
     { headers: { ...buildAuthHeaders() } }
@@ -242,6 +246,54 @@ export async function terminateContract(
   }
 }
 
+export interface ActiveContractRow {
+  index: number;
+  contractId: number;
+  clientId: number;
+  clientName: string;
+  toolName: string;
+  startDate: string;
+  balance: number;
+}
+
+/**
+ * Получить таблицу активных договоров
+ * GET /api/contracts/active-table
+ */
+export async function getActiveTable(): Promise<ActiveContractRow[]> {
+  return apiCall<ActiveContractRow[]>({
+    url: "/api/contracts/active-table",
+  });
+}
+
+export async function getById(contractId: number): Promise<any> {
+  if (!contractId || isNaN(contractId) || contractId <= 0) {
+    return Promise.reject(new Error("Invalid contract id: id must be a positive number"));
+  }
+
+  return apiCall({
+    url: `/api/contracts/${contractId}`,
+  });
+}
+
+export async function getHistoryByTool(toolId: number): Promise<any[]> {
+  if (!toolId || isNaN(toolId) || toolId <= 0) {
+    return Promise.reject(new Error("Invalid tool id: id must be a positive number"));
+  }
+
+  return apiCall<any[]>({
+    url: `/api/contracts/history-table`,
+    params: { toolId },
+  });
+}
+
+export async function getHistoryTable(toolId?: number): Promise<any[]> {
+  return apiCall<any[]>({
+    url: `/api/contracts/history-table`,
+    params: toolId ? { toolId } : undefined,
+  });
+}
+
 export const contractsAPI = {
   getClientDocuments,
   getAvailableTools,
@@ -249,5 +301,9 @@ export const contractsAPI = {
   update: updateContract,
   close: closeContract,
   terminate: terminateContract,
-  downloadExcel: downloadExcelContract
+  downloadExcel: downloadExcelContract,
+  getActiveTable,
+  getById,
+  getHistoryByTool,
+  getHistoryTable
 };

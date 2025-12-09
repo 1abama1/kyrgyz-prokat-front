@@ -10,6 +10,10 @@ import { DocumentsPage } from "./pages/DocumentsPage";
 import { DocumentDetailPage } from "./pages/DocumentDetailPage";
 import { CreateClientPage } from "./pages/CreateClientPage";
 import { CreateRentalContractPage } from "./pages/CreateRentalContractPage";
+import { ActiveContractsPage } from "./pages/ActiveContractsPage";
+import { CreateCategoryPage } from "./pages/CreateCategoryPage";
+import { CreateTemplatePage } from "./pages/CreateTemplatePage";
+import { ContractHistoryPage } from "./pages/ContractHistoryPage";
 import { isAuthenticated } from "./utils/auth";
 
 
@@ -80,6 +84,22 @@ function App() {
           }
         />
         <Route
+          path="/categories/create"
+          element={
+            <ProtectedRoute>
+              <CreateCategoryPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/templates/create"
+          element={
+            <ProtectedRoute>
+              <CreateTemplatePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/tools/:id"
           element={
             <ProtectedRoute>
@@ -92,6 +112,30 @@ function App() {
           element={
             <ProtectedRoute>
               <DocumentsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/contracts/active"
+          element={
+            <ProtectedRoute>
+              <ActiveContractsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/contracts/:id/history"
+          element={
+            <ProtectedRoute>
+              <ContractHistoryPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/contracts/history"
+          element={
+            <ProtectedRoute>
+              <ContractHistoryPage />
             </ProtectedRoute>
           }
         />

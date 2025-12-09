@@ -1,9 +1,14 @@
 import { FC, useEffect, useState } from "react";
 import type { ClientCard as ClientCardResponse } from "../types/client.types";
-import { Tool } from "../types/tool.types";
+import { ToolInstance } from "../types/tool.types";
+import { ToolTemplate } from "../types/template.types";
+import { ToolCategory } from "../types/category.types";
 import { toolsAPI } from "../api/tools";
+import { templatesAPI } from "../api/templates";
+import { categoriesAPI } from "../api/categories";
 import { contractsAPI } from "../api/contracts";
 import { ErrorMessage } from "./ErrorMessage";
+import { ToolInstanceSelect } from "./ToolInstanceSelect";
 
 interface Props {
   client: ClientCardResponse;
@@ -11,13 +16,13 @@ interface Props {
 }
 
 export const CreateExcelContractInline: FC<Props> = ({ client, onContractCreated }) => {
-  const [categories, setCategories] = useState<string[]>([]);
-  const [templates, setTemplates] = useState<Tool[]>([]);
-  const [freeTools, setFreeTools] = useState<Tool[]>([]);
+  const [categories, setCategories] = useState<ToolCategory[]>([]);
+  const [templates, setTemplates] = useState<ToolTemplate[]>([]);
+  const [tools, setTools] = useState<ToolInstance[]>([]);
 
-  const [category, setCategory] = useState<string>("");
+  const [category, setCategory] = useState<number | "">("");
   const [templateId, setTemplateId] = useState<number | "">("");
-  const [toolId, setToolId] = useState<number | "">("");
+  const [toolId, setToolId] = useState<number | null>(null);
   const [totalAmount, setTotalAmount] = useState("");
   const [expectedReturnDate, setExpectedReturnDate] = useState("");
 
@@ -29,14 +34,15 @@ export const CreateExcelContractInline: FC<Props> = ({ client, onContractCreated
   const clientHasActiveContract = Boolean(client.hasActiveContract);
 
   useEffect(() => {
-    const loadTemplates = async () => {
+    const loadData = async () => {
       try {
         setLoading(true);
-        const data = await toolsAPI.getAll();
-        setTemplates(data);
-
-        const cats = Array.from(new Set(data.map(t => t.categoryName)));
-        setCategories(cats);
+        const [catsData, tmplsData] = await Promise.all([
+          categoriesAPI.getAll(),
+          templatesAPI.getAll()
+        ]);
+        setCategories(catsData);
+        setTemplates(tmplsData);
       } catch (e: any) {
         setError(e.message);
       } finally {
@@ -44,39 +50,40 @@ export const CreateExcelContractInline: FC<Props> = ({ client, onContractCreated
       }
     };
 
-    loadTemplates();
+    loadData();
   }, []);
 
   useEffect(() => {
     setCategory("");
     setTemplateId("");
-    setToolId("");
-    setFreeTools([]);
+    setToolId(null);
+    setTools([]);
     setTotalAmount("");
     setExpectedReturnDate("");
     setError(null);
     setCreatedContractId(null);
   }, [client.id]);
 
-  const handleCategoryChange = (value: string) => {
+  const handleCategoryChange = (value: number | "") => {
     setCategory(value);
     setTemplateId("");
-    setToolId("");
-    setFreeTools([]);
+    setToolId(null);
+    setTools([]);
   };
 
   const handleTemplateChange = async (value: number) => {
     setTemplateId(value);
-    setToolId("");
-    setFreeTools([]);
+    setToolId(null);
+    setTools([]);
 
     if (!value) return;
 
     try {
       setError(null);
       setLoading(true);
-      const list = await toolsAPI.getAvailableByTemplate(value);
-      setFreeTools(list);
+      // Грузим все экземпляры шаблона, показываем статусами
+      const full = await templatesAPI.getFull(value);
+      setTools(full.tools ?? []);
     } catch (e: any) {
       setError(e?.message || "Не удалось загрузить доступные инструменты");
     } finally {
@@ -117,8 +124,14 @@ export const CreateExcelContractInline: FC<Props> = ({ client, onContractCreated
       
       if (errorMessage.includes("contract_number") || errorMessage.includes("уже существует")) {
         setError("Договор с таким номером уже существует. Пожалуйста, используйте другой номер.");
-      } else if (errorMessage.includes("занят") || errorMessage.includes("Инструмент занят")) {
+      } else if (errorMessage.includes("занят") || errorMessage.includes("Инструмент занят") || errorMessage.includes("RENTED")) {
         setError("Этот инструмент уже в аренде. Выберите другой инструмент.");
+        // Обновляем список доступных инструментов для выбранной модели
+        if (templateId) {
+          templatesAPI.getFull(Number(templateId))
+            .then((full) => setTools(full.tools ?? []))
+            .catch(() => {});
+        }
       } else {
         setError(errorMessage);
       }
@@ -157,12 +170,12 @@ export const CreateExcelContractInline: FC<Props> = ({ client, onContractCreated
   };
 
   const filteredTemplates = category
-    ? templates.filter(t => t.categoryName === category)
+    ? templates.filter(t => t.categoryId === category)
     : templates;
   const isCategoryDisabled = clientHasActiveContract || (loading && categories.length === 0);
   const isTemplateDisabled = clientHasActiveContract || !category || loading;
-  const shouldHideToolSelect = Boolean(templateId) && !loading && freeTools.length === 0;
-  const isToolSelectDisabled = clientHasActiveContract || !templateId || freeTools.length === 0;
+  const shouldHideToolSelect = Boolean(templateId) && !loading && tools.length === 0;
+  const isToolSelectDisabled = clientHasActiveContract || !templateId || tools.length === 0;
   const isCreateDisabled =
     clientHasActiveContract ||
     creating ||
@@ -207,13 +220,13 @@ export const CreateExcelContractInline: FC<Props> = ({ client, onContractCreated
       <select
         value={category}
         disabled={isCategoryDisabled}
-        onChange={(e) => handleCategoryChange(e.target.value)}
+        onChange={(e) => handleCategoryChange(e.target.value ? Number(e.target.value) : "")}
         style={{ width: "100%", padding: 8, marginTop: 4 }}
       >
         <option value="">Выберите категорию</option>
         {categories.map(c => (
-          <option key={c} value={c}>
-            {c}
+          <option key={c.id} value={c.id}>
+            {c.name}
           </option>
         ))}
       </select>
@@ -226,7 +239,8 @@ export const CreateExcelContractInline: FC<Props> = ({ client, onContractCreated
           const value = e.target.value;
           if (!value) {
             setTemplateId("");
-            setFreeTools([]);
+            setTools([]);
+            setToolId(null);
             return;
           }
           handleTemplateChange(Number(value));
@@ -253,25 +267,16 @@ export const CreateExcelContractInline: FC<Props> = ({ client, onContractCreated
             marginTop: 4
           }}
         >
-          Нет доступных инструментов для аренды. Выберите другой шаблон.
+          Нет экземпляров инструмента. Выберите другой шаблон.
         </div>
       ) : (
-        <select
+        <ToolInstanceSelect
+          tools={tools}
           value={toolId}
-          disabled={isToolSelectDisabled}
-          onChange={(e) => {
-            const value = e.target.value;
-            setToolId(value ? Number(value) : "");
-          }}
-          style={{ width: "100%", padding: 8, marginTop: 4 }}
-        >
-          <option value="">Выберите инструмент</option>
-          {freeTools.map(t => (
-            <option key={t.id} value={t.id}>
-              {t.name} / SN: {t.serialNumber}
-            </option>
-          ))}
-        </select>
+          onChange={(id) => setToolId(id ?? null)}
+          placeholder={tools.length === 0 ? "Нет экземпляров" : "Выберите экземпляр"}
+          className="mt-1"
+        />
       )}
 
       <label style={{ display: "block", marginTop: 12 }}>Плановая дата возврата:</label>

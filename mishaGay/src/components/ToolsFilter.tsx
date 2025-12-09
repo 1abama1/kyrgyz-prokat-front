@@ -1,4 +1,4 @@
-import { ToolStatus } from "../types/ToolList";
+import { ToolStatus } from "../types/tool.types";
 
 interface Props {
   status?: ToolStatus;

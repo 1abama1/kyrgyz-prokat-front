@@ -1,9 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { getAvailableTools, closeContract, downloadExcelContract } from "../api/contracts";
-import { getToolTemplates } from "../api/tools";
+import { closeContract, downloadExcelContract } from "../api/contracts";
+import { templatesAPI } from "../api/templates";
+import { categoriesAPI } from "../api/categories";
 import { getClientCard } from "../api/clients";
-import type { Tool } from "../types/tool.types";
+import type { ToolInstance } from "../types/tool.types";
+import type { ToolTemplate } from "../types/template.types";
+import type { ToolCategory } from "../types/category.types";
 import type { ClientCard as ClientCardResponse } from "../types/client.types";
+import { ToolInstanceSelect } from "./ToolInstanceSelect";
 
 interface ClientCardProps {
   clientId: number;
@@ -17,10 +21,11 @@ const normalizeClient = (data: ClientCardResponse): ClientCardResponse => ({
 
 export default function ClientCard({ clientId }: ClientCardProps) {
   const [client, setClient] = useState<ClientCardResponse | null>(null);
-  const [templates, setTemplates] = useState<Tool[]>([]);
-  const [availableTools, setAvailableTools] = useState<Tool[]>([]);
+  const [categories, setCategories] = useState<ToolCategory[]>([]);
+  const [templates, setTemplates] = useState<ToolTemplate[]>([]);
+  const [templateTools, setTemplateTools] = useState<ToolInstance[]>([]);
 
-  const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<number | null>(null);
   const [selectedTool, setSelectedTool] = useState<number | null>(null);
   const [totalAmount, setTotalAmount] = useState("");
@@ -33,15 +38,16 @@ export default function ClientCard({ clientId }: ClientCardProps) {
 
   useEffect(() => {
     loadClient();
+    loadCategories();
     loadTemplates();
   }, [clientId]);
 
   useEffect(() => {
-    setAvailableTools([]);
+    setTemplateTools([]);
     setSelectedTool(null);
 
     if (selectedTemplate) {
-      loadAvailable(selectedTemplate);
+      loadTemplateTools(selectedTemplate);
     }
   }, [selectedTemplate]);
 
@@ -57,10 +63,19 @@ export default function ClientCard({ clientId }: ClientCardProps) {
     }
   };
 
+  const loadCategories = async () => {
+    try {
+      const data = await categoriesAPI.getAll();
+      setCategories(data);
+    } catch (err: any) {
+      alert(err?.message || "Ошибка загрузки категорий");
+    }
+  };
+
   const loadTemplates = async () => {
     try {
       setLoadingTemplates(true);
-      const data = await getToolTemplates();
+      const data = await templatesAPI.getAll();
       setTemplates(data);
     } catch (err: any) {
       alert(err?.message || "Ошибка загрузки шаблонов");
@@ -69,13 +84,13 @@ export default function ClientCard({ clientId }: ClientCardProps) {
     }
   };
 
-  const loadAvailable = async (templateId: number) => {
+  const loadTemplateTools = async (templateId: number) => {
     try {
       setLoadingAvailable(true);
-      const data = await getAvailableTools(templateId);
-      setAvailableTools(data);
+      const data = await templatesAPI.getFull(templateId);
+      setTemplateTools(data.tools ?? []);
     } catch (err: any) {
-      alert(err?.message || "Не удалось загрузить доступные инструменты");
+      alert(err?.message || "Не удалось загрузить инструменты");
     } finally {
       setLoadingAvailable(false);
     }
@@ -111,7 +126,7 @@ export default function ClientCard({ clientId }: ClientCardProps) {
       window.URL.revokeObjectURL(url);
 
       await loadClient();
-      await loadAvailable(selectedTemplate);
+      await loadTemplateTools(selectedTemplate);
     } catch (err: any) {
       const message = err?.message || err?.response?.data?.message || "Неизвестная ошибка";
       alert("Ошибка: " + message);
@@ -136,7 +151,7 @@ export default function ClientCard({ clientId }: ClientCardProps) {
       await closeContract(contractId);
       await loadClient();
       if (selectedTemplate) {
-        await loadAvailable(selectedTemplate);
+        await loadTemplateTools(selectedTemplate);
       }
     } catch (err: any) {
       const message = err?.message || "Ошибка при закрытии аренды";
@@ -144,14 +159,9 @@ export default function ClientCard({ clientId }: ClientCardProps) {
     }
   };
 
-  const categories = useMemo(
-    () => Array.from(new Set(templates.map(t => t.categoryName))),
-    [templates]
-  );
-
   const filteredTemplates = useMemo(() => {
     if (!selectedCategory) return templates;
-    return templates.filter(t => t.categoryName === selectedCategory);
+    return templates.filter(t => t.categoryId === selectedCategory);
   }, [templates, selectedCategory]);
 
   if (loadingClient && !client) {
@@ -166,6 +176,7 @@ export default function ClientCard({ clientId }: ClientCardProps) {
     <div className="client-card">
       <h2>{client.fullName}</h2>
       <p><b>Тел:</b> {client.phone || "—"}</p>
+      <p><b>WhatsApp:</b> {client.whatsappPhone || client.phone || "—"}</p>
       <p><b>Email:</b> {client.email || "—"}</p>
       <p><b>Тег:</b> {client.tag ?? "—"}</p>
 
@@ -175,18 +186,19 @@ export default function ClientCard({ clientId }: ClientCardProps) {
 
         <select
           className="form-select"
-            value={selectedCategory}
+            value={selectedCategory ?? ""}
             onChange={(e) => {
-              setSelectedCategory(e.target.value);
+              const value = e.target.value ? Number(e.target.value) : null;
+              setSelectedCategory(value);
               setSelectedTemplate(null);
               setSelectedTool(null);
-              setAvailableTools([]);
+              setTemplateTools([]);
             }}
           >
             <option value="">Выберите категорию</option>
             {categories.map(category => (
-              <option key={category} value={category}>
-                {category}
+              <option key={category.id} value={category.id}>
+                {category.name}
               </option>
             ))}
           </select>
@@ -208,23 +220,17 @@ export default function ClientCard({ clientId }: ClientCardProps) {
             ))}
           </select>
 
-          <select
-            className="form-select mt-2"
-            disabled={!selectedTemplate || availableTools.length === 0}
-            value={selectedTool ?? ""}
-            onChange={(e) => setSelectedTool(e.target.value ? Number(e.target.value) : null)}
-          >
-            <option value="">Выберите инструмент</option>
-            {availableTools.map(tool => (
-              <option key={tool.id} value={tool.id}>
-                {tool.name} / SN: {tool.serialNumber}
-              </option>
-            ))}
-          </select>
+          <ToolInstanceSelect
+            tools={templateTools}
+            value={selectedTool}
+            onChange={setSelectedTool}
+            placeholder={templateTools.length === 0 ? "Нет экземпляров" : "Выберите экземпляр"}
+          isDisabled={!selectedTemplate || loadingAvailable}
+          />
 
-          {selectedTemplate && !loadingAvailable && availableTools.length === 0 && (
+          {selectedTemplate && !loadingAvailable && templateTools.length === 0 && (
             <div style={{ color: "red", marginTop: 8 }}>
-              Нет доступных инструментов для выбранного шаблона
+              Нет экземпляров для выбранного шаблона
             </div>
           )}
 

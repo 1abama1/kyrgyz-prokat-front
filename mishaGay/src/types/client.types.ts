@@ -26,6 +26,7 @@ export interface ClientImageMeta {
 export interface CreateClientDto {
   fullName: string;
   phone: string;
+  whatsappPhone?: string;
   email?: string;
   address?: string;
   birthDate?: string;
@@ -38,6 +39,7 @@ export interface Client {
   id: number;
   fullName: string;
   phone?: string | null;
+  whatsappPhone?: string | null;
   email?: string | null;
   address?: string | null;
   birthDate?: string | null;
@@ -70,6 +72,7 @@ export interface ClientCard {
   id: number;
   fullName: string;
   phone?: string | null;
+  whatsappPhone?: string | null;
   email?: string | null;
   tag?: string | null;
   hasActiveContract?: boolean;

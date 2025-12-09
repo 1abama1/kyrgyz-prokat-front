@@ -8,9 +8,17 @@ interface DocumentCardProps {
 }
 
 export const DocumentCard: FC<DocumentCardProps> = ({ document, onClick }) => {
+  const handleClick = () => {
+    if (document.id && !isNaN(Number(document.id)) && Number(document.id) > 0) {
+      onClick?.(document.id);
+    } else {
+      console.error("Invalid document id:", document.id);
+    }
+  };
+
   return (
     <div 
-      onClick={() => onClick?.(document.id)}
+      onClick={handleClick}
       style={{
         border: "1px solid #ddd",
         borderRadius: "8px",

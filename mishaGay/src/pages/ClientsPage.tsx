@@ -30,10 +30,12 @@ export const ClientsPage: FC = () => {
     const filtered = allClients.filter((client) => {
       const fullName = client.fullName?.toLowerCase() ?? "";
       const phone = client.phone?.toLowerCase() ?? "";
+      const whatsapp = client.whatsappPhone?.toLowerCase() ?? "";
       const inn = client.passport?.inn?.toLowerCase() ?? "";
       return (
         fullName.includes(q) ||
         phone.includes(q) ||
+        whatsapp.includes(q) ||
         inn.includes(q)
       );
     });
@@ -107,6 +109,7 @@ export const ClientsPage: FC = () => {
               clientId={client.id}
               fullName={client.fullName}
               phone={client.phone || undefined}
+              whatsappPhone={client.whatsappPhone || undefined}
             />
           ))}
 

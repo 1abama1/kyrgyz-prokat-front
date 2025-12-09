@@ -37,6 +37,10 @@ const raiseClientError = async (response: Response): Promise<never> => {
 };
 
 export async function getClientCard(clientId: number): Promise<ClientCard> {
+  if (!clientId || isNaN(clientId) || clientId <= 0) {
+    throw new Error("Invalid client id: id must be a positive number");
+  }
+  
   const response = await fetch(`${API_BASE_URL}/api/admin/clients/${clientId}/card`, {
     headers: {
       Authorization: `Bearer ${getToken()}`
@@ -55,6 +59,10 @@ export async function getClientCard(clientId: number): Promise<ClientCard> {
  * GET /api/admin/clients/{clientId}/contracts/active
  */
 export async function getActiveContracts(clientId: number): Promise<any[]> {
+  if (!clientId || isNaN(clientId) || clientId <= 0) {
+    throw new Error("Invalid client id: id must be a positive number");
+  }
+  
   const response = await fetch(
     `${API_BASE_URL}/api/admin/clients/${clientId}/contracts/active`,
     { headers: { ...buildAuthHeaders() } }
@@ -72,12 +80,21 @@ export const clientsAPI = {
     return apiCall<Client[]>("/api/admin/clients");
   },
   getCard: (id: number): Promise<ClientCard> => {
+    if (!id || isNaN(id) || id <= 0) {
+      return Promise.reject(new Error("Invalid client id: id must be a positive number"));
+    }
     return getClientCard(id);
   },
   getById: (id: number): Promise<Client> => {
+    if (!id || isNaN(id) || id <= 0) {
+      return Promise.reject(new Error("Invalid client id: id must be a positive number"));
+    }
     return apiCall<Client>(`/api/admin/clients/${id}`);
   },
   getActiveContracts: (clientId: number): Promise<any[]> => {
+    if (!clientId || isNaN(clientId) || clientId <= 0) {
+      return Promise.reject(new Error("Invalid client id: id must be a positive number"));
+    }
     return getActiveContracts(clientId);
   },
   create: (clientData: CreateClientDto): Promise<Client> => {
@@ -87,6 +104,9 @@ export const clientsAPI = {
     });
   },
   uploadImages: (clientId: number, files: File[]): Promise<void> => {
+    if (!clientId || isNaN(clientId) || clientId <= 0) {
+      return Promise.reject(new Error("Invalid client id: id must be a positive number"));
+    }
     const formData = new FormData();
     files.forEach((file) => formData.append("files", file));
 
@@ -97,9 +117,15 @@ export const clientsAPI = {
     });
   },
   getClientById: (id: number): Promise<Client> => {
+    if (!id || isNaN(id) || id <= 0) {
+      return Promise.reject(new Error("Invalid client id: id must be a positive number"));
+    }
     return apiCall<Client>(`/api/admin/clients/${id}`);
   },
   update: (id: number, clientData: CreateClientDto): Promise<Client> => {
+    if (!id || isNaN(id) || id <= 0) {
+      return Promise.reject(new Error("Invalid client id: id must be a positive number"));
+    }
     return apiCall<Client>(`/api/admin/clients/${id}`, {
       method: "PUT",
       body: clientData

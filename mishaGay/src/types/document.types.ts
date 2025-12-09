@@ -11,7 +11,7 @@ export interface Document {
   contractNumber: string;
   clientId: number;
   clientName: string;
-  toolId: number;
+  toolId: number | null; // Может быть null для старых документов
   toolName: string;
   price: number;
   status: DocumentStatus;
@@ -28,6 +28,6 @@ export interface CreateDocumentDto {
 
 export interface DocumentDetail extends Document {
   client: Client;
-  tool: Tool;
+  tool: Tool | null; // Может быть null для старых документов
 }
 

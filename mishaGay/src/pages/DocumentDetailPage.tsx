@@ -15,9 +15,20 @@ export const DocumentDetailPage: FC = () => {
   const [closing, setClosing] = useState(false);
 
   useEffect(() => {
-    if (id) {
-      loadDocument(Number(id));
+    if (!id) {
+      setError("ID документа не указан");
+      setLoading(false);
+      return;
     }
+    
+    const docId = Number(id);
+    if (isNaN(docId) || docId <= 0) {
+      setError("Неверный ID документа");
+      setLoading(false);
+      return;
+    }
+    
+    loadDocument(docId);
   }, [id]);
 
   const loadDocument = async (documentId: number) => {
@@ -125,6 +136,7 @@ export const DocumentDetailPage: FC = () => {
         <h2>Клиент</h2>
         <p><strong>Имя:</strong> {document.client.fullName}</p>
         <p><strong>Телефон:</strong> {document.client.phone || "—"}</p>
+        <p><strong>WhatsApp:</strong> {document.client.whatsappPhone || document.client.phone || "—"}</p>
         <p><strong>Email:</strong> {document.client.email || "—"}</p>
         <p><strong>Тег:</strong> {document.client.tag || "—"}</p>
       </div>
@@ -136,19 +148,53 @@ export const DocumentDetailPage: FC = () => {
         marginBottom: "20px"
       }}>
         <h2>Инструмент</h2>
-        <p><strong>Название:</strong> {document.tool.name}</p>
-        <p><strong>Категория:</strong> {document.tool.categoryName}</p>
-        <p><strong>Серийный номер:</strong> {document.tool.serialNumber}</p>
-        <p><strong>Статус:</strong> 
-          <span style={{
-            background: document.tool.status === "AVAILABLE" ? "#c8e6c9" : "#ffcdd2",
-            padding: "4px 8px",
-            borderRadius: "4px",
-            marginLeft: "8px"
-          }}>
-            {document.tool.status === "AVAILABLE" ? "Доступен" : "В аренде"}
-          </span>
-        </p>
+        {document.tool && document.toolId ? (
+          <>
+            <p><strong>Название:</strong> {document.tool.name}</p>
+            <p><strong>Категория:</strong> {document.tool.categoryName || "—"}</p>
+            <p><strong>Серийный номер:</strong> {document.tool.serialNumber || "—"}</p>
+            <p><strong>Статус:</strong> 
+              <span style={{
+                background: document.tool.status === "AVAILABLE" ? "#c8e6c9" : "#ffcdd2",
+                padding: "4px 8px",
+                borderRadius: "4px",
+                marginLeft: "8px"
+              }}>
+                {document.tool.status === "AVAILABLE" ? "Доступен" : "В аренде"}
+              </span>
+            </p>
+            {document.toolId && 
+             document.toolId !== null && 
+             !isNaN(Number(document.toolId)) && 
+             Number(document.toolId) > 0 && (
+              <p style={{ marginTop: "12px" }}>
+                <button
+                  onClick={() => {
+                    const toolId = Number(document.toolId);
+                    if (toolId && !isNaN(toolId) && toolId > 0) {
+                      navigate(`/tools/${toolId}`);
+                    }
+                  }}
+                  style={{
+                    padding: "6px 12px",
+                    background: "#1976d2",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "4px",
+                    cursor: "pointer",
+                    fontSize: "14px"
+                  }}
+                >
+                  Открыть инструмент →
+                </button>
+              </p>
+            )}
+          </>
+        ) : (
+          <p style={{ color: "#666", fontStyle: "italic" }}>
+            Информация об инструменте недоступна (старый договор)
+          </p>
+        )}
       </div>
 
       {document.status === "ACTIVE" && (

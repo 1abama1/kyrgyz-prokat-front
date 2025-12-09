@@ -3,15 +3,17 @@ import { useNavigate } from "react-router-dom";
 import { Layout } from "../components/Layout";
 import { clientsAPI } from "../api/clients";
 import { toolsAPI } from "../api/tools";
+import { templatesAPI } from "../api/templates";
 import { contractsAPI } from "../api/contracts";
 import { Client, ClientCard } from "../types/client.types";
 import { Tool } from "../types/tool.types";
+import { ToolTemplate } from "../types/template.types";
 import { ErrorMessage } from "../components/ErrorMessage";
 import "../styles/create-rental.css";
 
 export const CreateDocumentPage: FC = () => {
   const [clients, setClients] = useState<Client[]>([]);
-  const [templates, setTemplates] = useState<Tool[]>([]);
+  const [templates, setTemplates] = useState<ToolTemplate[]>([]);
   const [availableTools, setAvailableTools] = useState<Tool[]>([]);
 
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
@@ -35,7 +37,7 @@ export const CreateDocumentPage: FC = () => {
       setLoading(true);
       const [clientsData, templateData] = await Promise.all([
         clientsAPI.getAll(),
-        toolsAPI.getAll()
+        templatesAPI.getAll()
       ]);
 
       setClients(clientsData);
@@ -181,7 +183,7 @@ export const CreateDocumentPage: FC = () => {
             <option value="">Выберите модель</option>
             {templates.map((t) => (
               <option key={t.id} value={t.id}>
-                {t.name} ({t.categoryName})
+                {t.name}
               </option>
             ))}
           </select>
@@ -199,7 +201,7 @@ export const CreateDocumentPage: FC = () => {
             <option value="">Выберите инструмент</option>
             {availableTools.map((tool) => (
               <option key={tool.id} value={tool.id}>
-                {tool.name} — SN: {tool.serialNumber}
+                {tool.inventoryNumber} {tool.serialNumber ? `— SN: ${tool.serialNumber}` : ""}
               </option>
             ))}
           </select>

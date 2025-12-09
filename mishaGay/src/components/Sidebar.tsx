@@ -23,6 +23,10 @@ export const Sidebar = () => {
           Инструменты
         </NavLink>
 
+        <NavLink to="/contracts/active" className={({ isActive }) => isActive ? "active" : ""}>
+          Активные договоры
+        </NavLink>
+
         <button
           className="create-rental-btn"
           onClick={() => navigate("/rentals/create")}

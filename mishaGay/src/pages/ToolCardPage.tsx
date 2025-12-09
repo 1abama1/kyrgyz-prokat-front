@@ -2,10 +2,10 @@ import { FC, useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Layout } from "../components/Layout";
 import { toolsAPI } from "../api/tools";
-import { Tool } from "../types/tool.types";
+import { Tool, ToolHistoryEntry } from "../types/tool.types";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { toolStatusLabel, getToolStatusClass } from "../utils/toolStatus";
-import { formatDate } from "../utils/formatters";
+import { ToolHistoryTable } from "../components/ToolHistoryTable";
 import "../styles/tools.css";
 
 export const ToolCardPage: FC = () => {
@@ -14,18 +14,35 @@ export const ToolCardPage: FC = () => {
   const [tool, setTool] = useState<Tool | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [history, setHistory] = useState<ToolHistoryEntry[]>([]);
+  const [historyError, setHistoryError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!id) return;
-    loadTool();
+    if (!id) {
+      setError("ID инструмента не указан");
+      setLoading(false);
+      return;
+    }
+    
+    const toolId = Number(id);
+    if (isNaN(toolId) || toolId <= 0) {
+      setError("Неверный ID инструмента");
+      setLoading(false);
+      return;
+    }
+    
+    loadTool(toolId);
   }, [id]);
 
-  const loadTool = async () => {
-    if (!id) return;
+  const loadTool = async (toolId: number) => {
     try {
       setLoading(true);
-      const data = await toolsAPI.getById(Number(id));
+      setError(null);
+      const data = await toolsAPI.getOne(toolId);
       setTool(data);
+      toolsAPI.getHistory(toolId)
+        .then(setHistory)
+        .catch(() => setHistoryError("Историю выдач загрузить не удалось"));
     } catch (err: unknown) {
       if (err instanceof Error) {
         setError(err.message);
@@ -40,7 +57,9 @@ export const ToolCardPage: FC = () => {
   if (loading) {
     return (
       <Layout>
-        <div>Загрузка...</div>
+        <div className="tools-loading">
+          <p>Загрузка...</p>
+        </div>
       </Layout>
     );
   }
@@ -55,75 +74,98 @@ export const ToolCardPage: FC = () => {
 
   return (
     <Layout>
-      <ErrorMessage error={error} onClose={() => setError(null)} />
-      
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-        <h2 style={{ margin: 0 }}>{tool.name}</h2>
-        <button
-          onClick={() => navigate(`/tools/edit/${id}`)}
-          style={{
-            background: "#1976d2",
-            color: "#fff",
-            border: "none",
-            borderRadius: "6px",
-            padding: "8px 16px",
-            cursor: "pointer",
-            fontWeight: 500,
-            fontSize: 14,
-            display: "flex",
-            alignItems: "center",
-            gap: 6
-          }}
-          title="Редактировать инструмент"
-        >
-          ✏️ Редактировать
-        </button>
-      </div>
-
-      <div style={{ marginBottom: 20 }}>
-        <p><strong>Инвентарный номер:</strong> {tool.inventoryNumber}</p>
-        <p>
-          <strong>Статус:</strong>{" "}
-          <span className={getToolStatusClass(tool.status)}>
-            {toolStatusLabel(tool.status)}
-          </span>
-        </p>
-        {tool.article && (
-          <p><strong>Артикул:</strong> {tool.article}</p>
-        )}
-        <p><strong>Описание:</strong> {tool.description || "—"}</p>
-        <p><strong>Залог:</strong> {tool.deposit ? `${tool.deposit} сом` : "—"}</p>
-        {tool.purchasePrice && (
-          <p><strong>Цена покупки:</strong> {tool.purchasePrice} сом</p>
-        )}
-        {tool.purchaseDate && (
-          <p><strong>Дата покупки:</strong> {formatDate(tool.purchaseDate)}</p>
-        )}
-      </div>
-
-      {tool.attributes && tool.attributes.length > 0 && (
-        <div style={{ marginBottom: 20 }}>
-          <h3>Параметры</h3>
-          <ul>
-            {tool.attributes.map((a, i) => (
-              <li key={i}>
-                <strong>{a.name}:</strong> {a.value}
-              </li>
-            ))}
-          </ul>
+      <div className="tools-page">
+        <ErrorMessage error={error} onClose={() => setError(null)} />
+        
+        <div className="tool-card-header">
+          <h1 className="tools-page-title">{tool.name}</h1>
+          <button
+            onClick={() => {
+              if (id && !isNaN(Number(id)) && Number(id) > 0) {
+                navigate(`/tools/edit/${id}`);
+              } else {
+                console.error("Invalid tool id for edit:", id);
+              }
+            }}
+            className="btn-primary"
+          >
+            ✏️ Редактировать
+          </button>
         </div>
-      )}
 
-      {tool.images && tool.images.length > 0 && (
-        <div style={{ marginBottom: 20 }}>
-          <h3>Фото</h3>
-          <ul>
-            {tool.images.map(img => (
-              <li key={img.id}>{img.fileName}</li>
-            ))}
-          </ul>
+        <div className="tool-card-info">
+          <div className="tool-card-section">
+            <h3 className="tool-card-section-title">Основная информация</h3>
+            <div className="tool-card-field">
+              <span className="tool-card-label">Название:</span>
+              <span className="tool-card-value">{tool.name}</span>
+            </div>
+            <div className="tool-card-field">
+              <span className="tool-card-label">Инвентарный номер:</span>
+              <span className="tool-card-value">{tool.inventoryNumber}</span>
+            </div>
+            {tool.article && (
+              <div className="tool-card-field">
+                <span className="tool-card-label">Артикул:</span>
+                <span className="tool-card-value">{tool.article}</span>
+              </div>
+            )}
+            <div className="tool-card-field">
+              <span className="tool-card-label">Статус:</span>
+              <span className={getToolStatusClass(tool.status)}>
+                {toolStatusLabel(tool.status)}
+              </span>
+            </div>
+          </div>
+
+          <div className="tool-card-section">
+            <h3 className="tool-card-section-title">Классификация</h3>
+            <div className="tool-card-field">
+              <span className="tool-card-label">Категория:</span>
+              <span className="tool-card-value">{tool.categoryName || "—"}</span>
+            </div>
+            <div className="tool-card-field">
+              <span className="tool-card-label">Модель:</span>
+              <span className="tool-card-value">{tool.templateName || "—"}</span>
+            </div>
+          </div>
+
+          <div className="tool-card-section">
+            <h3 className="tool-card-section-title">Финансовая информация</h3>
+            <div className="tool-card-field">
+              <span className="tool-card-label">Залог:</span>
+              <span className="tool-card-value">{tool.deposit} сом</span>
+            </div>
+            <div className="tool-card-field">
+              <span className="tool-card-label">Цена закупки:</span>
+              <span className="tool-card-value">{tool.purchasePrice} сом</span>
+            </div>
+            <div className="tool-card-field">
+              <span className="tool-card-label">Цена в сутки:</span>
+              <span className="tool-card-value">{tool.dailyPrice} сом</span>
+            </div>
+          </div>
+
+          {tool.images && tool.images.length > 0 && (
+            <div className="tool-card-section">
+              <h3 className="tool-card-section-title">Фото</h3>
+              <ul className="tool-card-images">
+                {tool.images.map(img => (
+                  <li key={img.id}>{img.fileName}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <div className="tool-card-section">
+            <h3 className="tool-card-section-title">История выдачи</h3>
+            {historyError && (
+              <div style={{ color: "#b91c1c", marginBottom: 8 }}>{historyError}</div>
+            )}
+            <ToolHistoryTable history={history} />
+          </div>
         </div>
-      )}
+      </div>
     </Layout>
   );
 };

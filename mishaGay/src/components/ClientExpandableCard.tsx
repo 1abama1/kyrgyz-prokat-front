@@ -12,9 +12,10 @@ interface Props {
   clientId: number;
   fullName?: string | null;
   phone?: string | null;
+  whatsappPhone?: string | null;
 }
 
-export const ClientExpandableCard: FC<Props> = ({ clientId, fullName, phone }) => {
+export const ClientExpandableCard: FC<Props> = ({ clientId, fullName, phone, whatsappPhone }) => {
   const navigate = useNavigate();
   const [data, setData] = useState<Client | null>(null);
   const [documents, setDocuments] = useState<RentalDocument[]>([]);
@@ -79,6 +80,11 @@ export const ClientExpandableCard: FC<Props> = ({ clientId, fullName, phone }) =
           </div>
           <div style={{ marginTop: 4, fontSize: 14, color: "#6b7280" }}>
             {data?.phone || phone || "—"}
+            {data?.whatsappPhone || whatsappPhone ? (
+              <span style={{ marginLeft: 12, color: "#0f766e" }}>
+                WA: {data?.whatsappPhone || whatsappPhone}
+              </span>
+            ) : null}
             {data?.createdAt && (
               <span style={{ marginLeft: 12 }}>
                 с {formatDate(data.createdAt)}
@@ -139,6 +145,7 @@ export const ClientExpandableCard: FC<Props> = ({ clientId, fullName, phone }) =
             <div style={{ marginBottom: 20 }}>
               <h4 style={{ marginTop: 0, marginBottom: 12 }}>Основная информация</h4>
               <p><strong>Телефон:</strong> {data.phone || "—"}</p>
+              <p><strong>WhatsApp:</strong> {data.whatsappPhone || data.phone || "—"}</p>
               <p><strong>Email:</strong> {data.email || "—"}</p>
               <p><strong>Адрес:</strong> {data.address || "—"}</p>
               <p><strong>Дата рождения:</strong> {data.birthDate || "—"}</p>

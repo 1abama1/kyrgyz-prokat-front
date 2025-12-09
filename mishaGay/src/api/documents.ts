@@ -7,6 +7,9 @@ export const documentsAPI = {
   },
   
   getById: (id: number): Promise<DocumentDetail> => {
+    if (!id || isNaN(id) || id <= 0) {
+      return Promise.reject(new Error("Invalid document id: id must be a positive number"));
+    }
     return apiCall<DocumentDetail>(`/api/admin/documents/${id}`);
   },
   
@@ -18,6 +21,9 @@ export const documentsAPI = {
   },
   
   close: (id: number): Promise<void> => {
+    if (!id || isNaN(id) || id <= 0) {
+      return Promise.reject(new Error("Invalid document id: id must be a positive number"));
+    }
     return apiCall<void>(`/api/admin/documents/${id}/close`, {
       method: "POST"
     });

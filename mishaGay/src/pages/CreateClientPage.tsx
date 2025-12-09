@@ -18,6 +18,7 @@ export const CreateClientPage: FC = () => {
 
   // Основное
   const [phone, setPhone] = useState("");
+  const [whatsappPhone, setWhatsappPhone] = useState("");
   const [email, setEmail] = useState("");
   const [address, setAddress] = useState("");
   const [birthDate, setBirthDate] = useState("");
@@ -45,8 +46,15 @@ export const CreateClientPage: FC = () => {
   useEffect(() => {
     if (!isEdit || !id) return;
 
+    const clientId = Number(id);
+    if (isNaN(clientId) || clientId <= 0) {
+      setError("Неверный ID клиента");
+      setLoadingData(false);
+      return;
+    }
+
     setLoadingData(true);
-    clientsAPI.getById(Number(id))
+    clientsAPI.getById(clientId)
       .then((client) => {
         // Разбиваем fullName на части
         const nameParts = (client.fullName || "").trim().split(/\s+/);
@@ -55,6 +63,7 @@ export const CreateClientPage: FC = () => {
         setMiddleName(nameParts.slice(2).join(" ") || "");
 
         setPhone(client.phone || "");
+        setWhatsappPhone(client.whatsappPhone || client.phone || "");
         setEmail(client.email || "");
         setAddress(client.address || "");
         setBirthDate(client.birthDate || "");
@@ -93,6 +102,7 @@ export const CreateClientPage: FC = () => {
       const clientData = {
         fullName,
         phone,
+        whatsappPhone: (whatsappPhone || phone || "").trim() || undefined,
         email: email || undefined,
         address: address || undefined,
         birthDate: birthDate || undefined,
@@ -110,12 +120,17 @@ export const CreateClientPage: FC = () => {
 
       let client;
       if (isEdit && id) {
-        client = await clientsAPI.update(Number(id), clientData);
+        const clientId = Number(id);
+        if (isNaN(clientId) || clientId <= 0) {
+          setError("Неверный ID клиента");
+          return;
+        }
+        client = await clientsAPI.update(clientId, clientData);
       } else {
         client = await clientsAPI.create(clientData);
       }
 
-      if (files.length > 0) {
+      if (files.length > 0 && client.id) {
         await clientsAPI.uploadImages(client.id, files);
       }
 
@@ -124,7 +139,11 @@ export const CreateClientPage: FC = () => {
       if (isEdit) {
         navigate("/clients");
       } else {
-        navigate(`/clients/${client.id}`);
+        if (client.id && !isNaN(Number(client.id)) && Number(client.id) > 0) {
+          navigate(`/clients/${client.id}`);
+        } else {
+          navigate("/clients");
+        }
       }
     } catch (e: any) {
       setError(e.message || (isEdit ? "Ошибка обновления клиента" : "Ошибка создания клиента"));
@@ -175,6 +194,15 @@ export const CreateClientPage: FC = () => {
                 <label>Email</label>
                 <input placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} />
               </div>
+            </div>
+
+            <div>
+              <label>WhatsApp телефон</label>
+              <input
+                placeholder="Введите WhatsApp номер (по умолчанию как телефон)"
+                value={whatsappPhone}
+                onChange={e => setWhatsappPhone(e.target.value)}
+              />
             </div>
 
             <div>

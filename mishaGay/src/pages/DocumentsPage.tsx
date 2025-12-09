@@ -33,6 +33,11 @@ export const DocumentsPage: FC = () => {
   };
 
   const handleDocumentClick = (id: number) => {
+    if (!id || isNaN(id) || id <= 0) {
+      console.error("Invalid document ID:", id);
+      setError("Ошибка: неверный ID документа");
+      return;
+    }
     navigate(`/documents/${id}`);
   };
 

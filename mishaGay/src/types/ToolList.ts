@@ -1,4 +1,6 @@
-export type ToolStatus = "AVAILABLE" | "RENTED" | "OVERDUE";
+import type { ToolStatus } from "./tool.types";
+
+export type { ToolStatus };
 
 export interface ToolListItem {
   id: number;

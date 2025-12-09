@@ -9,9 +9,17 @@ interface ToolCardProps {
 }
 
 export const ToolCard: FC<ToolCardProps> = ({ tool, onClick }) => {
+  const handleClick = () => {
+    if (tool.id && !isNaN(Number(tool.id)) && Number(tool.id) > 0) {
+      onClick?.(tool.id);
+    } else {
+      console.error("Invalid tool id:", tool.id);
+    }
+  };
+
   return (
     <div 
-      onClick={() => onClick?.(tool.id)}
+      onClick={handleClick}
       style={{
         border: "1px solid #ddd",
         borderRadius: "8px",
@@ -31,18 +39,14 @@ export const ToolCard: FC<ToolCardProps> = ({ tool, onClick }) => {
       {tool.categoryName && (
         <p><strong>Категория:</strong> {tool.categoryName}</p>
       )}
-      {tool.serialNumber && (
-        <p><strong>Серийный номер:</strong> {tool.serialNumber}</p>
-      )}
       <p>
         <strong>Статус:</strong>{" "}
         <span className={getToolStatusClass(tool.status)}>
           {toolStatusLabel(tool.status)}
         </span>
       </p>
-      {tool.deposit && (
-        <p><strong>Залог:</strong> {tool.deposit} сом</p>
-      )}
+      <p><strong>Залог:</strong> {tool.deposit} сом</p>
+      <p><strong>Дневная цена:</strong> {tool.dailyPrice} сом</p>
     </div>
   );
 };

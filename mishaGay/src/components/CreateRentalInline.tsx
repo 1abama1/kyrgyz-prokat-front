@@ -1,10 +1,16 @@
 import { FC, useEffect, useState } from "react";
 import { contractsAPI } from "../api/contracts";
 import { clientsAPI } from "../api/clients";
-import { toolsAPI } from "../api/tools";
-import { Tool } from "../types/tool.types";
-import { Client } from "../types.client.types";
+import { categoriesAPI } from "../api/categories";
+import { templatesAPI } from "../api/templates";
+import { ToolInstance } from "../types/tool.types";
+import { Client } from "../types/client.types";
+import { ToolCategory } from "../types/category.types";
+import { ToolTemplate } from "../types/template.types";
 import { ErrorMessage } from "./ErrorMessage";
+import { ToolInstanceSelect } from "./ToolInstanceSelect";
+import { useClientCheck } from "../hooks/useClientCheck";
+import { ProblemClientWarning } from "./ProblemClientWarning";
 import "../styles/create-rental.css";
 
 export interface CreateRentalInlineProps {
@@ -15,27 +21,90 @@ export interface CreateRentalInlineProps {
 export const CreateRentalInline: FC<CreateRentalInlineProps> = ({ defaultClientId, onCreated }) => {
   const [clients, setClients] = useState<Client[]>([]);
   const [clientId, setClientId] = useState<number | "">(defaultClientId ?? "");
-  const [tools, setTools] = useState<Tool[]>([]);
-  const [toolId, setToolId] = useState<number | "">("");
+  
+  // Новая архитектура: Категория → Модель → Экземпляр
+  const [categories, setCategories] = useState<ToolCategory[]>([]);
+  const [categoryId, setCategoryId] = useState<number | "">("");
+  
+  const [templates, setTemplates] = useState<ToolTemplate[]>([]);
+  const [templateId, setTemplateId] = useState<number | "">("");
+  
+  const [tools, setTools] = useState<ToolInstance[]>([]);
+  const [toolId, setToolId] = useState<number | null>(null);
+  
   const [expectedReturnDate, setExpectedReturnDate] = useState("");
   const [totalAmount, setTotalAmount] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [warningAccepted, setWarningAccepted] = useState(false);
 
+  // Загрузка клиентов и категорий при монтировании
   useEffect(() => {
     clientsAPI.getAll().then(setClients).catch(err => {
       setError(err.message || "Ошибка загрузки клиентов");
     });
-    // ❗ ВАЖНО: используем только доступные инструменты
-    toolsAPI.getAvailable().then(setTools).catch(err => {
-      setError(err.message || "Ошибка загрузки инструментов");
+    categoriesAPI.getAll().then(setCategories).catch(err => {
+      setError(err.message || "Ошибка загрузки категорий");
     });
   }, []);
 
+  useEffect(() => {
+    setWarningAccepted(false);
+  }, [clientId]);
+
+  const selectedClient = clients.find(c => c.id === Number(clientId));
+  const clientCheck = useClientCheck(selectedClient);
+
+  // Загрузка моделей при выборе категории
+  useEffect(() => {
+    if (categoryId) {
+      templatesAPI.getByCategory(Number(categoryId))
+        .then(setTemplates)
+        .catch(err => {
+          setError(err.message || "Ошибка загрузки моделей");
+        });
+      // Сброс выбранной модели и инструмента
+      setTemplateId("");
+      setToolId(null);
+      setTools([]);
+    } else {
+      setTemplates([]);
+      setTemplateId("");
+      setToolId(null);
+      setTools([]);
+    }
+  }, [categoryId]);
+
+  // Загрузка экземпляров при выборе модели (все статусы)
+  useEffect(() => {
+    if (templateId) {
+      templatesAPI.getFull(Number(templateId))
+        .then((fullTemplate) => setTools(fullTemplate.tools ?? []))
+        .catch(err => {
+          setError(err.message || "Ошибка загрузки инструментов");
+        });
+      // Сброс выбранного инструмента
+      setToolId(null);
+    } else {
+      setTools([]);
+      setToolId(null);
+    }
+  }, [templateId]);
+
   const create = async () => {
-    if (!clientId || !toolId || !expectedReturnDate || !totalAmount) {
+    if (!clientId || !categoryId || !templateId || !toolId || !expectedReturnDate || !totalAmount) {
       setError("Заполните все обязательные поля");
+      return;
+    }
+
+    if (!clientCheck.allowed) {
+      setError(clientCheck.reason || "Этот клиент не может арендовать инструмент");
+      return;
+    }
+
+    if (clientCheck.warning && !warningAccepted) {
+      setError("Подтвердите выдачу проблемному клиенту");
       return;
     }
 
@@ -57,7 +126,9 @@ export const CreateRentalInline: FC<CreateRentalInlineProps> = ({ defaultClientI
       });
 
       // Сброс формы
-      setToolId("");
+      setCategoryId("");
+      setTemplateId("");
+      setToolId(null);
       setExpectedReturnDate("");
       setTotalAmount("");
 
@@ -68,10 +139,14 @@ export const CreateRentalInline: FC<CreateRentalInlineProps> = ({ defaultClientI
       
       if (errorMessage.includes("contract_number") || errorMessage.includes("уже существует")) {
         setError("Договор с таким номером уже существует. Пожалуйста, используйте другой номер.");
-      } else if (errorMessage.includes("занят") || errorMessage.includes("Инструмент занят")) {
+      } else if (errorMessage.includes("занят") || errorMessage.includes("Инструмент занят") || errorMessage.includes("RENTED")) {
         setError("Этот инструмент уже в аренде. Выберите другой инструмент.");
-        // Обновляем список доступных инструментов
-        toolsAPI.getAvailable().then(setTools).catch(() => {});
+        // Обновляем список доступных инструментов для выбранной модели
+        if (templateId) {
+          templatesAPI.getFull(Number(templateId))
+            .then(full => setTools(full.tools ?? []))
+            .catch(() => {});
+        }
       } else {
         setError(errorMessage);
       }
@@ -87,6 +162,12 @@ export const CreateRentalInline: FC<CreateRentalInlineProps> = ({ defaultClientI
       <div className="rental-left">
         <h3>Новая аренда</h3>
 
+        {!clientCheck.allowed && (
+          <div style={{ marginBottom: 12, color: "#b91c1c", fontWeight: 600 }}>
+            {clientCheck.reason}
+          </div>
+        )}
+
         <label>Клиент</label>
         <select
           value={clientId}
@@ -100,18 +181,64 @@ export const CreateRentalInline: FC<CreateRentalInlineProps> = ({ defaultClientI
           ))}
         </select>
 
-        <label>Инструмент</label>
+        {clientCheck.warning && !warningAccepted && (
+          <ProblemClientWarning
+            open={true}
+            onConfirm={() => setWarningAccepted(true)}
+            onCancel={() => {
+              setClientId("");
+              setWarningAccepted(false);
+            }}
+          />
+        )}
+
+        <label>Категория</label>
         <select
-          value={toolId}
-          onChange={e => setToolId(e.target.value ? Number(e.target.value) : "")}
+          value={categoryId}
+          onChange={e => setCategoryId(e.target.value ? Number(e.target.value) : "")}
         >
-          <option value="">Выберите инструмент</option>
-          {tools.map(t => (
-            <option key={t.id} value={t.id}>
-              {t.name} {t.inventoryNumber ? `— Инв. №: ${t.inventoryNumber}` : ""}
+          <option value="">Выберите категорию</option>
+          {categories.map(cat => (
+            <option key={cat.id} value={cat.id}>
+              {cat.name}
             </option>
           ))}
         </select>
+
+        {categoryId && (
+          <>
+            <label>Модель</label>
+            <select
+              value={templateId}
+              onChange={e => setTemplateId(e.target.value ? Number(e.target.value) : "")}
+              disabled={!categoryId}
+            >
+              <option value="">Выберите модель</option>
+              {templates.map(tmpl => (
+                <option key={tmpl.id} value={tmpl.id}>
+                  {tmpl.name}
+                </option>
+              ))}
+            </select>
+          </>
+        )}
+
+        {templateId && (
+          <>
+            <label>Экземпляр инструмента</label>
+            <ToolInstanceSelect
+              tools={tools}
+              value={toolId}
+              onChange={setToolId}
+              placeholder={tools.length === 0 ? "Нет экземпляров" : "Выберите экземпляр"}
+            />
+            {templateId && tools.length === 0 && (
+              <div style={{ marginTop: 6, color: "#dc2626", fontSize: 12 }}>
+                Нет экземпляров для выбранной модели
+              </div>
+            )}
+          </>
+        )}
 
         <label>Плановая дата возврата</label>
         <input
@@ -130,7 +257,14 @@ export const CreateRentalInline: FC<CreateRentalInlineProps> = ({ defaultClientI
           step="100"
         />
 
-        <button disabled={loading} onClick={create}>
+        <button
+          disabled={
+            loading ||
+            !clientCheck.allowed ||
+            (!!clientCheck.warning && !warningAccepted)
+          }
+          onClick={create}
+        >
           {loading ? "Создание..." : "Создать договор"}
         </button>
       </div>
