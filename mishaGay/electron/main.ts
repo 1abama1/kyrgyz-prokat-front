@@ -1,7 +1,29 @@
-import { app, BrowserWindow, Menu } from "electron";
+import { app, BrowserWindow, Menu, ipcMain, shell } from "electron";
 import * as path from "path";
+import * as fs from "fs";
+
+// 🔥 КРИТИЧНО: Отключаем GPU acceleration для устранения ошибок
+app.disableHardwareAcceleration();
+
+console.log("🔥 ELECTRON MAIN STARTED");
 
 let mainWindow: BrowserWindow | null = null;
+
+// Папка для хранения Excel-договоров
+const getContractsDir = (): string => {
+  const contractsDir = path.join(
+    app.getPath("documents"),
+    "MishaCRM",
+    "Contracts"
+  );
+  
+  // Создаём папку, если её нет
+  if (!fs.existsSync(contractsDir)) {
+    fs.mkdirSync(contractsDir, { recursive: true });
+  }
+  
+  return contractsDir;
+};
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -37,7 +59,48 @@ function createWindow(): void {
   });
 }
 
-app.whenReady().then(createWindow);
+// 🔥 КРИТИЧНО: Регистрируем IPC handlers ДО создания окна
+console.log("🔥 Registering IPC handlers...");
+
+// Проверка существования файла
+ipcMain.handle("contract-exists", async (_, filename: string) => {
+  const contractsDir = getContractsDir();
+  const filePath = path.join(contractsDir, filename);
+  
+  if (fs.existsSync(filePath)) {
+    console.log(`🔥 Contract file exists: ${filePath}`);
+    return filePath;
+  }
+  
+  return null;
+});
+
+ipcMain.handle("save-contract-excel", async (_, { buffer, filename }: { buffer: ArrayBuffer; filename: string }) => {
+  console.log("🔥 save-contract-excel handler called");
+  
+  const contractsDir = getContractsDir();
+  const filePath = path.join(contractsDir, filename);
+  
+  console.log(`🔥 Saving Excel to: ${filePath}`);
+  
+  fs.writeFileSync(filePath, Buffer.from(buffer));
+  
+  console.log(`🔥 Excel file saved successfully: ${filePath}`);
+  
+  return filePath;
+});
+
+ipcMain.handle("open-contract-excel", async (_, filePath: string) => {
+  console.log(`🔥 Opening Excel file: ${filePath}`);
+  return shell.openPath(filePath);
+});
+
+console.log("🔥 IPC handlers registered successfully");
+
+app.whenReady().then(() => {
+  console.log("🔥 App ready, creating window...");
+  createWindow();
+});
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {

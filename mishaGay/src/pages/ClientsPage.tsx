@@ -32,11 +32,19 @@ export const ClientsPage: FC = () => {
       const phone = client.phone?.toLowerCase() ?? "";
       const whatsapp = client.whatsappPhone?.toLowerCase() ?? "";
       const inn = client.passport?.inn?.toLowerCase() ?? "";
+      const regAddr =
+        `${client.registrationAddress?.region || ""} ${client.registrationAddress?.street || ""}`
+          .toLowerCase();
+      const liveAddr =
+        `${client.livingAddress?.region || ""} ${client.livingAddress?.street || ""}`
+          .toLowerCase();
       return (
         fullName.includes(q) ||
         phone.includes(q) ||
         whatsapp.includes(q) ||
-        inn.includes(q)
+        inn.includes(q) ||
+        regAddr.includes(q) ||
+        liveAddr.includes(q)
       );
     });
 

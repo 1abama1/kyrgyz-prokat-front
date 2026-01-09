@@ -1,12 +1,13 @@
 .rental-page {
   display: flex;
-  justify-content: flex-start;
-  padding: 0;
+  justify-content: center;
+  padding: 24px;
+  background: #f5f6f8;
 }
 
 .rental-left {
   width: 100%;
-  max-width: 480px;
+  max-width: 520px;
   background: #fff;
   border-radius: 14px;
   padding: 24px;
@@ -69,6 +70,31 @@
 
 .rental-left .grid-2 input {
   margin-bottom: 8px;
+}
+
+.rental-left button {
+  width: 100%;
+  margin-top: 4px;
+  padding: 12px 14px;
+  background: #1d6ef2;
+  color: #fff;
+  font-weight: 600;
+  font-size: 15px;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.rental-left button:hover {
+  background: #185bcc;
+  box-shadow: 0 8px 18px rgba(24, 91, 204, 0.25);
+}
+
+.rental-left button:disabled {
+  background: #a5b4fc;
+  cursor: not-allowed;
+  box-shadow: none;
 }
 
 .receipt-row {

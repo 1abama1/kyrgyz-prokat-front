@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { closeContract, downloadExcelContract } from "../api/contracts";
+import { useEffect, useMemo, useState } from "react";
+import { downloadExcelContract } from "../api/contracts";
 import { templatesAPI } from "../api/templates";
 import { categoriesAPI } from "../api/categories";
 import { getClientCard } from "../api/clients";
@@ -28,12 +28,9 @@ export default function ClientCard({ clientId }: ClientCardProps) {
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<number | null>(null);
   const [selectedTool, setSelectedTool] = useState<number | null>(null);
-  const [totalAmount, setTotalAmount] = useState("");
-  const [expectedReturnDate, setExpectedReturnDate] = useState("");
 
   const [loadingDownload, setLoadingDownload] = useState(false);
   const [loadingClient, setLoadingClient] = useState(false);
-  const [loadingTemplates, setLoadingTemplates] = useState(false);
   const [loadingAvailable, setLoadingAvailable] = useState(false);
 
   useEffect(() => {
@@ -74,13 +71,10 @@ export default function ClientCard({ clientId }: ClientCardProps) {
 
   const loadTemplates = async () => {
     try {
-      setLoadingTemplates(true);
       const data = await templatesAPI.getAll();
       setTemplates(data);
     } catch (err: any) {
       alert(err?.message || "Ошибка загрузки шаблонов");
-    } finally {
-      setLoadingTemplates(false);
     }
   };
 
@@ -97,14 +91,8 @@ export default function ClientCard({ clientId }: ClientCardProps) {
   };
 
   const downloadExcel = async () => {
-    if (!selectedTemplate || !selectedTool || !totalAmount || !expectedReturnDate) {
+    if (!selectedTemplate || !selectedTool) {
       alert("Заполните все поля перед скачиванием");
-      return;
-    }
-
-    const amount = Number(totalAmount);
-    if (isNaN(amount) || amount <= 0) {
-      alert("Сумма должна быть положительным числом");
       return;
     }
 
@@ -112,9 +100,7 @@ export default function ClientCard({ clientId }: ClientCardProps) {
     try {
       const { blob, filename } = await downloadExcelContract({
         clientId,
-        toolId: selectedTool,
-        expectedReturnDate,
-        totalAmount: amount
+        toolId: selectedTool
       });
 
       const url = window.URL.createObjectURL(blob);
@@ -132,30 +118,6 @@ export default function ClientCard({ clientId }: ClientCardProps) {
       alert("Ошибка: " + message);
     } finally {
       setLoadingDownload(false);
-    }
-  };
-
-  const breakContract = async () => {
-    const contractId =
-      client?.activeContractId ??
-      client?.activeContracts?.[0]?.id ??
-      null;
-
-    if (!contractId) return;
-
-    if (!window.confirm("Вы уверены, что хотите разорвать аренду?")) {
-      return;
-    }
-
-    try {
-      await closeContract(contractId);
-      await loadClient();
-      if (selectedTemplate) {
-        await loadTemplateTools(selectedTemplate);
-      }
-    } catch (err: any) {
-      const message = err?.message || "Ошибка при закрытии аренды";
-      alert(message);
     }
   };
 
@@ -179,7 +141,18 @@ export default function ClientCard({ clientId }: ClientCardProps) {
       <p><b>WhatsApp:</b> {client.whatsappPhone || client.phone || "—"}</p>
       <p><b>Email:</b> {client.email || "—"}</p>
       <p><b>Тег:</b> {client.tag ?? "—"}</p>
-
+      <p>
+        <b>Адрес регистрации:</b>{" "}
+        {client.registrationAddress
+          ? `${client.registrationAddress.region || ""}, ${client.registrationAddress.street || ""}`.trim() || "—"
+          : "—"}
+      </p>
+      <p>
+        <b>Адрес проживания:</b>{" "}
+        {client.livingAddress
+          ? `${client.livingAddress.region || ""}, ${client.livingAddress.street || ""}`.trim() || "—"
+          : "—"}
+      </p>
 
       <div className="contract-form mt-4" style={{ marginTop: 16 }}>
         <h3>Создать Excel договор</h3>
@@ -233,24 +206,6 @@ export default function ClientCard({ clientId }: ClientCardProps) {
               Нет экземпляров для выбранного шаблона
             </div>
           )}
-
-          <input
-            className="form-control mt-2"
-            type="date"
-            placeholder="Плановая дата возврата"
-            value={expectedReturnDate}
-            onChange={(e) => setExpectedReturnDate(e.target.value)}
-          />
-
-          <input
-            className="form-control mt-2"
-            type="number"
-            placeholder="Сумма аренды"
-            value={totalAmount}
-            onChange={(e) => setTotalAmount(e.target.value)}
-            min="0"
-            step="100"
-          />
 
           <button
             className="btn btn-primary mt-3 w-100"

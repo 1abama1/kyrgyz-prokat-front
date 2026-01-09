@@ -3,10 +3,10 @@ import type { ClientCard as ClientCardResponse } from "../types/client.types";
 import { ToolInstance } from "../types/tool.types";
 import { ToolTemplate } from "../types/template.types";
 import { ToolCategory } from "../types/category.types";
-import { toolsAPI } from "../api/tools";
 import { templatesAPI } from "../api/templates";
 import { categoriesAPI } from "../api/categories";
 import { contractsAPI } from "../api/contracts";
+import { downloadContractExcel } from "../api/excel.api";
 import { ErrorMessage } from "./ErrorMessage";
 import { ToolInstanceSelect } from "./ToolInstanceSelect";
 
@@ -23,14 +23,14 @@ export const CreateExcelContractInline: FC<Props> = ({ client, onContractCreated
   const [category, setCategory] = useState<number | "">("");
   const [templateId, setTemplateId] = useState<number | "">("");
   const [toolId, setToolId] = useState<number | null>(null);
-  const [totalAmount, setTotalAmount] = useState("");
-  const [expectedReturnDate, setExpectedReturnDate] = useState("");
 
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [savingExcel, setSavingExcel] = useState(false);
   const [createdContractId, setCreatedContractId] = useState<number | null>(null);
+  const [excelSaved, setExcelSaved] = useState(false);
   const clientHasActiveContract = Boolean(client.hasActiveContract);
 
   useEffect(() => {
@@ -58,8 +58,6 @@ export const CreateExcelContractInline: FC<Props> = ({ client, onContractCreated
     setTemplateId("");
     setToolId(null);
     setTools([]);
-    setTotalAmount("");
-    setExpectedReturnDate("");
     setError(null);
     setCreatedContractId(null);
   }, [client.id]);
@@ -94,14 +92,8 @@ export const CreateExcelContractInline: FC<Props> = ({ client, onContractCreated
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!templateId || !toolId || !totalAmount || !expectedReturnDate) {
+    if (!templateId || !toolId) {
       setError("Заполните все поля!");
-      return;
-    }
-
-    const amount = Number(totalAmount);
-    if (isNaN(amount) || amount <= 0) {
-      setError("Сумма должна быть положительным числом");
       return;
     }
 
@@ -111,12 +103,38 @@ export const CreateExcelContractInline: FC<Props> = ({ client, onContractCreated
     try {
       const res = await contractsAPI.createContract({
         clientId: client.id,
-        toolId: Number(toolId),
-        expectedReturnDate,
-        totalAmount: amount
+        toolId: Number(toolId)
       });
 
       setCreatedContractId(res.id);
+      
+      // Автоматически сохраняем Excel файл после создания договора
+      if (res.id && window.contracts) {
+        try {
+          setSavingExcel(true);
+          
+          // Скачиваем Excel с бэкенда
+          const blob = await downloadContractExcel(res.id);
+          const buffer = await blob.arrayBuffer();
+          
+          // Сохраняем через Electron
+          const filePath = await window.contracts.saveExcel(
+            buffer,
+            `Договор_${res.id}.xlsx`
+          );
+          
+          // Открываем файл
+          await window.contracts.openExcel(filePath);
+          
+          setExcelSaved(true);
+        } catch (excelError) {
+          console.warn("Failed to save Excel automatically:", excelError);
+          // Не показываем ошибку пользователю, просто не сохраняем
+        } finally {
+          setSavingExcel(false);
+        }
+      }
+      
       await onContractCreated?.();
     } catch (err: any) {
       // Улучшенная обработка ошибок
@@ -141,7 +159,7 @@ export const CreateExcelContractInline: FC<Props> = ({ client, onContractCreated
   };
 
   const handleDownloadExcel = async () => {
-    if (!templateId || !toolId || !totalAmount || !expectedReturnDate) {
+    if (!templateId || !toolId) {
       setError("Заполните все поля!");
       return;
     }
@@ -149,21 +167,29 @@ export const CreateExcelContractInline: FC<Props> = ({ client, onContractCreated
     try {
       setError(null);
       setDownloading(true);
+
+      // Проверяем, доступен ли Electron API
+      if (!window.contracts) {
+        setError("Electron API недоступен. Эта функция работает только в Electron приложении.");
+        return;
+      }
+
       const { blob, filename } = await contractsAPI.downloadExcel({
         clientId: client.id,
-        toolId: Number(toolId),
-        expectedReturnDate,
-        totalAmount: Number(totalAmount)
+        toolId: Number(toolId)
       });
 
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename || `Договор_${client.fullName || client.id}.xlsx`;
-      a.click();
-      window.URL.revokeObjectURL(url);
+      // Сохраняем через Electron (проверка уже выполнена выше)
+      const buffer = await blob.arrayBuffer();
+      const defaultFilename = filename || `Договор_${client.fullName || client.id}.xlsx`;
+      const filePath = await window.contracts!.saveExcel(buffer, defaultFilename);
+      
+      // Открываем сохранённый файл
+      await window.contracts!.openExcel(filePath);
     } catch (err: any) {
-      setError(err?.message || "Ошибка при скачивании Excel");
+      const errorMessage = err?.message || "Ошибка при сохранении Excel";
+      setError(errorMessage);
+      console.error("Error saving Excel:", err);
     } finally {
       setDownloading(false);
     }
@@ -175,14 +201,11 @@ export const CreateExcelContractInline: FC<Props> = ({ client, onContractCreated
   const isCategoryDisabled = clientHasActiveContract || (loading && categories.length === 0);
   const isTemplateDisabled = clientHasActiveContract || !category || loading;
   const shouldHideToolSelect = Boolean(templateId) && !loading && tools.length === 0;
-  const isToolSelectDisabled = clientHasActiveContract || !templateId || tools.length === 0;
   const isCreateDisabled =
     clientHasActiveContract ||
     creating ||
     !templateId ||
     !toolId ||
-    !totalAmount ||
-    !expectedReturnDate ||
     shouldHideToolSelect;
 
   return (
@@ -279,27 +302,6 @@ export const CreateExcelContractInline: FC<Props> = ({ client, onContractCreated
         />
       )}
 
-      <label style={{ display: "block", marginTop: 12 }}>Плановая дата возврата:</label>
-      <input
-        type="date"
-        value={expectedReturnDate}
-        onChange={(e) => setExpectedReturnDate(e.target.value)}
-        style={{ width: "100%", padding: 8, marginTop: 4 }}
-        disabled={clientHasActiveContract}
-      />
-
-      <label style={{ display: "block", marginTop: 12 }}>Сумма аренды:</label>
-      <input
-        type="number"
-        value={totalAmount}
-        min="0"
-        step="100"
-        onChange={(e) => setTotalAmount(e.target.value)}
-        placeholder="1500"
-        style={{ width: "100%", padding: 8, marginTop: 4 }}
-        disabled={clientHasActiveContract}
-      />
-
         <button
           type="submit"
           disabled={isCreateDisabled}
@@ -335,6 +337,16 @@ export const CreateExcelContractInline: FC<Props> = ({ client, onContractCreated
           }}
         >
           ✅ Договор успешно создан
+          {savingExcel && (
+            <div style={{ marginTop: 8, fontSize: "0.9em", opacity: 0.8 }}>
+              💾 Сохранение Excel файла...
+            </div>
+          )}
+          {excelSaved && !savingExcel && (
+            <div style={{ marginTop: 8, fontSize: "0.9em", opacity: 0.8 }}>
+              📄 Excel файл сохранён локально
+            </div>
+          )}
         </div>
       )}
 

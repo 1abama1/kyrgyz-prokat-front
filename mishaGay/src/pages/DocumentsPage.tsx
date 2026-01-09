@@ -1,26 +1,25 @@
 import { FC, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { Layout } from "../components/Layout";
-import { DocumentCard } from "../components/DocumentCard";
-import { documentsAPI } from "../api/documents";
-import { Document } from "../types/document.types";
+import { ContractsTable } from "../components/ContractsTable";
+import { getContracts } from "../api/excel.api";
+import { ContractDto } from "../types/Contract";
 import { ErrorMessage } from "../components/ErrorMessage";
 
 export const DocumentsPage: FC = () => {
-  const [documents, setDocuments] = useState<Document[]>([]);
+  const [contracts, setContracts] = useState<ContractDto[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
 
   useEffect(() => {
-    loadDocuments();
+    loadContracts();
   }, []);
 
-  const loadDocuments = async () => {
+  const loadContracts = async () => {
     try {
       setLoading(true);
-      const data = await documentsAPI.getAll();
-      setDocuments(data);
+      setError(null);
+      const data = await getContracts();
+      setContracts(data);
     } catch (err: unknown) {
       if (err instanceof Error) {
         setError(err.message);
@@ -30,15 +29,6 @@ export const DocumentsPage: FC = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleDocumentClick = (id: number) => {
-    if (!id || isNaN(id) || id <= 0) {
-      console.error("Invalid document ID:", id);
-      setError("Ошибка: неверный ID документа");
-      return;
-    }
-    navigate(`/documents/${id}`);
   };
 
   if (loading) {
@@ -54,23 +44,10 @@ export const DocumentsPage: FC = () => {
       <h1>Договоры</h1>
       <ErrorMessage error={error} onClose={() => setError(null)} />
       
-      <div style={{ 
-        display: "grid", 
-        gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", 
-        gap: "20px",
-        marginTop: "20px"
-      }}>
-        {documents.map(document => (
-          <DocumentCard 
-            key={document.id} 
-            document={document} 
-            onClick={handleDocumentClick}
-          />
-        ))}
-      </div>
-      
-      {documents.length === 0 && !loading && (
+      {contracts.length === 0 && !loading ? (
         <p>Договоры не найдены</p>
+      ) : (
+        <ContractsTable contracts={contracts} />
       )}
     </Layout>
   );

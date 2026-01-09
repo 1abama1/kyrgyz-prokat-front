@@ -20,7 +20,14 @@ export const CreateClientPage: FC = () => {
   const [phone, setPhone] = useState("");
   const [whatsappPhone, setWhatsappPhone] = useState("");
   const [email, setEmail] = useState("");
-  const [address, setAddress] = useState("");
+  const [registrationAddress, setRegistrationAddress] = useState({
+    region: "",
+    street: ""
+  });
+  const [livingAddress, setLivingAddress] = useState({
+    region: "",
+    street: ""
+  });
   const [birthDate, setBirthDate] = useState("");
   const [comment, setComment] = useState("");
   const [tag, setTag] = useState<ClientTag | "">("");
@@ -33,8 +40,23 @@ export const CreateClientPage: FC = () => {
   const [issueDate, setIssueDate] = useState("");
   const [inn, setInn] = useState("");
 
-  // Фото
-  const [files, setFiles] = useState<File[]>([]);
+  // Фото (4 слота: 0-1 основные, 2-3 дополнительные)
+  type PhotoSlot = { file: File | null; preview?: string };
+  const [photos, setPhotos] = useState<PhotoSlot[]>([
+    { file: null, preview: undefined },
+    { file: null, preview: undefined },
+    { file: null, preview: undefined },
+    { file: null, preview: undefined }
+  ]);
+
+  // Чистим object URLs при размонтировании
+  useEffect(() => {
+    return () => {
+      photos.forEach((p) => {
+        if (p.preview) URL.revokeObjectURL(p.preview);
+      });
+    };
+  }, [photos]);
 
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -65,7 +87,14 @@ export const CreateClientPage: FC = () => {
         setPhone(client.phone || "");
         setWhatsappPhone(client.whatsappPhone || client.phone || "");
         setEmail(client.email || "");
-        setAddress(client.address || "");
+        setRegistrationAddress({
+          region: client.registrationAddress?.region || "",
+          street: client.registrationAddress?.street || ""
+        });
+        setLivingAddress({
+          region: client.livingAddress?.region || "",
+          street: client.livingAddress?.street || ""
+        });
         setBirthDate(client.birthDate || "");
         setComment(client.comment || "");
         setTag(client.tag || "");
@@ -104,7 +133,14 @@ export const CreateClientPage: FC = () => {
         phone,
         whatsappPhone: (whatsappPhone || phone || "").trim() || undefined,
         email: email || undefined,
-        address: address || undefined,
+        registrationAddress:
+          registrationAddress.region || registrationAddress.street
+            ? registrationAddress
+            : undefined,
+        livingAddress:
+          livingAddress.region || livingAddress.street
+            ? livingAddress
+            : undefined,
         birthDate: birthDate || undefined,
         comment: comment || undefined,
         tag: tag || undefined,
@@ -130,9 +166,22 @@ export const CreateClientPage: FC = () => {
         client = await clientsAPI.create(clientData);
       }
 
-      if (files.length > 0 && client.id) {
-        await clientsAPI.uploadImages(client.id, files);
+      // ⬇️ загрузка фото НЕ влияет на итог
+      const uploadFiles = photos.map(p => p.file).filter(Boolean) as File[];
+
+      if (uploadFiles.length > 0 && client.id) {
+        try {
+          await clientsAPI.uploadImages(client.id, uploadFiles);
+        } catch (e) {
+          console.warn("Фото не загрузились:", e);
+          alert("Клиент создан, но фото загрузить не удалось. Можно добавить позже.");
+        }
       }
+
+      // ⬇️ ВСЕГДА возвращаемся в список клиентов
+      navigate("/clients");
+
+
 
       // После редактирования возвращаемся на список клиентов
       // После создания переходим на детальную страницу
@@ -140,7 +189,7 @@ export const CreateClientPage: FC = () => {
         navigate("/clients");
       } else {
         if (client.id && !isNaN(Number(client.id)) && Number(client.id) > 0) {
-          navigate(`/clients/${client.id}`);
+          navigate(`/clients`);
         } else {
           navigate("/clients");
         }
@@ -205,10 +254,57 @@ export const CreateClientPage: FC = () => {
               />
             </div>
 
-            <div>
-              <label>Адрес</label>
-              <input placeholder="Адрес" value={address} onChange={e => setAddress(e.target.value)} />
+          <section>
+            <h2>Адреса</h2>
+
+            <div className="grid-2">
+              <div>
+                <label>Регистрация — регион / город</label>
+                <input
+                  placeholder="Регион / город"
+                  value={registrationAddress.region}
+                  onChange={e =>
+                    setRegistrationAddress(a => ({ ...a, region: e.target.value }))
+                  }
+                />
+              </div>
+
+              <div>
+                <label>Регистрация — улица / дом / кв</label>
+                <input
+                  placeholder="Улица / дом / кв"
+                  value={registrationAddress.street}
+                  onChange={e =>
+                    setRegistrationAddress(a => ({ ...a, street: e.target.value }))
+                  }
+                />
+              </div>
             </div>
+
+            <div className="grid-2">
+              <div>
+                <label>Проживание — регион / город</label>
+                <input
+                  placeholder="Регион / город"
+                  value={livingAddress.region}
+                  onChange={e =>
+                    setLivingAddress(a => ({ ...a, region: e.target.value }))
+                  }
+                />
+              </div>
+
+              <div>
+                <label>Проживание — улица / дом / кв</label>
+                <input
+                  placeholder="Улица / дом / кв"
+                  value={livingAddress.street}
+                  onChange={e =>
+                    setLivingAddress(a => ({ ...a, street: e.target.value }))
+                  }
+                />
+              </div>
+            </div>
+          </section>
 
             <div>
               <label>Дата рождения</label>
@@ -282,19 +378,66 @@ export const CreateClientPage: FC = () => {
           {/* ---- Фото ---- */}
           <section>
             <h2>Фото документов</h2>
+            <p style={{ marginTop: -4, marginBottom: 12, color: "#6b7280" }}>
+              1 и 2 — основные, 3 и 4 — дополнительные. По одному файлу в слот.
+            </p>
 
-            <label className="upload-box">
-              <input
-                type="file"
-                multiple
-                accept="image/*"
-                hidden
-                onChange={e => setFiles(Array.from(e.target.files || []))}
-              />
-              {files.length === 0
-                ? "Нажмите или перетащите файлы"
-                : `Выбрано файлов: ${files.length}`}
-            </label>
+            <div className="photo-grid">
+              {[0, 1, 2, 3].map((idx) => {
+                const slot = photos[idx];
+                const label = idx < 2 ? `Основное фото ${idx + 1}` : `Доп. фото ${idx - 1}`;
+                return (
+                  <div key={idx} className="photo-slot">
+                    <div className="photo-slot__thumb">
+                      {slot.preview ? (
+                        <img src={slot.preview} alt={label} />
+                      ) : (
+                        <span>Нет превью</span>
+                      )}
+                    </div>
+                    <label className="photo-slot__upload">
+                      {slot.file ? "Заменить" : "Загрузить"} — {label}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        hidden
+                        onChange={(e) => {
+                          const file = e.target.files?.[0] || null;
+                          setPhotos((prev) =>
+                            prev.map((p, i) => {
+                              if (i !== idx) return p;
+                              if (p.preview) {
+                                URL.revokeObjectURL(p.preview);
+                              }
+                              return file
+                                ? { file, preview: URL.createObjectURL(file) }
+                                : { file: null, preview: undefined };
+                            })
+                          );
+                        }}
+                      />
+                    </label>
+                    {slot.file && (
+                      <button
+                        type="button"
+                        className="photo-slot__remove"
+                        onClick={() =>
+                          setPhotos((prev) =>
+                            prev.map((p, i) => {
+                              if (i !== idx) return p;
+                              if (p.preview) URL.revokeObjectURL(p.preview);
+                              return { file: null, preview: undefined };
+                            })
+                          )
+                        }
+                      >
+                        Удалить
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </section>
 
           <button type="submit" disabled={loading || loadingData}>

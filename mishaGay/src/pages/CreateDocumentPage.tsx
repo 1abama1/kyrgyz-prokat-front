@@ -2,11 +2,10 @@ import { FC, useState, useEffect, FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { Layout } from "../components/Layout";
 import { clientsAPI } from "../api/clients";
-import { toolsAPI } from "../api/tools";
 import { templatesAPI } from "../api/templates";
 import { contractsAPI } from "../api/contracts";
 import { Client, ClientCard } from "../types/client.types";
-import { Tool } from "../types/tool.types";
+import { ToolInstance } from "../types/tool.types";
 import { ToolTemplate } from "../types/template.types";
 import { ErrorMessage } from "../components/ErrorMessage";
 import "../styles/create-rental.css";
@@ -14,14 +13,12 @@ import "../styles/create-rental.css";
 export const CreateDocumentPage: FC = () => {
   const [clients, setClients] = useState<Client[]>([]);
   const [templates, setTemplates] = useState<ToolTemplate[]>([]);
-  const [availableTools, setAvailableTools] = useState<Tool[]>([]);
+  const [availableTools, setAvailableTools] = useState<ToolInstance[]>([]);
 
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [clientCard, setClientCard] = useState<ClientCard | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<number | "">("");
   const [selectedTool, setSelectedTool] = useState<number | "">("");
-  const [totalAmount, setTotalAmount] = useState("");
-  const [expectedReturnDate, setExpectedReturnDate] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,7 +54,7 @@ export const CreateDocumentPage: FC = () => {
     if (!id) return;
     try {
       setError(null);
-      const free = await toolsAPI.getAvailableByTemplate(id);
+      const free = await contractsAPI.getAvailableTools(id);
       setAvailableTools(free);
     } catch (err: any) {
       setError(err.message || "Ошибка загрузки доступных инструментов");
@@ -67,14 +64,8 @@ export const CreateDocumentPage: FC = () => {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
-    if (!selectedClient || !selectedTemplate || !selectedTool || !totalAmount || !expectedReturnDate) {
+    if (!selectedClient || !selectedTemplate || !selectedTool) {
       setError("Все поля обязательны");
-      return;
-    }
-
-    const amount = Number(totalAmount);
-    if (isNaN(amount) || amount <= 0) {
-      setError("Сумма должна быть положительным числом");
       return;
     }
 
@@ -84,9 +75,7 @@ export const CreateDocumentPage: FC = () => {
     try {
       await contractsAPI.createContract({
         clientId: selectedClient.id,
-        toolId: Number(selectedTool),
-        expectedReturnDate,
-        totalAmount: amount
+        toolId: Number(selectedTool)
       });
 
       navigate("/documents");
@@ -201,7 +190,7 @@ export const CreateDocumentPage: FC = () => {
             <option value="">Выберите инструмент</option>
             {availableTools.map((tool) => (
               <option key={tool.id} value={tool.id}>
-                {tool.inventoryNumber} {tool.serialNumber ? `— SN: ${tool.serialNumber}` : ""}
+                {tool.name} — {tool.inventoryNumber}
               </option>
             ))}
           </select>
@@ -211,31 +200,6 @@ export const CreateDocumentPage: FC = () => {
               Нет свободных инструментов этой модели 😢
             </div>
           )}
-        </div>
-
-        <div style={{ marginBottom: 16 }}>
-          <label>Плановая дата возврата:</label>
-          <input
-            type="date"
-            value={expectedReturnDate}
-            onChange={(e) => setExpectedReturnDate(e.target.value)}
-            required
-            style={{ width: "100%", padding: 8 }}
-          />
-        </div>
-
-        <div style={{ marginBottom: 16 }}>
-          <label>Сумма аренды:</label>
-          <input
-            type="number"
-            value={totalAmount}
-            onChange={(e) => setTotalAmount(e.target.value)}
-            min={0}
-            step={100}
-            required
-            style={{ width: "100%", padding: 8 }}
-            placeholder="1500"
-          />
         </div>
 
         <button

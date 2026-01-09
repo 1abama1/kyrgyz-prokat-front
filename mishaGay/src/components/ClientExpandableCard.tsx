@@ -147,7 +147,18 @@ export const ClientExpandableCard: FC<Props> = ({ clientId, fullName, phone, wha
               <p><strong>Телефон:</strong> {data.phone || "—"}</p>
               <p><strong>WhatsApp:</strong> {data.whatsappPhone || data.phone || "—"}</p>
               <p><strong>Email:</strong> {data.email || "—"}</p>
-              <p><strong>Адрес:</strong> {data.address || "—"}</p>
+              <p>
+                <strong>Адрес регистрации:</strong>{" "}
+                {data.registrationAddress
+                  ? `${data.registrationAddress.region || ""}, ${data.registrationAddress.street || ""}`.trim() || "—"
+                  : "—"}
+              </p>
+              <p>
+                <strong>Адрес проживания:</strong>{" "}
+                {data.livingAddress
+                  ? `${data.livingAddress.region || ""}, ${data.livingAddress.street || ""}`.trim() || "—"
+                  : "—"}
+              </p>
               <p><strong>Дата рождения:</strong> {data.birthDate || "—"}</p>
               <p><strong>Тег:</strong> {data.tag || "Обычный"}</p>
               {data.createdAt && (

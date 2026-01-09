@@ -5,6 +5,7 @@ import { documentsAPI } from "../api/documents";
 import { DocumentDetail } from "../types/document.types";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { formatDate, formatCurrency } from "../utils/formatters";
+import { DownloadExcelButton } from "../components/DownloadExcelButton";
 
 export const DocumentDetailPage: FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -100,7 +101,13 @@ export const DocumentDetailPage: FC = () => {
         ← Назад к списку
       </button>
       
-      <h1>Договор №{document.contractNumber}</h1>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+        <h1 style={{ margin: 0 }}>Договор №{document.contractNumber}</h1>
+        <DownloadExcelButton 
+          contractId={document.id} 
+          contractNumber={document.contractNumber}
+        />
+      </div>
       <ErrorMessage error={error} onClose={() => setError(null)} />
       
       <div style={{
@@ -134,11 +141,20 @@ export const DocumentDetailPage: FC = () => {
         marginBottom: "20px"
       }}>
         <h2>Клиент</h2>
-        <p><strong>Имя:</strong> {document.client.fullName}</p>
-        <p><strong>Телефон:</strong> {document.client.phone || "—"}</p>
-        <p><strong>WhatsApp:</strong> {document.client.whatsappPhone || document.client.phone || "—"}</p>
-        <p><strong>Email:</strong> {document.client.email || "—"}</p>
-        <p><strong>Тег:</strong> {document.client.tag || "—"}</p>
+        {document.client ? (
+          <>
+            <p><strong>Имя:</strong> {document.client.fullName || "—"}</p>
+            <p><strong>Телефон:</strong> {document.client.phone || "—"}</p>
+            <p><strong>WhatsApp:</strong> {document.client.whatsappPhone || document.client.phone || "—"}</p>
+            <p><strong>Email:</strong> {document.client.email || "—"}</p>
+            <p><strong>Тег:</strong> {document.client.tag || "—"}</p>
+          </>
+        ) : (
+          <p style={{ color: "#666", fontStyle: "italic" }}>
+            Информация о клиенте недоступна
+            {document.clientId && ` (ID: ${document.clientId})`}
+          </p>
+        )}
       </div>
 
       <div style={{

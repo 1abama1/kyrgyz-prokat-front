@@ -8,6 +8,11 @@ export const CLIENT_TAGS = [
 
 export type ClientTag = (typeof CLIENT_TAGS)[number];
 
+export interface AddressDto {
+  region?: string;
+  street?: string;
+}
+
 export interface PassportDto {
   series?: string;
   number?: string;
@@ -28,7 +33,8 @@ export interface CreateClientDto {
   phone: string;
   whatsappPhone?: string;
   email?: string;
-  address?: string;
+  registrationAddress?: AddressDto;
+  livingAddress?: AddressDto;
   birthDate?: string;
   comment?: string;
   tag?: ClientTag;
@@ -41,7 +47,8 @@ export interface Client {
   phone?: string | null;
   whatsappPhone?: string | null;
   email?: string | null;
-  address?: string | null;
+  registrationAddress?: AddressDto | null;
+  livingAddress?: AddressDto | null;
   birthDate?: string | null;
   comment?: string | null;
   tag?: ClientTag | null;
@@ -74,6 +81,8 @@ export interface ClientCard {
   phone?: string | null;
   whatsappPhone?: string | null;
   email?: string | null;
+  registrationAddress?: AddressDto | null;
+  livingAddress?: AddressDto | null;
   tag?: string | null;
   hasActiveContract?: boolean;
   activeContractId?: number | null;

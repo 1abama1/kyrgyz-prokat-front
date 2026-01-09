@@ -9,8 +9,6 @@ export interface CreateContractPayload {
   toolId: number; // ID конкретного экземпляра инструмента (Tool), а не модели
   contractNumber?: string; // Опционально, если бэкенд генерирует автоматически
   startDateTime?: string; // Опционально, ISO 8601 формат (2025-12-07T10:30:00)
-  expectedReturnDate: string; // YYYY-MM-DD
-  totalAmount: number;
 }
 
 export interface UpdateContractPayload {
@@ -246,6 +244,32 @@ export async function terminateContract(
   }
 }
 
+/**
+ * 7) Восстановить закрытый договор
+ *    POST /api/admin/contracts/{contractId}/restore
+ */
+export async function restoreContract(contractId: number): Promise<unknown> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/admin/contracts/${contractId}/restore`,
+    {
+      method: "POST",
+      headers: {
+        ...buildAuthHeaders()
+      }
+    }
+  );
+
+  if (!response.ok) {
+    await raiseError(response);
+  }
+
+  try {
+    return await response.json();
+  } catch {
+    return null;
+  }
+}
+
 export interface ActiveContractRow {
   index: number;
   contractId: number;
@@ -301,6 +325,7 @@ export const contractsAPI = {
   update: updateContract,
   close: closeContract,
   terminate: terminateContract,
+  restore: restoreContract,
   downloadExcel: downloadExcelContract,
   getActiveTable,
   getById,

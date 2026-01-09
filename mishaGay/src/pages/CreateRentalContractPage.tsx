@@ -32,8 +32,6 @@ export const CreateRentalContractPage: FC = () => {
   const [toolId, setToolId] = useState<number | null>(null);
 
   const [clientId, setClientId] = useState<number | "">("");
-  const [expectedReturnDate, setExpectedReturnDate] = useState("");
-  const [totalAmount, setTotalAmount] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -100,7 +98,7 @@ export const CreateRentalContractPage: FC = () => {
   const clientCheck = useClientCheck(selectedClient);
 
   const onCreate = async () => {
-    if (!clientId || !categoryId || !templateId || !toolId || !expectedReturnDate || !totalAmount) {
+    if (!clientId || !categoryId || !templateId || !toolId) {
       setError("Заполните все обязательные поля");
       return;
     }
@@ -115,12 +113,6 @@ export const CreateRentalContractPage: FC = () => {
       return;
     }
 
-    const amount = Number(totalAmount);
-    if (isNaN(amount) || amount <= 0) {
-      setError("Сумма должна быть положительным числом");
-      return;
-    }
-
     setLoading(true);
     setError(null);
 
@@ -128,8 +120,6 @@ export const CreateRentalContractPage: FC = () => {
       await contractsAPI.createContract({
         clientId: Number(clientId),
         toolId: Number(toolId),
-        expectedReturnDate,
-        totalAmount: amount
       });
 
       navigate("/documents");
@@ -240,23 +230,6 @@ export const CreateRentalContractPage: FC = () => {
               )}
             </>
           )}
-
-          <label>Плановая дата возврата</label>
-          <input 
-            type="date" 
-            value={expectedReturnDate} 
-            onChange={e => setExpectedReturnDate(e.target.value)} 
-          />
-
-          <label>Сумма аренды</label>
-          <input 
-            type="number"
-            value={totalAmount}
-            onChange={e => setTotalAmount(e.target.value)}
-            placeholder="1500"
-            min="0"
-            step="100"
-          />
 
           <button
             disabled={

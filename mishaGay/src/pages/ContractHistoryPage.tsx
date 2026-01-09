@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Layout } from "../components/Layout";
 import { contractsAPI } from "../api/contracts";
 import { ErrorMessage } from "../components/ErrorMessage";
+import "../styles/contracts.css";
 
 interface HistoryRow {
   id: number;
@@ -62,6 +63,19 @@ export const ContractHistoryPage = () => {
     return isNaN(d.getTime()) ? value : d.toLocaleString();
   };
 
+  const handleRestore = async (contractId: number) => {
+    if (!window.confirm("Восстановить договор и вернуть инструмент?")) return;
+
+    try {
+      await contractsAPI.restore(contractId);
+      // Перезагружаем историю после восстановления
+      const numericId = id ? Number(id) : undefined;
+      await loadHistory(numericId);
+    } catch (e: any) {
+      alert(e?.message || "Ошибка восстановления договора");
+    }
+  };
+
   if (loading) {
     return (
       <Layout>
@@ -104,6 +118,7 @@ export const ContractHistoryPage = () => {
                   <th>Фактическая сдача</th>
                   <th>Статус</th>
                   <th>Прибыль</th>
+                  <th>Действия</th>
                 </tr>
               </thead>
               <tbody>
@@ -117,6 +132,19 @@ export const ContractHistoryPage = () => {
                     <td>{formatDate(item.actualReturnDate)}</td>
                     <td>{item.status ?? "—"}</td>
                     <td>{item.amount ?? 0} c</td>
+                    <td>
+                      <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                        {item.status === "CLOSED" && (
+                          <button
+                            className="btn-restore"
+                            onClick={() => handleRestore(item.id)}
+                            style={{ fontSize: "14px" }}
+                          >
+                            Восстановить
+                          </button>
+                        )}
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
