@@ -153,81 +153,82 @@ export default function ClientCard({ clientId }: ClientCardProps) {
           ? `${client.livingAddress.region || ""}, ${client.livingAddress.street || ""}`.trim() || "—"
           : "—"}
       </p>
+      <p><b>Адрес объекта:</b> {client.objectAddress || "—"}</p>
 
       <div className="contract-form mt-4" style={{ marginTop: 16 }}>
         <h3>Создать Excel договор</h3>
 
         <select
           className="form-select"
-            value={selectedCategory ?? ""}
-            onChange={(e) => {
-              const value = e.target.value ? Number(e.target.value) : null;
-              setSelectedCategory(value);
-              setSelectedTemplate(null);
-              setSelectedTool(null);
-              setTemplateTools([]);
-            }}
-          >
-            <option value="">Выберите категорию</option>
-            {categories.map(category => (
-              <option key={category.id} value={category.id}>
-                {category.name}
-              </option>
-            ))}
-          </select>
+          value={selectedCategory ?? ""}
+          onChange={(e) => {
+            const value = e.target.value ? Number(e.target.value) : null;
+            setSelectedCategory(value);
+            setSelectedTemplate(null);
+            setSelectedTool(null);
+            setTemplateTools([]);
+          }}
+        >
+          <option value="">Выберите категорию</option>
+          {categories.map(category => (
+            <option key={category.id} value={category.id}>
+              {category.name}
+            </option>
+          ))}
+        </select>
 
-          <select
-            className="form-select mt-2"
-            disabled={!selectedCategory}
-            value={selectedTemplate ?? ""}
-            onChange={(e) => {
-              const value = e.target.value;
-              setSelectedTemplate(value ? Number(value) : null);
-            }}
-          >
-            <option value="">Выберите модель</option>
-            {filteredTemplates.map(template => (
-              <option key={template.id} value={template.id}>
-                {template.name}
-              </option>
-            ))}
-          </select>
+        <select
+          className="form-select mt-2"
+          disabled={!selectedCategory}
+          value={selectedTemplate ?? ""}
+          onChange={(e) => {
+            const value = e.target.value;
+            setSelectedTemplate(value ? Number(value) : null);
+          }}
+        >
+          <option value="">Выберите модель</option>
+          {filteredTemplates.map(template => (
+            <option key={template.id} value={template.id}>
+              {template.name}
+            </option>
+          ))}
+        </select>
 
-          <ToolInstanceSelect
-            tools={templateTools}
-            value={selectedTool}
-            onChange={setSelectedTool}
-            placeholder={templateTools.length === 0 ? "Нет экземпляров" : "Выберите экземпляр"}
+        <ToolInstanceSelect
+          tools={templateTools}
+          value={selectedTool}
+          onChange={setSelectedTool}
+          placeholder={templateTools.length === 0 ? "Нет экземпляров" : "Выберите экземпляр"}
           isDisabled={!selectedTemplate || loadingAvailable}
-          />
+        />
 
-          {selectedTemplate && !loadingAvailable && templateTools.length === 0 && (
-            <div style={{ color: "red", marginTop: 8 }}>
-              Нет экземпляров для выбранного шаблона
-            </div>
-          )}
-
-          <button
-            className="btn btn-primary mt-3 w-100"
-            onClick={downloadExcel}
-            disabled={loadingDownload}
-          >
-            {loadingDownload ? "Загрузка..." : "Скачать Excel договор"}
-          </button>
-        </div>
-
-        <h3 className="mt-4">Активные договоры</h3>
-        {client.activeContracts?.length ? (
-          <ul>
-            {client.activeContracts.map(c => (
-              <li key={c.id}>
-                Договор № {c.contractNumber}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p>Нет активных договоров</p>
+        {selectedTemplate && !loadingAvailable && templateTools.length === 0 && (
+          <div style={{ color: "red", marginTop: 8 }}>
+            Нет экземпляров для выбранного шаблона
+          </div>
         )}
+
+        <button
+          className="btn btn-primary mt-3 w-100"
+          onClick={downloadExcel}
+          disabled={loadingDownload}
+        >
+          {loadingDownload ? "Загрузка..." : "Скачать Excel договор"}
+        </button>
       </div>
+
+      <h3 className="mt-4">Активные договоры</h3>
+      {client.activeContracts?.length ? (
+        <ul>
+          {client.activeContracts.map(c => (
+            <li key={c.id}>
+              Договор № {c.contractNumber}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p>Нет активных договоров</p>
+      )}
+    </div>
   );
 }

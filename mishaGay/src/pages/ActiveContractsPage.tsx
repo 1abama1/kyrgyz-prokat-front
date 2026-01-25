@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Layout } from "../components/Layout";
 import { BalanceBadge } from "../components/BalanceBadge";
 import { contractsAPI, ActiveContractRow } from "../api/contracts";
+import { formatDate } from "../utils/formatters";
 import "../styles/buttons.css";
 import "../styles/tools.css";
 
@@ -128,7 +129,7 @@ export const ActiveContractsPage = () => {
                     <td>{row.index}</td>
                     <td>{row.clientName}</td>
                     <td>{row.toolName}</td>
-                    <td>{row.startDate}</td>
+                    <td>{formatDate(row.startDate)}</td>
                     <td>
                       <BalanceBadge value={row.balance} />
                     </td>

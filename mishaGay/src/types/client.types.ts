@@ -35,6 +35,7 @@ export interface CreateClientDto {
   email?: string;
   registrationAddress?: AddressDto;
   livingAddress?: AddressDto;
+  objectAddress?: string;
   birthDate?: string;
   comment?: string;
   tag?: ClientTag;
@@ -49,6 +50,7 @@ export interface Client {
   email?: string | null;
   registrationAddress?: AddressDto | null;
   livingAddress?: AddressDto | null;
+  objectAddress?: string | null;
   birthDate?: string | null;
   comment?: string | null;
   tag?: ClientTag | null;
@@ -83,6 +85,7 @@ export interface ClientCard {
   email?: string | null;
   registrationAddress?: AddressDto | null;
   livingAddress?: AddressDto | null;
+  objectAddress?: string | null;
   tag?: string | null;
   hasActiveContract?: boolean;
   activeContractId?: number | null;

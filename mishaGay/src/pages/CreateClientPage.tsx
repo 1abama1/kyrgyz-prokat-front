@@ -31,6 +31,7 @@ export const CreateClientPage: FC = () => {
   const [birthDate, setBirthDate] = useState("");
   const [comment, setComment] = useState("");
   const [tag, setTag] = useState<ClientTag | "">("");
+  const [objectAddress, setObjectAddress] = useState("");
 
   // Паспорт
   const [series, setSeries] = useState("");
@@ -95,6 +96,7 @@ export const CreateClientPage: FC = () => {
           region: client.livingAddress?.region || "",
           street: client.livingAddress?.street || ""
         });
+        setObjectAddress(client.objectAddress || "");
         setBirthDate(client.birthDate || "");
         setComment(client.comment || "");
         setTag(client.tag || "");
@@ -124,6 +126,11 @@ export const CreateClientPage: FC = () => {
       return;
     }
 
+    if (inn && inn.length !== 14) {
+      setError("ИНН должен содержать ровно 14 цифр");
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -141,6 +148,7 @@ export const CreateClientPage: FC = () => {
           livingAddress.region || livingAddress.street
             ? livingAddress
             : undefined,
+        objectAddress: objectAddress || undefined,
         birthDate: birthDate || undefined,
         comment: comment || undefined,
         tag: tag || undefined,
@@ -254,57 +262,66 @@ export const CreateClientPage: FC = () => {
               />
             </div>
 
-          <section>
-            <h2>Адреса</h2>
+            <section>
+              <h2>Адреса</h2>
 
-            <div className="grid-2">
-              <div>
-                <label>Регистрация — регион / город</label>
-                <input
-                  placeholder="Регион / город"
-                  value={registrationAddress.region}
-                  onChange={e =>
-                    setRegistrationAddress(a => ({ ...a, region: e.target.value }))
-                  }
-                />
+              <div className="grid-2">
+                <div>
+                  <label>Регистрация — регион / город</label>
+                  <input
+                    placeholder="Регион / город"
+                    value={registrationAddress.region}
+                    onChange={e =>
+                      setRegistrationAddress(a => ({ ...a, region: e.target.value }))
+                    }
+                  />
+                </div>
+
+                <div>
+                  <label>Регистрация — улица / дом / кв</label>
+                  <input
+                    placeholder="Улица / дом / кв"
+                    value={registrationAddress.street}
+                    onChange={e =>
+                      setRegistrationAddress(a => ({ ...a, street: e.target.value }))
+                    }
+                  />
+                </div>
               </div>
 
-              <div>
-                <label>Регистрация — улица / дом / кв</label>
-                <input
-                  placeholder="Улица / дом / кв"
-                  value={registrationAddress.street}
-                  onChange={e =>
-                    setRegistrationAddress(a => ({ ...a, street: e.target.value }))
-                  }
-                />
-              </div>
-            </div>
+              <div className="grid-2">
+                <div>
+                  <label>Проживание — регион / город</label>
+                  <input
+                    placeholder="Регион / город"
+                    value={livingAddress.region}
+                    onChange={e =>
+                      setLivingAddress(a => ({ ...a, region: e.target.value }))
+                    }
+                  />
+                </div>
 
-            <div className="grid-2">
-              <div>
-                <label>Проживание — регион / город</label>
-                <input
-                  placeholder="Регион / город"
-                  value={livingAddress.region}
-                  onChange={e =>
-                    setLivingAddress(a => ({ ...a, region: e.target.value }))
-                  }
-                />
+                <div>
+                  <label>Проживание — улица / дом / кв</label>
+                  <input
+                    placeholder="Улица / дом / кв"
+                    value={livingAddress.street}
+                    onChange={e =>
+                      setLivingAddress(a => ({ ...a, street: e.target.value }))
+                    }
+                  />
+                </div>
               </div>
 
-              <div>
-                <label>Проживание — улица / дом / кв</label>
+              <div className="mt-4" style={{ marginTop: 16 }}>
+                <label>Адрес объекта</label>
                 <input
-                  placeholder="Улица / дом / кв"
-                  value={livingAddress.street}
-                  onChange={e =>
-                    setLivingAddress(a => ({ ...a, street: e.target.value }))
-                  }
+                  placeholder="Адрес объекта"
+                  value={objectAddress}
+                  onChange={e => setObjectAddress(e.target.value)}
                 />
               </div>
-            </div>
-          </section>
+            </section>
 
             <div>
               <label>Дата рождения</label>
@@ -345,7 +362,16 @@ export const CreateClientPage: FC = () => {
 
             <div>
               <label>ИНН</label>
-              <input placeholder="ИНН" value={inn} onChange={e => setInn(e.target.value)} />
+              <input
+                placeholder="ИНН (14 цифр)"
+                value={inn}
+                onChange={e => {
+                  const val = e.target.value.replace(/\D/g, "");
+                  if (val.length <= 14) {
+                    setInn(val);
+                  }
+                }}
+              />
             </div>
           </section>
 
@@ -353,8 +379,8 @@ export const CreateClientPage: FC = () => {
           <section>
             <div>
               <label>Тег клиента</label>
-              <select 
-                value={tag} 
+              <select
+                value={tag}
                 onChange={e => setTag(e.target.value as ClientTag | "")}
                 style={{
                   padding: "10px 12px",

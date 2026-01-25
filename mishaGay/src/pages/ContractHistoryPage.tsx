@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Layout } from "../components/Layout";
 import { contractsAPI } from "../api/contracts";
 import { ErrorMessage } from "../components/ErrorMessage";
+import { formatDate } from "../utils/formatters";
 import "../styles/contracts.css";
 
 interface HistoryRow {
@@ -57,10 +58,9 @@ export const ContractHistoryPage = () => {
     }
   };
 
-  const formatDate = (value?: string | null) => {
+  const formatDateTime = (value?: string | null) => {
     if (!value) return "—";
-    const d = new Date(value);
-    return isNaN(d.getTime()) ? value : d.toLocaleString();
+    return formatDate(value);
   };
 
   const handleRestore = async (contractId: number) => {
@@ -127,9 +127,9 @@ export const ContractHistoryPage = () => {
                     <td>{item.id}</td>
                     <td>{item.clientName}</td>
                     <td>{item.toolName ?? "—"}</td>
-                    <td>{formatDate(item.startDateTime)}</td>
-                    <td>{formatDate(item.expectedReturnDate)}</td>
-                    <td>{formatDate(item.actualReturnDate)}</td>
+                    <td>{formatDateTime(item.startDateTime)}</td>
+                    <td>{formatDateTime(item.expectedReturnDate)}</td>
+                    <td>{formatDateTime(item.actualReturnDate)}</td>
                     <td>{item.status ?? "—"}</td>
                     <td>{item.amount ?? 0} c</td>
                     <td>
