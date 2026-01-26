@@ -190,14 +190,19 @@ export async function downloadExcelContract(
  * 5) Закрыть договор по id RentalDocument
  *    POST /api/admin/contracts/{contractId}/close
  */
-export async function closeContract(contractId: number): Promise<unknown> {
+export async function closeContract(
+  contractId: number,
+  payload?: { paidAmount?: number; comment?: string }
+): Promise<unknown> {
   const response = await fetch(
     `${API_BASE_URL}/api/admin/contracts/${contractId}/close`,
     {
       method: "POST",
       headers: {
+        "Content-Type": "application/json",
         ...buildAuthHeaders()
-      }
+      },
+      body: payload ? JSON.stringify(payload) : undefined
     }
   );
 
@@ -213,36 +218,7 @@ export async function closeContract(contractId: number): Promise<unknown> {
   }
 }
 
-/**
- * 6) Разорвать договор досрочно
- *    POST /api/admin/contracts/{contractId}/terminate
- */
-export async function terminateContract(
-  contractId: number,
-  reason: string
-): Promise<unknown> {
-  const response = await fetch(
-    `${API_BASE_URL}/api/admin/contracts/${contractId}/terminate`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...buildAuthHeaders()
-      },
-      body: JSON.stringify({ reason })
-    }
-  );
 
-  if (!response.ok) {
-    await raiseError(response);
-  }
-
-  try {
-    return await response.json();
-  } catch {
-    return null;
-  }
-}
 
 /**
  * 7) Восстановить закрытый договор
@@ -324,7 +300,6 @@ export const contractsAPI = {
   createContract,
   update: updateContract,
   close: closeContract,
-  terminate: terminateContract,
   restore: restoreContract,
   downloadExcel: downloadExcelContract,
   getActiveTable,

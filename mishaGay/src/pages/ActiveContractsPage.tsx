@@ -10,6 +10,13 @@ export const ActiveContractsPage = () => {
   const [rows, setRows] = useState<ActiveContractRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Состояния для модального окна закрытия
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedContractId, setSelectedContractId] = useState<number | null>(null);
+  const [paidAmount, setPaidAmount] = useState<number>(0);
+  const [comment, setComment] = useState<string>("");
+
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -46,18 +53,19 @@ export const ActiveContractsPage = () => {
     }
   };
 
-  const handleClose = async (contractId: number) => {
-    if (!contractId || isNaN(contractId) || contractId <= 0) {
-      alert("Ошибка: неверный ID договора");
-      return;
-    }
+  const handleCloseClick = (contractId: number, currentBalance: number) => {
+    setSelectedContractId(contractId);
+    setPaidAmount(currentBalance || 0);
+    setComment("");
+    setIsModalOpen(true);
+  };
 
-    if (!confirm("Вы уверены, что хотите закрыть этот договор?")) {
-      return;
-    }
+  const handleConfirmClose = async () => {
+    if (!selectedContractId) return;
 
     try {
-      await contractsAPI.close(contractId);
+      await contractsAPI.close(selectedContractId, { paidAmount, comment });
+      setIsModalOpen(false);
       await load(); // Перезагружаем данные
     } catch (err: unknown) {
       if (err instanceof Error) {
@@ -148,7 +156,7 @@ export const ActiveContractsPage = () => {
                       <button
                         onClick={() => {
                           if (row.contractId && !isNaN(row.contractId) && row.contractId > 0) {
-                            handleClose(row.contractId);
+                            handleCloseClick(row.contractId, row.balance);
                           } else {
                             console.error("Invalid contractId:", row.contractId);
                             alert("Ошибка: неверный ID договора");
@@ -167,6 +175,50 @@ export const ActiveContractsPage = () => {
           </div>
         )}
       </div>
+
+      {/* Модальное окно закрытия */}
+      {isModalOpen && (
+        <div className="modal-overlay">
+          <div className="modal" style={{ border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}>
+            <h2 style={{ margin: '0 0 16px 0', fontSize: '20px' }}>Закрытие договора</h2>
+
+            <label style={{ marginBottom: '12px' }}>
+              <span style={{ fontWeight: 600, marginBottom: '4px' }}>Сумма оплаты (KGS):</span>
+              <input
+                type="number"
+                value={paidAmount}
+                onChange={(e) => setPaidAmount(Number(e.target.value))}
+                autoFocus
+              />
+            </label>
+
+            <label style={{ marginBottom: '20px' }}>
+              <span style={{ fontWeight: 600, marginBottom: '4px' }}>Комментарий:</span>
+              <textarea
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                placeholder="Причина закрытия, нюансы..."
+              />
+            </label>
+
+            <div className="modal-actions">
+              <button
+                className="btn-small"
+                onClick={() => setIsModalOpen(false)}
+                style={{ background: '#f3f4f6', color: '#374151' }}
+              >
+                Отмена
+              </button>
+              <button
+                className="btn-edit"
+                onClick={handleConfirmClose}
+              >
+                Подтвердить закрытие
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </Layout>
   );
 };
