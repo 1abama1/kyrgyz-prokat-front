@@ -3,7 +3,8 @@ import type { Tool } from './tool.types';
 
 export enum DocumentStatus {
   ACTIVE = "ACTIVE",
-  CLOSED = "CLOSED"
+  CLOSED = "CLOSED",
+  TERMINATED = "TERMINATED"
 }
 
 export interface Document {
@@ -13,10 +14,12 @@ export interface Document {
   clientName: string;
   toolId: number | null; // Может быть null для старых документов
   toolName: string;
-  price: number;
+  amount: number;
+  startDateTime?: string;
   status: DocumentStatus;
   createdAt: string;
-  closedAt?: string;
+  returnDate?: string;
+  comment?: string;
 }
 
 export interface CreateDocumentDto {

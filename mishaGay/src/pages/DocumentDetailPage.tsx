@@ -4,7 +4,7 @@ import { Layout } from "../components/Layout";
 import { documentsAPI } from "../api/documents";
 import { DocumentDetail } from "../types/document.types";
 import { ErrorMessage } from "../components/ErrorMessage";
-import { formatDate, formatCurrency } from "../utils/formatters";
+import { formatDate } from "../utils/formatters";
 import { DownloadExcelButton } from "../components/DownloadExcelButton";
 
 export const DocumentDetailPage: FC = () => {
@@ -21,14 +21,14 @@ export const DocumentDetailPage: FC = () => {
       setLoading(false);
       return;
     }
-    
+
     const docId = Number(id);
     if (isNaN(docId) || docId <= 0) {
       setError("Неверный ID документа");
       setLoading(false);
       return;
     }
-    
+
     loadDocument(docId);
   }, [id]);
 
@@ -87,7 +87,7 @@ export const DocumentDetailPage: FC = () => {
   return (
     <Layout>
       <button
-        onClick={() => navigate("/documents")}
+        onClick={() => navigate(-1)}
         style={{
           marginBottom: "20px",
           padding: "8px 16px",
@@ -100,16 +100,16 @@ export const DocumentDetailPage: FC = () => {
       >
         ← Назад к списку
       </button>
-      
+
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
         <h1 style={{ margin: 0 }}>Договор №{document.contractNumber}</h1>
-        <DownloadExcelButton 
-          contractId={document.id} 
+        <DownloadExcelButton
+          contractId={document.id}
           contractNumber={document.contractNumber}
         />
       </div>
       <ErrorMessage error={error} onClose={() => setError(null)} />
-      
+
       <div style={{
         border: "1px solid #ddd",
         borderRadius: "8px",
@@ -117,20 +117,30 @@ export const DocumentDetailPage: FC = () => {
         marginBottom: "20px"
       }}>
         <h2>Информация о договоре</h2>
-        <p><strong>Статус:</strong> 
+        <p><strong>Статус:</strong>
           <span style={{
-            background: document.status === "ACTIVE" ? "#c8e6c9" : "#ffcdd2",
+            background:
+              document.status === "ACTIVE" ? "#c8e6c9" :
+                document.status === "TERMINATED" ? "#ffccbc" : "#ffcdd2",
             padding: "4px 8px",
             borderRadius: "4px",
             marginLeft: "8px"
           }}>
-            {document.status === "ACTIVE" ? "Активен" : "Закрыт"}
+            {document.status === "ACTIVE" && "Активен"}
+            {document.status === "CLOSED" && "Закрыт"}
+            {document.status === "TERMINATED" && "Расторгнут"}
           </span>
         </p>
-        <p><strong>Цена аренды:</strong> {formatCurrency(document.price)}</p>
         <p><strong>Создан:</strong> {formatDate(document.createdAt)}</p>
-        {document.closedAt && (
-          <p><strong>Закрыт:</strong> {formatDate(document.closedAt)}</p>
+        <p><strong>Начало аренды:</strong> {formatDate(document.startDateTime || document.createdAt)}</p>
+        {document.returnDate && (
+          <p><strong>Дата сдачи:</strong> {formatDate(document.returnDate)}</p>
+        )}
+        {document.amount !== undefined && document.amount !== null && (
+          <p><strong>Сумма:</strong> {document.amount.toLocaleString()} сом</p>
+        )}
+        {document.comment && (
+          <p><strong>Комментарий:</strong> {document.comment}</p>
         )}
       </div>
 
@@ -169,7 +179,7 @@ export const DocumentDetailPage: FC = () => {
             <p><strong>Название:</strong> {document.tool.name}</p>
             <p><strong>Категория:</strong> {document.tool.categoryName || "—"}</p>
             <p><strong>Серийный номер:</strong> {document.tool.serialNumber || "—"}</p>
-            <p><strong>Статус:</strong> 
+            <p><strong>Статус:</strong>
               <span style={{
                 background: document.tool.status === "AVAILABLE" ? "#c8e6c9" : "#ffcdd2",
                 padding: "4px 8px",
@@ -179,32 +189,32 @@ export const DocumentDetailPage: FC = () => {
                 {document.tool.status === "AVAILABLE" ? "Доступен" : "В аренде"}
               </span>
             </p>
-            {document.toolId && 
-             document.toolId !== null && 
-             !isNaN(Number(document.toolId)) && 
-             Number(document.toolId) > 0 && (
-              <p style={{ marginTop: "12px" }}>
-                <button
-                  onClick={() => {
-                    const toolId = Number(document.toolId);
-                    if (toolId && !isNaN(toolId) && toolId > 0) {
-                      navigate(`/tools/${toolId}`);
-                    }
-                  }}
-                  style={{
-                    padding: "6px 12px",
-                    background: "#1976d2",
-                    color: "white",
-                    border: "none",
-                    borderRadius: "4px",
-                    cursor: "pointer",
-                    fontSize: "14px"
-                  }}
-                >
-                  Открыть инструмент →
-                </button>
-              </p>
-            )}
+            {document.toolId &&
+              document.toolId !== null &&
+              !isNaN(Number(document.toolId)) &&
+              Number(document.toolId) > 0 && (
+                <p style={{ marginTop: "12px" }}>
+                  <button
+                    onClick={() => {
+                      const toolId = Number(document.toolId);
+                      if (toolId && !isNaN(toolId) && toolId > 0) {
+                        navigate(`/tools/${toolId}`);
+                      }
+                    }}
+                    style={{
+                      padding: "6px 12px",
+                      background: "#1976d2",
+                      color: "white",
+                      border: "none",
+                      borderRadius: "4px",
+                      cursor: "pointer",
+                      fontSize: "14px"
+                    }}
+                  >
+                    Открыть инструмент →
+                  </button>
+                </p>
+              )}
           </>
         ) : (
           <p style={{ color: "#666", fontStyle: "italic" }}>

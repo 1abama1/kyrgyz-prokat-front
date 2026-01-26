@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Layout } from "../components/Layout";
-import { BalanceBadge } from "../components/BalanceBadge";
 import { contractsAPI, ActiveContractRow } from "../api/contracts";
 import { formatDate } from "../utils/formatters";
 import "../styles/buttons.css";
@@ -118,7 +117,6 @@ export const ActiveContractsPage = () => {
                   <th>ФИО</th>
                   <th>Инструмент</th>
                   <th>Дата</th>
-                  <th>Баланс</th>
                   <th>Просмотр</th>
                   <th>Закрыть</th>
                 </tr>
@@ -130,9 +128,6 @@ export const ActiveContractsPage = () => {
                     <td>{row.clientName}</td>
                     <td>{row.toolName}</td>
                     <td>{formatDate(row.startDate)}</td>
-                    <td>
-                      <BalanceBadge value={row.balance} />
-                    </td>
                     <td>
                       <button
                         onClick={() => {

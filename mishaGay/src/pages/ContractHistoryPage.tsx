@@ -4,6 +4,7 @@ import { Layout } from "../components/Layout";
 import { contractsAPI } from "../api/contracts";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { formatDate } from "../utils/formatters";
+import { statusLabel, statusClass } from "../utils/contractFormat";
 import "../styles/contracts.css";
 
 interface HistoryRow {
@@ -117,7 +118,6 @@ export const ContractHistoryPage = () => {
                   <th>Ожидаемая сдача</th>
                   <th>Фактическая сдача</th>
                   <th>Статус</th>
-                  <th>Прибыль</th>
                   <th>Действия</th>
                 </tr>
               </thead>
@@ -130,10 +130,20 @@ export const ContractHistoryPage = () => {
                     <td>{formatDateTime(item.startDateTime)}</td>
                     <td>{formatDateTime(item.expectedReturnDate)}</td>
                     <td>{formatDateTime(item.actualReturnDate)}</td>
-                    <td>{item.status ?? "—"}</td>
-                    <td>{item.amount ?? 0} c</td>
+                    <td>
+                      <span className={`status ${statusClass(item.status || "")}`}>
+                        {statusLabel(item.status || "")}
+                      </span>
+                    </td>
                     <td>
                       <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                        <button
+                          className="btn-edit"
+                          onClick={() => navigate(`/documents/${item.id}`)}
+                          style={{ fontSize: "14px" }}
+                        >
+                          Открыть
+                        </button>
                         {item.status === "CLOSED" && (
                           <button
                             className="btn-restore"

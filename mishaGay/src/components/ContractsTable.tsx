@@ -1,7 +1,5 @@
 import { ContractDto } from "../types/Contract";
 import {
-  formatAmount,
-  formatDate,
   formatDateTime,
   statusClass,
   statusLabel
@@ -36,8 +34,6 @@ export const ContractsTable = ({ contracts }: Props) => {
           <th>№ договора</th>
           <th>Статус</th>
           <th>Начало</th>
-          <th>План возврата</th>
-          <th>Сумма</th>
           <th>Закрыт</th>
           <th>Действия</th>
         </tr>
@@ -55,14 +51,12 @@ export const ContractsTable = ({ contracts }: Props) => {
             </td>
 
             <td>{formatDateTime(c.startDateTime)}</td>
-            <td>{formatDate(c.expectedReturnDate)}</td>
-            <td>{formatAmount(c.amount)}</td>
-            <td>{formatDateTime(c.closedAt)}</td>
+            <td>{formatDateTime(c.returnDate)}</td>
 
             <td>
               <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                <DownloadExcelButton 
-                  contractId={c.id} 
+                <DownloadExcelButton
+                  contractId={c.id}
                   contractNumber={c.contractNumber}
                 />
 
