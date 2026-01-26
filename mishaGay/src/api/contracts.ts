@@ -3,6 +3,8 @@ import { getToken } from "../utils/auth";
 import type { ToolInstance } from "../types/tool.types";
 import type { RentalDocument } from "../types/RentalDocument";
 import { apiCall } from "./client";
+import { db } from "../db/db";
+import { syncManager } from "../db/syncManager";
 
 export interface CreateContractPayload {
   clientId: number;
@@ -118,20 +120,52 @@ export async function getAvailableTools(templateId: number): Promise<ToolInstanc
 export async function createContract(
   payload: CreateContractPayload
 ): Promise<any> {
-  const response = await fetch(`${API_BASE_URL}/api/admin/contracts/create`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...buildAuthHeaders()
-    },
-    body: JSON.stringify(payload)
+  const offlineId = crypto.randomUUID();
+
+  // Save to local DB immediately
+  await db.contracts.add({
+    offlineId,
+    clientId: payload.clientId,
+    toolId: payload.toolId,
+    contractNumber: payload.contractNumber,
+    startDateTime: payload.startDateTime || new Date().toISOString(),
+    status: 'ACTIVE',
+    syncStatus: 'pending',
+    updatedAt: Date.now()
   });
 
-  if (!response.ok) {
-    await raiseError(response);
+  // Try to sync or just enqueue
+  if (navigator.onLine) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/contracts/create`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...buildAuthHeaders()
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Update local record with real ID
+        await db.contracts.where('offlineId').equals(offlineId).modify({
+          id: data.id,
+          contractNumber: data.contractNumber,
+          syncStatus: 'synced'
+        });
+        return data;
+      }
+    } catch (e) {
+      console.warn("Offline: failed to create contract on server, enqueued.", e);
+    }
   }
 
-  return await response.json();
+  // If offline or failed, add to sync queue
+  await syncManager.enqueueCreation(payload, offlineId);
+
+  // Return temporary object
+  return { id: undefined, offlineId, ...payload };
 }
 
 /**
@@ -139,23 +173,57 @@ export async function createContract(
  *    PUT /api/admin/contracts/{contractId}
  */
 export async function updateContract(
-  contractId: number,
-  payload: UpdateContractPayload
-): Promise<RentalDocument> {
-  const response = await fetch(`${API_BASE_URL}/api/admin/contracts/${contractId}`, {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-      ...buildAuthHeaders()
-    },
-    body: JSON.stringify(payload)
-  });
-
-  if (!response.ok) {
-    await raiseError(response);
+  contractId: number | undefined,
+  payload: UpdateContractPayload,
+  offlineId?: string
+): Promise<any> {
+  // Update local DB
+  if (offlineId) {
+    await db.contracts.where('offlineId').equals(offlineId).modify({
+      comment: payload.comment,
+      syncStatus: 'pending',
+      updatedAt: Date.now()
+    });
+  } else if (contractId) {
+    await db.contracts.where('id').equals(contractId).modify({
+      comment: payload.comment,
+      syncStatus: 'pending',
+      updatedAt: Date.now()
+    });
   }
 
-  return await response.json();
+  if (navigator.onLine && contractId) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/contracts/${contractId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          ...buildAuthHeaders()
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (offlineId) {
+          await db.contracts.where('offlineId').equals(offlineId).modify({ syncStatus: 'synced' });
+        } else {
+          await db.contracts.where('id').equals(contractId).modify({ syncStatus: 'synced' });
+        }
+        return data;
+      }
+    } catch (e) {
+      console.warn("Offline: failed to update contract on server, enqueued.", e);
+    }
+  }
+
+  // Enqueue
+  const finalOfflineId = offlineId || (contractId ? (await db.contracts.get(contractId))?.offlineId : undefined);
+  if (finalOfflineId) {
+    await syncManager.enqueueUpdate(contractId, finalOfflineId, payload);
+  }
+
+  return { id: contractId, offlineId, ...payload };
 }
 
 /**
@@ -191,31 +259,55 @@ export async function downloadExcelContract(
  *    POST /api/admin/contracts/{contractId}/close
  */
 export async function closeContract(
-  contractId: number,
-  payload?: { paidAmount?: number; comment?: string }
-): Promise<unknown> {
-  const response = await fetch(
-    `${API_BASE_URL}/api/admin/contracts/${contractId}/close`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...buildAuthHeaders()
-      },
-      body: payload ? JSON.stringify(payload) : undefined
+  contractId: number | undefined,
+  payload?: { paidAmount?: number; comment?: string },
+  offlineId?: string
+): Promise<any> {
+  // Update local DB
+  const updateData: any = { status: 'CLOSED', syncStatus: 'pending', updatedAt: Date.now() };
+  if (payload?.paidAmount) updateData.amount = payload.paidAmount;
+  if (payload?.comment) updateData.comment = payload.comment;
+
+  if (offlineId) {
+    await db.contracts.where('offlineId').equals(offlineId).modify(updateData);
+  } else if (contractId) {
+    await db.contracts.where('id').equals(contractId).modify(updateData);
+  }
+
+  if (navigator.onLine && contractId) {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/admin/contracts/${contractId}/close`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...buildAuthHeaders()
+          },
+          body: payload ? JSON.stringify(payload) : undefined
+        }
+      );
+
+      if (response.ok) {
+        if (offlineId) {
+          await db.contracts.where('offlineId').equals(offlineId).modify({ syncStatus: 'synced' });
+        } else {
+          await db.contracts.where('id').equals(contractId).modify({ syncStatus: 'synced' });
+        }
+        try { return await response.json(); } catch { return null; }
+      }
+    } catch (e) {
+      console.warn("Offline: failed to close contract on server, enqueued.", e);
     }
-  );
-
-  if (!response.ok) {
-    await raiseError(response);
   }
 
-  // там void, но на всякий случай читаем json, если появится
-  try {
-    return await response.json();
-  } catch {
-    return null;
+  // Enqueue
+  const finalOfflineId = offlineId || (contractId ? (await db.contracts.get(contractId))?.offlineId : undefined);
+  if (finalOfflineId) {
+    await syncManager.enqueueClosure(contractId, finalOfflineId, payload);
   }
+
+  return { status: 'closed', contractId, offlineId };
 }
 
 
@@ -254,6 +346,7 @@ export interface ActiveContractRow {
   toolName: string;
   startDate: string;
   balance: number;
+  offlineId?: string;
 }
 
 /**
@@ -261,9 +354,49 @@ export interface ActiveContractRow {
  * GET /api/contracts/active-table
  */
 export async function getActiveTable(): Promise<ActiveContractRow[]> {
-  return apiCall<ActiveContractRow[]>({
-    url: "/api/contracts/active-table",
-  });
+  if (navigator.onLine) {
+    try {
+      const data = await apiCall<ActiveContractRow[]>({
+        url: "/api/contracts/active-table",
+      });
+
+      // Update local cache
+      for (const row of data) {
+        const existing = await db.contracts.get(row.contractId);
+        if (!existing) {
+          await db.contracts.add({
+            id: row.contractId,
+            offlineId: crypto.randomUUID(), // For existing ones we generate a local offlineId
+            clientId: row.clientId,
+            toolId: 0, // We don't have toolId in the row DTO, but we might need it
+            contractNumber: undefined,
+            startDateTime: row.startDate,
+            amount: row.balance,
+            status: 'ACTIVE',
+            syncStatus: 'synced',
+            updatedAt: Date.now()
+          });
+        }
+      }
+      return data;
+    } catch (e) {
+      console.warn("Failed to fetch active table, falling back to local DB", e);
+    }
+  }
+
+  // Fallback to local DB
+  const localDocs = await db.contracts.where('status').equals('ACTIVE').toArray();
+  return localDocs.map((doc, idx) => ({
+    index: idx + 1,
+    contractId: doc.id || 0,
+    offlineId: doc.offlineId,
+    contractNumber: doc.contractNumber,
+    clientId: doc.clientId,
+    clientName: doc.clientName || `Client #${doc.clientId}`,
+    toolName: doc.toolName || `Tool #${doc.toolId}`,
+    startDate: doc.startDateTime,
+    balance: doc.amount || 0
+  })) as any;
 }
 
 export async function getById(contractId: number): Promise<any> {

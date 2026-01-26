@@ -15,17 +15,20 @@ import { CreateCategoryPage } from "./pages/CreateCategoryPage";
 import { CreateTemplatePage } from "./pages/CreateTemplatePage";
 import { ContractHistoryPage } from "./pages/ContractHistoryPage";
 import { isAuthenticated } from "./utils/auth";
+import { SyncStatus } from "./components/SyncStatus";
+import "./db/syncManager"; // Initialize sync manager
 
 
 function App() {
   return (
     <BrowserRouter>
+      <SyncStatus />
       <Routes>
-        <Route 
-          path="/login" 
+        <Route
+          path="/login"
           element={
             isAuthenticated() ? <Navigate to="/dashboard" replace /> : <LoginPage />
-          } 
+          }
         />
         <Route
           path="/dashboard"

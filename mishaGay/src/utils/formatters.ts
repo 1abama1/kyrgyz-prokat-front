@@ -27,7 +27,7 @@ export const generateContractNumber = (): string => {
   const day = String(now.getDate()).padStart(2, '0');
   const timestamp = Date.now();
   const suffix = String(timestamp).slice(-3);
-  
+
   return `R-${year}-${month}-${day}-${suffix}`;
 };
 

@@ -33,6 +33,7 @@ export const ActiveContractsPage = () => {
         return {
           index: idx + 1,
           contractId: contractId ?? 0,
+          offlineId: (item as any).offlineId,
           clientName: item.clientName ?? "",
           toolName: item.toolName ?? "",
           startDate: item.startDate ?? "",
@@ -61,10 +62,15 @@ export const ActiveContractsPage = () => {
   };
 
   const handleConfirmClose = async () => {
-    if (!selectedContractId) return;
+    const selectedRow = rows.find(r => r.contractId === selectedContractId || (selectedContractId === 0 && r.offlineId === (selectedContractId as any).offlineId));
+    if (!selectedContractId && !selectedRow?.offlineId) return;
 
     try {
-      await contractsAPI.close(selectedContractId, { paidAmount, comment });
+      await contractsAPI.close(
+        selectedContractId || undefined,
+        { paidAmount, comment },
+        selectedRow?.offlineId
+      );
       setIsModalOpen(false);
       await load(); // Перезагружаем данные
     } catch (err: unknown) {
@@ -155,8 +161,16 @@ export const ActiveContractsPage = () => {
                     <td>
                       <button
                         onClick={() => {
-                          if (row.contractId && !isNaN(row.contractId) && row.contractId > 0) {
+                          if (row.contractId && row.contractId > 0) {
                             handleCloseClick(row.contractId, row.balance);
+                          } else if (row.offlineId) {
+                            // If it's an offline contract, we use 0 as ID and pass offlineId via some mechanism
+                            // For simplicity, I'll update handleCloseClick to accept offlineId too if needed, 
+                            // but here I'll just pass 0 and let it find by offlineId in rows
+                            setSelectedContractId(0);
+                            setPaidAmount(row.balance || 0);
+                            setComment("");
+                            setIsModalOpen(true);
                           } else {
                             console.error("Invalid contractId:", row.contractId);
                             alert("Ошибка: неверный ID договора");
