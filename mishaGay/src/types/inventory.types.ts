@@ -24,6 +24,8 @@ export interface ToolDto {
   status: ToolStatusDto;
   instanceNumber?: number;
   serialNumber?: string | null;
+  categoryId?: number;
+  templateId?: number;
 }
 
 // Full DTO для полной структуры

@@ -15,10 +15,12 @@ export interface Document {
   toolId: number | null; // Может быть null для старых документов
   toolName: string;
   amount: number;
+  price?: number;
   startDateTime?: string;
   status: DocumentStatus;
   createdAt: string;
   returnDate?: string;
+  closedAt?: string;
   comment?: string;
 }
 

@@ -17,7 +17,7 @@ export const DocumentCard: FC<DocumentCardProps> = ({ document, onClick }) => {
   };
 
   return (
-    <div 
+    <div
       onClick={handleClick}
       style={{
         border: "1px solid #ddd",
@@ -36,8 +36,8 @@ export const DocumentCard: FC<DocumentCardProps> = ({ document, onClick }) => {
       <h3>Договор №{document.contractNumber}</h3>
       <p><strong>Клиент:</strong> {document.clientName}</p>
       <p><strong>Инструмент:</strong> {document.toolName}</p>
-      <p><strong>Цена:</strong> {formatCurrency(document.price)}</p>
-      <p><strong>Статус:</strong> 
+      <p><strong>Цена:</strong> {formatCurrency(document.price ?? document.amount)}</p>
+      <p><strong>Статус:</strong>
         <span style={{
           background: document.status === "ACTIVE" ? "#c8e6c9" : "#ffcdd2",
           padding: "4px 8px",

@@ -34,6 +34,9 @@ const processQueue = (error: unknown | null, token: string | null = null) => {
 
 // Расширяем тип конфига для поддержки skipAuth
 declare module 'axios' {
+  export interface AxiosRequestConfig {
+    skipAuth?: boolean;
+  }
   export interface InternalAxiosRequestConfig {
     skipAuth?: boolean;
   }
@@ -69,15 +72,15 @@ api.interceptors.response.use(
     // ✅ Если 403 и мы ещё не пытались refresh
     // Пропускаем refresh для самого refresh запроса (чтобы избежать бесконечного цикла)
     const requestUrl = originalRequest?.url || "";
-    const fullUrl = originalRequest?.baseURL 
-      ? `${originalRequest.baseURL}${requestUrl}` 
+    const fullUrl = originalRequest?.baseURL
+      ? `${originalRequest.baseURL}${requestUrl}`
       : requestUrl;
-    const isRefreshRequest = 
+    const isRefreshRequest =
       requestUrl.includes("/api/auth/refresh") ||
       requestUrl.includes("auth/refresh") ||
       fullUrl.includes("/api/auth/refresh") ||
       fullUrl.includes("auth/refresh");
-    
+
     if (
       error.response?.status === 403 &&
       originalRequest &&
@@ -143,4 +146,3 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
-

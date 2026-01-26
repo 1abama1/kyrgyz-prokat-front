@@ -23,14 +23,14 @@ export const ToolCardPage: FC = () => {
       setLoading(false);
       return;
     }
-    
+
     const toolId = Number(id);
     if (isNaN(toolId) || toolId <= 0) {
       setError("Неверный ID инструмента");
       setLoading(false);
       return;
     }
-    
+
     loadTool(toolId);
   }, [id]);
 
@@ -39,7 +39,7 @@ export const ToolCardPage: FC = () => {
       setLoading(true);
       setError(null);
       const data = await toolsAPI.getOne(toolId);
-      setTool(data);
+      setTool(data as any);
       toolsAPI.getHistory(toolId)
         .then(setHistory)
         .catch(() => setHistoryError("Историю выдач загрузить не удалось"));
@@ -67,7 +67,7 @@ export const ToolCardPage: FC = () => {
   if (!tool) {
     return (
       <Layout>
-        <ErrorMessage error="Инструмент не найден" onClose={() => {}} />
+        <ErrorMessage error="Инструмент не найден" onClose={() => { }} />
       </Layout>
     );
   }
@@ -76,7 +76,7 @@ export const ToolCardPage: FC = () => {
     <Layout>
       <div className="tools-page">
         <ErrorMessage error={error} onClose={() => setError(null)} />
-        
+
         <div className="tool-card-header">
           <h1 className="tools-page-title">{tool.name}</h1>
           <button

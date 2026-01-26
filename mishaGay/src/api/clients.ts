@@ -40,7 +40,7 @@ export async function getClientCard(clientId: number): Promise<ClientCard> {
   if (!clientId || isNaN(clientId) || clientId <= 0) {
     throw new Error("Invalid client id: id must be a positive number");
   }
-  
+
   const response = await fetch(`${API_BASE_URL}/api/admin/clients/${clientId}/card`, {
     headers: {
       Authorization: `Bearer ${getToken()}`
@@ -62,10 +62,10 @@ export async function getActiveContracts(clientId: number): Promise<any[]> {
   if (!clientId || isNaN(clientId) || clientId <= 0) {
     throw new Error("Invalid client id: id must be a positive number");
   }
-  
+
   const response = await fetch(
     `${API_BASE_URL}/api/admin/clients/${clientId}/contracts/active`,
-    { headers: { ...buildAuthHeaders() } }
+    { headers: buildAuthHeaders() as HeadersInit }
   );
 
   if (!response.ok) {

@@ -1,18 +1,16 @@
 import { apiCall } from "./client";
 import { api } from "./axios";
-import { 
-  LoginRequest, 
-  LoginResponse, 
-  RefreshRequest, 
-  RefreshResponse 
+import {
+  LoginRequest,
+  LoginResponse,
+  RefreshResponse
 } from "../types/api.types";
-import { 
-  setTokens, 
-  clearTokens, 
-  getRefreshToken, 
-  isAuthenticated as checkAuth 
+import {
+  setTokens,
+  clearTokens,
+  getRefreshToken,
+  isAuthenticated as checkAuth
 } from "../utils/auth";
-import { API_BASE_URL } from "../utils/constants";
 
 /**
  * Обновляет access token через refresh token
@@ -25,7 +23,7 @@ import { API_BASE_URL } from "../utils/constants";
  */
 export async function refreshAccessToken(): Promise<boolean> {
   const refreshToken = getRefreshToken();
-  
+
   if (!refreshToken) {
     return false;
   }
@@ -55,26 +53,26 @@ export const authAPI = {
       body: credentials,
       skipAuth: true
     });
-    
+
     // Backend возвращает accessToken и refreshToken
     const accessToken = response.accessToken;
     const refreshToken = response.refreshToken;
-    
+
     if (accessToken && refreshToken) {
       setTokens(accessToken, refreshToken);
     } else {
       throw new Error("Токены не получены от сервера");
     }
-    
+
     return response;
   },
-  
+
   refresh: async (): Promise<RefreshResponse> => {
     const refreshToken = getRefreshToken();
     if (!refreshToken) {
       throw new Error("Refresh token not found");
     }
-    
+
     // Используем axios instance с skipAuth, чтобы не добавлять Authorization заголовок
     const response = await api.get<RefreshResponse>("/api/auth/refresh", {
       params: { refreshToken },
@@ -84,10 +82,10 @@ export const authAPI = {
     // ВАЖНО! Backend возвращает НОВЫЙ refreshToken при каждом refresh
     // Нужно сохранять ОБА токена, иначе следующий refresh будет использовать старый (revoked) токен
     setTokens(response.data.accessToken, response.data.refreshToken);
-    
+
     return response.data;
   },
-  
+
   logout: (): void => {
     clearTokens();
     window.location.href = "/login";
