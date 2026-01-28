@@ -1,11 +1,47 @@
 import { app, BrowserWindow, Menu, ipcMain, shell } from "electron";
 import * as path from "path";
 import * as fs from "fs";
+import log from "electron-log";
+
+// 🔥 Настройка логирования
+log.transports.file.level = "info";
+log.transports.console.level = "info";
+log.transports.file.maxSize = 5 * 1024 * 1024; // 5MB
+log.transports.file.format = "[{y}-{m}-{d} {h}:{i}:{s}.{ms}] [{level}] {text}";
+
+// Сначала выводим информацию о логах в оригинальный console
+const originalConsoleLog = console.log;
+const logFilePath = log.transports.file.getFile().path;
+
+originalConsoleLog("=".repeat(80));
+originalConsoleLog("🔥 ELECTRON MAIN STARTED");
+originalConsoleLog(`📝 Log file location: ${logFilePath}`);
+originalConsoleLog(`📦 App version: ${app.getVersion()}`);
+originalConsoleLog(`⚡ Electron version: ${process.versions.electron}`);
+originalConsoleLog(`🖥️  Platform: ${process.platform}`);
+originalConsoleLog("=".repeat(80));
+
+// Теперь записываем в файл логов
+log.info("=".repeat(80));
+log.info("🔥 ELECTRON MAIN STARTED");
+log.info(`Log file location: ${logFilePath}`);
+log.info(`App version: ${app.getVersion()}`);
+log.info(`Electron version: ${process.versions.electron}`);
+log.info(`Node version: ${process.versions.node}`);
+log.info(`Platform: ${process.platform}`);
+log.info("=".repeat(80));
+
+// Переопределяем console.log для записи в файл (после вывода информации)
+console.log = log.info.bind(log);
+console.error = log.error.bind(log);
+console.warn = log.warn.bind(log);
+console.debug = log.debug.bind(log);
 
 // 🔥 КРИТИЧНО: Отключаем GPU acceleration для устранения ошибок
 app.disableHardwareAcceleration();
+log.info("GPU hardware acceleration disabled");
 
-console.log("🔥 ELECTRON MAIN STARTED");
+
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -16,12 +52,12 @@ const getContractsDir = (): string => {
     "MishaCRM",
     "Contracts"
   );
-  
+
   // Создаём папку, если её нет
   if (!fs.existsSync(contractsDir)) {
     fs.mkdirSync(contractsDir, { recursive: true });
   }
-  
+
   return contractsDir;
 };
 
@@ -45,13 +81,13 @@ function createWindow(): void {
   // Development URL или production build
   if (process.env.NODE_ENV === "development") {
     mainWindow.loadURL("http://localhost:5173");
-  } else {
-    mainWindow.loadFile(path.join(__dirname, "../dist/index.html"));
-  }
-
-  // DevTools только в разработке
-  if (process.env.NODE_ENV === "development") {
     mainWindow.webContents.openDevTools();
+  } else {
+    const indexPath = path.join(__dirname, "../dist/index.html");
+    log.info(`[Main] Loading production HTML from: ${indexPath}`);
+    mainWindow.loadFile(indexPath).catch(err => {
+      log.error(`[Main] Failed to load index.html: ${err.message}`);
+    });
   }
 
   mainWindow.on("closed", () => {
@@ -60,42 +96,44 @@ function createWindow(): void {
 }
 
 // 🔥 КРИТИЧНО: Регистрируем IPC handlers ДО создания окна
-console.log("🔥 Registering IPC handlers...");
+console.log("🔥 IPC handlers registered successfully");
 
-// Проверка существования файла
-ipcMain.handle("contract-exists", async (_, filename: string) => {
+// Прием логов из фронтенда
+ipcMain.on("log-to-file", (_event, level, message) => {
+  const logMethod = (log as any)[level] || log.info;
+  logMethod(`[Renderer] ${message}`);
+});
+
+// Обновленные IPC handlers с логированием
+ipcMain.handle("contract-exists", async (_event, filename: string) => {
+  log.info(`[IPC] Вызов contract-exists для файла: ${filename}`);
   const contractsDir = getContractsDir();
   const filePath = path.join(contractsDir, filename);
-  
+
   if (fs.existsSync(filePath)) {
-    console.log(`🔥 Contract file exists: ${filePath}`);
+    log.info(`🔥 Contract file exists: ${filePath}`);
     return filePath;
   }
-  
+
   return null;
 });
 
-ipcMain.handle("save-contract-excel", async (_, { buffer, filename }: { buffer: ArrayBuffer; filename: string }) => {
-  console.log("🔥 save-contract-excel handler called");
-  
+ipcMain.handle("save-contract-excel", async (_event, { buffer, filename }: { buffer: ArrayBuffer; filename: string }) => {
+  log.info(`[IPC] Вызов save-contract-excel: ${filename} (размер: ${buffer.byteLength} байт)`);
+
   const contractsDir = getContractsDir();
   const filePath = path.join(contractsDir, filename);
-  
-  console.log(`🔥 Saving Excel to: ${filePath}`);
-  
+
   fs.writeFileSync(filePath, Buffer.from(buffer));
-  
-  console.log(`🔥 Excel file saved successfully: ${filePath}`);
-  
+  log.info(`✅ Excel file saved successfully: ${filePath}`);
+
   return filePath;
 });
 
-ipcMain.handle("open-contract-excel", async (_, filePath: string) => {
-  console.log(`🔥 Opening Excel file: ${filePath}`);
+ipcMain.handle("open-contract-excel", async (_event, filePath: string) => {
+  log.info(`[IPC] Вызов open-contract-excel для пути: ${filePath}`);
   return shell.openPath(filePath);
 });
-
-console.log("🔥 IPC handlers registered successfully");
 
 app.whenReady().then(() => {
   console.log("🔥 App ready, creating window...");

@@ -11,4 +11,10 @@ contextBridge.exposeInMainWorld("contracts", {
     saveExcel: (buffer, filename) => ipcRenderer.invoke("save-contract-excel", { buffer, filename }),
     openExcel: (filePath) => ipcRenderer.invoke("open-contract-excel", filePath)
 });
+// Добавляем возможность логирования из фронтенда
+contextBridge.exposeInMainWorld("electronLog", {
+    info: (msg) => ipcRenderer.send("log-to-file", "info", msg),
+    error: (msg) => ipcRenderer.send("log-to-file", "error", msg),
+    warn: (msg) => ipcRenderer.send("log-to-file", "warn", msg)
+});
 console.log("✅ contracts API exposed to window.contracts");

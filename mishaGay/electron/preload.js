@@ -12,12 +12,18 @@ contextBridge.exposeInMainWorld("electronAPI", {
 contextBridge.exposeInMainWorld("contracts", {
   checkExists: (filename) =>
     ipcRenderer.invoke("contract-exists", filename),
-  
+
   saveExcel: (buffer, filename) =>
     ipcRenderer.invoke("save-contract-excel", { buffer, filename }),
-  
+
   openExcel: (filePath) =>
     ipcRenderer.invoke("open-contract-excel", filePath)
+});
+
+contextBridge.exposeInMainWorld("electronLog", {
+  info: (msg) => ipcRenderer.send("log-to-file", "info", msg),
+  error: (msg) => ipcRenderer.send("log-to-file", "error", msg),
+  warn: (msg) => ipcRenderer.send("log-to-file", "warn", msg)
 });
 
 console.log("✅ contracts API exposed to window.contracts");
