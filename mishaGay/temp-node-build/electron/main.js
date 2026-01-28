@@ -70,8 +70,6 @@ function createWindow() {
         mainWindow.loadFile(indexPath).catch(err => {
             log.error(`[Main] Failed to load index.html: ${err.message}`);
         });
-        // ВРЕМЕННО для отладки
-        mainWindow.webContents.openDevTools();
     }
     mainWindow.on("closed", () => {
         mainWindow = null;

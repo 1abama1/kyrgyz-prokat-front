@@ -31,8 +31,8 @@ export class AppDatabase extends Dexie {
 
     constructor() {
         super('RentalDocsDB');
-        this.version(1).stores({
-            contracts: '++id, offlineId, clientId, toolId, syncStatus, updatedAt',
+        this.version(2).stores({
+            contracts: '++id, offlineId, clientId, toolId, status, syncStatus, updatedAt',
             syncQueue: '++id, type, offlineId, createdAt'
         });
     }

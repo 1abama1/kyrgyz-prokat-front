@@ -362,6 +362,7 @@ export async function getActiveTable(): Promise<ActiveContractRow[]> {
 
       // Update local cache
       for (const row of data) {
+        if (!row.contractId) continue;
         const existing = await db.contracts.get(row.contractId);
         if (!existing) {
           await db.contracts.add({
