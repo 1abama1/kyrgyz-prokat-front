@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { Layout } from "../components/Layout";
 import { contractsAPI, ActiveContractRow } from "../api/contracts";
 import { formatDate } from "../utils/formatters";
-import "../styles/buttons.css";
 import "../styles/tools.css";
 
 export const ActiveContractsPage = () => {

@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { downloadContractExcel } from "../api/excel.api";
-import "../styles/buttons.css";
 
 type Props = {
   contractId: number;
@@ -68,12 +67,11 @@ export const DownloadExcelButton = ({ contractId, contractNumber }: Props) => {
   };
 
   return (
-    <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+    <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
       <button 
         className="btn-primary" 
         onClick={handleOpen}
         disabled={loading}
-        style={{ padding: "6px 12px", fontSize: "14px" }}
       >
         {loading ? "⏳ Открытие..." : "📄 Открыть Excel"}
       </button>
@@ -82,7 +80,6 @@ export const DownloadExcelButton = ({ contractId, contractNumber }: Props) => {
         className="btn-secondary" 
         onClick={handleOpenFolder}
         disabled={loading}
-        style={{ padding: "6px 12px", fontSize: "14px", display: "flex", alignItems: "center", gap: "4px" }}
       >
         📂 В проводнике
       </button>

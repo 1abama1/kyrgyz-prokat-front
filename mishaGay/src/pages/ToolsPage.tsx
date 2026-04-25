@@ -4,7 +4,6 @@ import { CategoryFullDto } from "../types/inventory.types";
 import { useNavigate } from "react-router-dom";
 import { Layout } from "../components/Layout";
 import { InventoryTree } from "../components/InventoryTree";
-import "../styles/buttons.css";
 import "../styles/tools.css";
   
 export const ToolsPage = () => {

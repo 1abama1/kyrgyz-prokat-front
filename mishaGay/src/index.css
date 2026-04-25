@@ -125,6 +125,7 @@ button:active:not(:disabled) { transform: translateY(1px); }
 .btn-secondary:hover:not(:disabled) {
   background: var(--surface-2);
   border-color: var(--brand-subtle);
+  color: var(--text-primary);
   transform: translateY(-1px);
 }
  
