@@ -1,40 +1,28 @@
 import { ToolStatus } from "../types/tool.types";
-
-type BadgeConfig = {
-  color: string;
-  label: string;
-  icon: string;
-};
-
+ 
+type BadgeConfig = { bg: string; color: string; label: string; dot: string; };
+ 
 const STATUS_MAP: Record<string, BadgeConfig> = {
-  AVAILABLE: { color: "green", label: "Доступен", icon: "🟢" },
-  RENTED: { color: "red", label: "Занят", icon: "🔴" },
-  BROKEN: { color: "orange", label: "Сломан", icon: "🟡" },
-  OVERDUE: { color: "#e11d48", label: "Просрочен", icon: "⏰" },
-  SERVICE: { color: "#f59e0b", label: "Обслуживание", icon: "🛠" },
-  LOST: { color: "#6b7280", label: "Утрачен", icon: "⚫" }
+  AVAILABLE: { bg: "#DCFCE7", color: "#15803D", dot: "#22C55E", label: "Доступен"      },
+  RENTED:    { bg: "#DBEAFE", color: "#1D4ED8", dot: "#3B82F6", label: "В аренде"      },
+  BROKEN:    { bg: "#FEF9C3", color: "#A16207", dot: "#EAB308", label: "Сломан"        },
+  OVERDUE:   { bg: "#FEE2E2", color: "#B91C1C", dot: "#EF4444", label: "Просрочен"     },
+  SERVICE:   { bg: "#FEF3C7", color: "#92400E", dot: "#F59E0B", label: "Обслуживание"  },
+  LOST:      { bg: "#F1F5F9", color: "#475569", dot: "#94A3B8", label: "Утрачен"       },
 };
-
+ 
 export const ToolStatusBadge = ({ status }: { status: ToolStatus | string }) => {
-  const item = STATUS_MAP[status] ?? STATUS_MAP.AVAILABLE;
-
+  const cfg = STATUS_MAP[status] ?? STATUS_MAP.AVAILABLE;
   return (
-    <span
-      style={{
-        padding: "4px 8px",
-        borderRadius: "6px",
-        fontSize: "12px",
-        fontWeight: 600,
-        backgroundColor: `${item.color}20`,
-        color: item.color,
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 6
-      }}
-    >
-      <span>{item.icon}</span>
-      <span>{item.label}</span>
+    <span style={{
+      display: "inline-flex", alignItems: "center", gap: 6,
+      padding: "3px 10px", borderRadius: 999,
+      background: cfg.bg, color: cfg.color,
+      fontSize: 12, fontWeight: 700, letterSpacing: ".02em",
+      flexShrink: 0,
+    }}>
+      <span style={{ width: 6, height: 6, borderRadius: "50%", background: cfg.dot, flexShrink: 0 }} />
+      {cfg.label}
     </span>
   );
 };
-

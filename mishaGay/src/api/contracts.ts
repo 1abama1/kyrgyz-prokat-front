@@ -406,7 +406,7 @@ export async function getById(contractId: number): Promise<any> {
   }
 
   return apiCall({
-    url: `/api/contracts/${contractId}`,
+    url: `/api/admin/contracts/${contractId}`,
   });
 }
 

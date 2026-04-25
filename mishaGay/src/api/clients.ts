@@ -76,8 +76,9 @@ export async function getActiveContracts(clientId: number): Promise<any[]> {
 }
 
 export const clientsAPI = {
-  getAll: (): Promise<Client[]> => {
-    return apiCall<Client[]>("/api/admin/clients");
+  getAll: async (): Promise<Client[]> => {
+    const res = await apiCall<any>("/api/admin/clients");
+    return res.content !== undefined ? res.content : res;
   },
   getCard: (id: number): Promise<ClientCard> => {
     if (!id || isNaN(id) || id <= 0) {

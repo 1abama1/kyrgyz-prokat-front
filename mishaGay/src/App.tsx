@@ -14,6 +14,7 @@ import { ActiveContractsPage } from "./pages/ActiveContractsPage";
 import { CreateCategoryPage } from "./pages/CreateCategoryPage";
 import { CreateTemplatePage } from "./pages/CreateTemplatePage";
 import { ContractHistoryPage } from "./pages/ContractHistoryPage";
+import { ProfilePage } from "./pages/ProfilePage";
 import { isAuthenticated } from "./utils/auth";
 import { SyncStatus } from "./components/SyncStatus";
 import "./db/syncManager"; // Initialize sync manager
@@ -35,6 +36,14 @@ function App() {
           element={
             <ProtectedRoute>
               <DashboardPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <ProfilePage />
             </ProtectedRoute>
           }
         />

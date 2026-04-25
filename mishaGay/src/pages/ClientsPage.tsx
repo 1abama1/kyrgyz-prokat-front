@@ -75,39 +75,36 @@ export const ClientsPage: FC = () => {
   return (
     <Layout>
       <div className="page-container clients-page">
-        <div className="clients-header">
+        <div className="clients-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "28px", gap: "16px", flexWrap: "wrap" }}>
           <div>
-            <h1>Клиенты</h1>
+            <h1 style={{ margin: "0 0 10px", fontSize: "1.6rem" }}>Клиенты</h1>
             <ErrorMessage error={error} onClose={() => setError(null)} />
           </div>
 
-          <div className="clients-header-search">
-            <input
-              type="text"
-              placeholder="Поиск по ФИО, телефону, ИНН (Enter для поиска)"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  setSearchQuery(searchInput.trim());
-                }
-              }}
-              style={{
-                width: "100%",
-                padding: "8px 12px",
-                borderRadius: 8,
-                border: "1px solid #d1d5db"
-              }}
-            />
-          </div>
+          <div style={{ display: "flex", gap: "12px", alignItems: "flex-start", flex: 1, maxWidth: "600px", justifyContent: "flex-end" }}>
+            <div className="clients-header-search" style={{ flex: 1, maxWidth: "400px" }}>
+              <input
+                type="text"
+                placeholder="Поиск по ФИО, телефону, ИНН (Enter для поиска)"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    setSearchQuery(searchInput.trim());
+                  }
+                }}
+              />
+            </div>
 
-          <button
-            onClick={() => navigate("/clients/create")}
-            className="btn-primary"
-          >
-            + Новый клиент
-          </button>
+            <button
+              onClick={() => navigate("/clients/create")}
+              className="btn-primary"
+              style={{ whiteSpace: "nowrap" }}
+            >
+              + Новый клиент
+            </button>
+          </div>
         </div>
 
         <div className="clients-list">

@@ -40,7 +40,7 @@ export const ContractsTable = ({ contracts }: Props) => {
       </thead>
 
       <tbody>
-        {contracts.map(c => (
+        {(contracts || []).map(c => (
           <tr key={c.id}>
             <td>{c.contractNumber}</td>
 

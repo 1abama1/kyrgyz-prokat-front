@@ -17,7 +17,10 @@ contextBridge.exposeInMainWorld("contracts", {
     ipcRenderer.invoke("save-contract-excel", { buffer, filename }),
 
   openExcel: (filePath) =>
-    ipcRenderer.invoke("open-contract-excel", filePath)
+    ipcRenderer.invoke("open-contract-excel", filePath),
+
+  showItemInFolder: (filePath) =>
+    ipcRenderer.invoke("show-item-in-folder", filePath)
 });
 
 contextBridge.exposeInMainWorld("electronLog", {

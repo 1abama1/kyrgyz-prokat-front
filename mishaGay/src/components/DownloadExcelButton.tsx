@@ -14,31 +14,22 @@ export const DownloadExcelButton = ({ contractId, contractNumber }: Props) => {
     try {
       setLoading(true);
 
-      // Проверяем, доступен ли Electron API
       if (!window.contracts) {
         alert("Electron API недоступен. Эта функция работает только в Electron приложении.");
         return;
       }
 
       const filename = `Договор №${contractNumber}.xlsx`;
-
-      // 1️⃣ Проверяем: файл уже есть?
       const existingPath = await window.contracts.checkExists(filename);
 
       if (existingPath) {
-        // 2️⃣ Просто открываем существующий файл
         await window.contracts.openExcel(existingPath);
         return;
       }
 
-      // 3️⃣ Если нет — скачиваем с backend
       const blob = await downloadContractExcel(contractId);
       const buffer = await blob.arrayBuffer();
-
-      // 4️⃣ Сохраняем
       const savedPath = await window.contracts.saveExcel(buffer, filename);
-
-      // 5️⃣ Открываем
       await window.contracts.openExcel(savedPath);
 
     } catch (e) {
@@ -49,17 +40,52 @@ export const DownloadExcelButton = ({ contractId, contractNumber }: Props) => {
     }
   };
 
+  const handleOpenFolder = async () => {
+    try {
+      setLoading(true);
+
+      if (!window.contracts || !window.contracts.showItemInFolder) {
+        alert("Функция доступна только в десктопном приложении.");
+        return;
+      }
+
+      const filename = `Договор №${contractNumber}.xlsx`;
+      let existingPath = await window.contracts.checkExists(filename);
+
+      if (!existingPath) {
+        alert("Сначала скачайте договор: нажмите кнопку «Отрыть Excel»");
+        return;
+      }
+
+      await window.contracts.showItemInFolder(existingPath);
+
+    } catch (e) {
+      console.error("Error showing folder:", e);
+      alert("Ошибка при открытии папки");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <button 
-      className="btn-primary" 
-      onClick={handleOpen}
-      disabled={loading}
-      style={{
-        padding: "6px 12px",
-        fontSize: "14px"
-      }}
-    >
-      {loading ? "⏳ Открытие..." : "📄 Открыть Excel"}
-    </button>
+    <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+      <button 
+        className="btn-primary" 
+        onClick={handleOpen}
+        disabled={loading}
+        style={{ padding: "6px 12px", fontSize: "14px" }}
+      >
+        {loading ? "⏳ Открытие..." : "📄 Открыть Excel"}
+      </button>
+      
+      <button 
+        className="btn-secondary" 
+        onClick={handleOpenFolder}
+        disabled={loading}
+        style={{ padding: "6px 12px", fontSize: "14px", display: "flex", alignItems: "center", gap: "4px" }}
+      >
+        📂 В проводнике
+      </button>
+    </div>
   );
 };

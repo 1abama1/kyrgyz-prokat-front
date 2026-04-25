@@ -1,42 +1,157 @@
+/* ═══ Layout ═══ */
+ 
 .layout {
+  display: flex;
   min-height: 100vh;
 }
-
-/* ФИКСИРОВАННЫЙ SIDEBAR */
+ 
+/* ─── Sidebar ─── */
 .sidebar {
   position: fixed;
   top: 0;
   left: 0;
-  width: 220px;
+  width: 240px;
   height: 100vh;
-
-  background: #ffffff;
-  border-right: 1px solid #e5e7eb;
-  box-shadow: 4px 0 18px rgba(15, 23, 42, 0.05);
-
+  background: var(--sidebar-bg);
   display: flex;
   flex-direction: column;
+  z-index: 100;
+  overflow: hidden;
 }
-
-/* СКРОЛЛ ТОЛЬКО ДЛЯ КОНТЕНТА */
-.content {
-  margin-left: 220px; /* ширина sidebar */
-  width: calc(100vw - 220px);
-  box-sizing: border-box;
-
+ 
+/* Логотип / шапка */
+.sidebar::before {
+  content: 'Level';
+  display: block;
+  padding: 22px 20px 18px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -.02em;
+  color: #fff;
+  border-bottom: 1px solid rgba(255,255,255,.07);
+  background: linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 100%);
+}
+ 
+/* ─── Меню ─── */
+.menu {
+  padding: 14px 10px;
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
-  background: #f5f6f8;
+  gap: 2px;
+  flex: 1;
   overflow-y: auto;
-  overflow-x: hidden;
 }
-
-/* Базовые отступы для содержимого страниц */
+ 
+/* Заголовки групп */
+.menu-group-title {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,.28);
+  padding: 10px 10px 4px;
+}
+ 
+.menu a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: var(--r);
+  text-decoration: none;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--sidebar-text);
+  transition: background .15s, color .15s;
+  position: relative;
+}
+ 
+.menu a:hover {
+  background: var(--sidebar-hover-bg);
+  color: #fff;
+}
+ 
+.menu a.active {
+  background: var(--sidebar-active-bg);
+  color: var(--sidebar-active-text);
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(37,99,235,.4);
+}
+ 
+/* ─── CTA в сайдбаре ─── */
+.create-rental-btn {
+  margin: 6px 10px 2px;
+  padding: 10px 14px;
+  background: linear-gradient(135deg, #2563EB, #1D4ED8);
+  color: #fff;
+  border: none;
+  border-radius: var(--r);
+  font-size: 13.5px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all .18s;
+  box-shadow: 0 2px 12px rgba(37,99,235,.35);
+}
+ 
+.create-rental-btn:hover {
+  background: linear-gradient(135deg, #1D4ED8, #1E40AF);
+  box-shadow: 0 4px 16px rgba(37,99,235,.5);
+  transform: translateY(-1px);
+}
+ 
+/* Разделитель в меню */
+.menu-divider {
+  height: 1px;
+  background: rgba(255,255,255,.07);
+  margin: 8px 10px;
+}
+ 
+/* ─── Выход ─── */
+.logout {
+  padding: 12px 10px;
+  border-top: 1px solid rgba(255,255,255,.07);
+}
+ 
+.logout button {
+  width: 100%;
+  padding: 9px 14px;
+  background: rgba(220,38,38,.15);
+  color: #FCA5A5;
+  border: 1px solid rgba(220,38,38,.2);
+  border-radius: var(--r);
+  font-size: 13.5px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all .18s;
+}
+ 
+.logout button:hover {
+  background: rgba(220,38,38,.28);
+  color: #fff;
+}
+ 
+/* ─── Контент ─── */
+.content {
+  margin-left: 240px;
+  width: calc(100vw - 240px);
+  min-height: 100vh;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+}
+ 
 .content > * {
-  padding: 24px 32px;
+  padding: 28px 32px;
   box-sizing: border-box;
   max-width: 100%;
-  overflow-x: hidden;
 }
-

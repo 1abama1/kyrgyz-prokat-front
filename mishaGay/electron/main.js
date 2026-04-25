@@ -47,7 +47,7 @@ let mainWindow = null;
 const getContractsDir = () => {
   const contractsDir = path.join(
     app.getPath("documents"),
-    "MishaCRM",
+    "Level",
     "Contracts"
   );
 
@@ -91,6 +91,11 @@ ipcMain.handle("save-contract-excel", async (_, { buffer, filename }) => {
 ipcMain.handle("open-contract-excel", async (_, filePath) => {
   log.info(`[IPC] Вызов open-contract-excel для пути: ${filePath}`);
   return shell.openPath(filePath);
+});
+
+ipcMain.handle("show-item-in-folder", async (_, filePath) => {
+  log.info(`[IPC] Вызов show-item-in-folder для пути: ${filePath}`);
+  shell.showItemInFolder(filePath);
 });
 
 console.log("🔥 IPC handlers registered successfully");
