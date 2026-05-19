@@ -11,6 +11,7 @@ import { ToolCategory } from "../types/category.types";
 import { ToolTemplate } from "../types/template.types";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { ToolInstanceSelect } from "../components/ToolInstanceSelect";
+import { StyledSelect } from "../components/StyledSelect";
 import { useClientCheck } from "../hooks/useClientCheck";
 import { ProblemClientWarning } from "../components/ProblemClientWarning";
 import "../styles/create-rental.css";
@@ -145,6 +146,21 @@ export const CreateRentalContractPage: FC = () => {
     }
   };
 
+  const clientOptions = clients.map(c => ({
+    value: c.id,
+    label: `${c.fullName}${c.phone ? ` (${c.phone})` : ""}`
+  }));
+
+  const categoryOptions = categories.map(cat => ({
+    value: cat.id,
+    label: cat.name
+  }));
+
+  const templateOptions = templates.map(tmpl => ({
+    value: tmpl.id,
+    label: tmpl.name
+  }));
+
   return (
     <Layout>
       <div className="rental-page">
@@ -160,17 +176,16 @@ export const CreateRentalContractPage: FC = () => {
           )}
 
           <label>Клиент</label>
-          <select 
-            value={clientId} 
-            onChange={e => setClientId(e.target.value ? Number(e.target.value) : "")}
-          >
-            <option value="">Выберите клиента</option>
-            {clients.map(c => (
-              <option key={c.id} value={c.id}>
-                {c.fullName} {c.phone ? `(${c.phone})` : ""}
-              </option>
-            ))}
-          </select>
+          <div style={{ marginBottom: 16 }}>
+            <StyledSelect
+              options={clientOptions}
+              value={clientId}
+              onChange={(val) => setClientId(val ? Number(val) : "")}
+              placeholder="Выберите клиента"
+              isClearable
+              noOptionsMessage="Клиенты не найдены"
+            />
+          </div>
 
           {clientCheck.warning && !warningAccepted && (
             <ProblemClientWarning
@@ -184,48 +199,48 @@ export const CreateRentalContractPage: FC = () => {
           )}
 
           <label>Категория</label>
-          <select 
-            value={categoryId} 
-            onChange={e => setCategoryId(e.target.value ? Number(e.target.value) : "")}
-          >
-            <option value="">Выберите категорию</option>
-            {categories.map(cat => (
-              <option key={cat.id} value={cat.id}>
-                {cat.name}
-              </option>
-            ))}
-          </select>
+          <div style={{ marginBottom: 16 }}>
+            <StyledSelect
+              options={categoryOptions}
+              value={categoryId}
+              onChange={(val) => setCategoryId(val ? Number(val) : "")}
+              placeholder="Выберите категорию"
+              isClearable
+              noOptionsMessage="Категории не найдены"
+            />
+          </div>
 
           {categoryId && (
             <>
               <label>Модель</label>
-              <select 
-                value={templateId} 
-                onChange={e => setTemplateId(e.target.value ? Number(e.target.value) : "")}
-                disabled={!categoryId}
-              >
-                <option value="">Выберите модель</option>
-                {templates.map(tmpl => (
-                  <option key={tmpl.id} value={tmpl.id}>
-                    {tmpl.name}
-                  </option>
-                ))}
-              </select>
+              <div style={{ marginBottom: 16 }}>
+                <StyledSelect
+                  options={templateOptions}
+                  value={templateId}
+                  onChange={(val) => setTemplateId(val ? Number(val) : "")}
+                  placeholder="Выберите модель"
+                  isDisabled={!categoryId}
+                  isClearable
+                  noOptionsMessage="Модели не найдены"
+                />
+              </div>
             </>
           )}
 
           {templateId && (
             <>
               <label>Экземпляр инструмента</label>
-              <ToolInstanceSelect
-                tools={tools}
-                value={toolId}
-                onChange={setToolId}
-                placeholder={tools.length === 0 ? "Нет экземпляров" : "Выберите экземпляр"}
-              />
+              <div style={{ marginBottom: 16 }}>
+                <ToolInstanceSelect
+                  tools={tools}
+                  value={toolId}
+                  onChange={setToolId}
+                  placeholder={tools.length === 0 ? "Нет экземпляров" : "Выберите экземпляр"}
+                />
+              </div>
               {templateId && tools.length === 0 && (
-                <div style={{ marginTop: 6, color: "#dc2626", fontSize: 12 }}>
-                  Нет экземпляров для выбранной модели
+                <div className="no-tools-warning">
+                  ⚠ Нет экземпляров для выбранной модели
                 </div>
               )}
             </>
@@ -246,4 +261,3 @@ export const CreateRentalContractPage: FC = () => {
     </Layout>
   );
 };
-

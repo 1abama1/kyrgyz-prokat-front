@@ -17,16 +17,94 @@ type ToolOption = {
   isDisabled: boolean;
 };
 
-const statusColor: Record<ToolInstance["status"], string> = {
-  AVAILABLE: "green",
-  RENTED: "red",
-  BROKEN: "orange"
+const statusConfig: Record<ToolInstance["status"], { color: string; bg: string; icon: string; text: string }> = {
+  AVAILABLE: { color: "#16A34A", bg: "#F0FDF4", icon: "●", text: "Доступен" },
+  RENTED:    { color: "#DC2626", bg: "#FEF2F2", icon: "●", text: "Занят" },
+  BROKEN:    { color: "#D97706", bg: "#FFFBEB", icon: "●", text: "Сломан" }
 };
 
 const selectStyles: StylesConfig<ToolOption, false> = {
-  option: (base) => ({ ...base, padding: 8 }),
-  menu: (base) => ({ ...base, zIndex: 9999 }),
-  menuPortal: (base) => ({ ...base, zIndex: 9999 })
+  control: (base, state) => ({
+    ...base,
+    minHeight: 42,
+    borderWidth: "1.5px",
+    borderColor: state.isFocused ? "#2563EB" : "#E2E8F0",
+    borderRadius: 10,
+    background: state.isDisabled ? "#F8FAFC" : "#FFFFFF",
+    boxShadow: "none",
+    transition: "border-color .2s, background .2s",
+    "&:hover": {
+      borderColor: state.isFocused ? "#2563EB" : "#CBD5E1",
+      background: state.isFocused ? "#FFFFFF" : "#F8FAFC"
+    }
+  }),
+  menu: (base) => ({
+    ...base,
+    borderRadius: 10,
+    border: "1px solid #E2E8F0",
+    boxShadow: "0 8px 24px rgba(0,0,0,.10)",
+    overflow: "hidden",
+    zIndex: 9999,
+    animation: "selectMenuAppear .15s ease"
+  }),
+  menuList: (base) => ({
+    ...base,
+    padding: 4,
+  }),
+  option: (base, state) => ({
+    ...base,
+    padding: "8px 12px",
+    borderRadius: 6,
+    margin: "2px 0",
+    cursor: state.isDisabled ? "not-allowed" : "pointer",
+    background: state.isSelected
+      ? "#2563EB"
+      : state.isFocused
+        ? "#EFF6FF"
+        : "transparent",
+    color: state.isSelected ? "#fff" : state.isDisabled ? "#94A3B8" : "#0F172A",
+    transition: "background .12s ease",
+    "&:active": {
+      background: state.isDisabled ? "transparent" : "#BFDBFE"
+    }
+  }),
+  indicatorSeparator: (base) => ({
+    ...base,
+    backgroundColor: "#E2E8F0",
+  }),
+  dropdownIndicator: (base, state) => ({
+    ...base,
+    color: state.isFocused ? "#2563EB" : "#94A3B8",
+    transition: "color .18s ease, transform .2s ease",
+    transform: state.selectProps.menuIsOpen ? "rotate(180deg)" : "none",
+    "&:hover": { color: "#475569" }
+  }),
+  clearIndicator: (base) => ({
+    ...base,
+    color: "#94A3B8",
+    "&:hover": { color: "#DC2626" }
+  }),
+  placeholder: (base) => ({
+    ...base,
+    color: "#94A3B8",
+    fontSize: 14
+  }),
+  singleValue: (base) => ({
+    ...base,
+    color: "#0F172A",
+  }),
+  valueContainer: (base) => ({
+    ...base,
+    padding: "2px 14px",
+  }),
+  input: (base) => ({
+    ...base,
+    color: "#0F172A"
+  }),
+  menuPortal: (base) => ({
+    ...base,
+    zIndex: 9999
+  })
 };
 
 export const ToolInstanceSelect = ({
@@ -51,35 +129,93 @@ export const ToolInstanceSelect = ({
       options={options}
       value={selectedOption}
       className={className}
+      classNamePrefix="custom-select"
       placeholder={placeholder}
       isDisabled={isDisabled}
       isClearable
+      isSearchable={true}
       onChange={(option) => onChange(option?.value ?? null)}
       isOptionDisabled={(option) => option.isDisabled}
-      formatOptionLabel={(option) => {
+      formatOptionLabel={(option, { context }) => {
         const t = option.tool;
-        const statusText =
-          t.status === "AVAILABLE"
-            ? "✔ Доступен"
-            : t.status === "RENTED"
-              ? "❌ Занят"
-              : "⚠️ Сломан";
+        const cfg = statusConfig[t.status];
 
-        return (
-          <div style={{ padding: "4px 0" }}>
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <strong>
+        // Compact view for the selected value to avoid huge input height
+        if (context === "value") {
+          return (
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <strong style={{ fontSize: 14, fontWeight: 600 }}>
                 {t.name} (№{t.instanceNumber ?? t.id})
               </strong>
-              <span style={{ color: statusColor[t.status] }}>{statusText}</span>
+              <span style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 4,
+                padding: "2px 6px",
+                borderRadius: 6,
+                background: cfg.bg,
+                color: cfg.color,
+                fontSize: 11,
+                fontWeight: 600,
+              }}>
+                {cfg.text}
+              </span>
+            </div>
+          );
+        }
+
+        // Detailed view for the dropdown menu
+        return (
+          <div style={{ padding: "3px 0" }}>
+            <div style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 8
+            }}>
+              <strong style={{ fontSize: 13.5, fontWeight: 600 }}>
+                {t.name} (№{t.instanceNumber ?? t.id})
+              </strong>
+              <span style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 5,
+                padding: "2px 8px",
+                borderRadius: 999,
+                background: cfg.bg,
+                color: cfg.color,
+                fontSize: 11.5,
+                fontWeight: 600,
+                whiteSpace: "nowrap",
+                letterSpacing: ".01em"
+              }}>
+                <span style={{ fontSize: 8 }}>{cfg.icon}</span>
+                {cfg.text}
+              </span>
             </div>
 
-            <div style={{ fontSize: "12px", opacity: 0.8 }}>
-              ИНВ: {t.inventoryNumber} | Арт: {t.article}
+            <div style={{
+              display: "flex",
+              gap: 12,
+              marginTop: 4,
+              fontSize: 12,
+              opacity: 0.8
+            }}>
+              <span>ИНВ: {t.inventoryNumber}</span>
+              <span style={{ opacity: 0.5 }}>|</span>
+              <span>Арт: {t.article}</span>
             </div>
 
-            <div style={{ fontSize: "12px", opacity: 0.8 }}>
-              Цена: {t.dailyPrice} / сутки | Залог: {t.deposit}
+            <div style={{
+              display: "flex",
+              gap: 12,
+              marginTop: 2,
+              fontSize: 12,
+              opacity: 0.8
+            }}>
+              <span><strong style={{ fontWeight: 600 }}>{t.dailyPrice}</strong> / сутки</span>
+              <span style={{ opacity: 0.5 }}>|</span>
+              <span>Залог: <strong style={{ fontWeight: 600 }}>{t.deposit}</strong></span>
             </div>
           </div>
         );
@@ -89,4 +225,3 @@ export const ToolInstanceSelect = ({
     />
   );
 };
-

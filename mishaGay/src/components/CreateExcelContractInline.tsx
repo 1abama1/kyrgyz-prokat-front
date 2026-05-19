@@ -9,6 +9,7 @@ import { contractsAPI } from "../api/contracts";
 import { downloadContractExcel } from "../api/excel.api";
 import { ErrorMessage } from "./ErrorMessage";
 import { ToolInstanceSelect } from "./ToolInstanceSelect";
+import { StyledSelect } from "./StyledSelect";
 
 interface Props {
   client: ClientCardResponse;
@@ -240,43 +241,36 @@ export const CreateExcelContractInline: FC<Props> = ({ client, onContractCreated
 
       <form onSubmit={onSubmit}>
       <label style={{ display: "block", marginTop: 12 }}>Категория:</label>
-      <select
-        value={category}
-        disabled={isCategoryDisabled}
-        onChange={(e) => handleCategoryChange(e.target.value ? Number(e.target.value) : "")}
-        style={{ width: "100%", padding: 8, marginTop: 4 }}
-      >
-        <option value="">Выберите категорию</option>
-        {categories.map(c => (
-          <option key={c.id} value={c.id}>
-            {c.name}
-          </option>
-        ))}
-      </select>
+      <div style={{ marginTop: 4 }}>
+        <StyledSelect
+          options={categories.map(c => ({ value: c.id, label: c.name }))}
+          value={category}
+          isDisabled={isCategoryDisabled}
+          onChange={(val) => handleCategoryChange(val ? Number(val) : "")}
+          placeholder="Выберите категорию"
+          isClearable
+        />
+      </div>
 
       <label style={{ display: "block", marginTop: 12 }}>Модель инструмента:</label>
-      <select
-        value={templateId}
-        disabled={isTemplateDisabled}
-        onChange={(e) => {
-          const value = e.target.value;
-          if (!value) {
-            setTemplateId("");
-            setTools([]);
-            setToolId(null);
-            return;
-          }
-          handleTemplateChange(Number(value));
-        }}
-        style={{ width: "100%", padding: 8, marginTop: 4 }}
-      >
-        <option value="">Выберите модель</option>
-        {filteredTemplates.map(t => (
-          <option key={t.id} value={t.id}>
-            {t.name}
-          </option>
-        ))}
-      </select>
+      <div style={{ marginTop: 4 }}>
+        <StyledSelect
+          options={filteredTemplates.map(t => ({ value: t.id, label: t.name }))}
+          value={templateId}
+          isDisabled={isTemplateDisabled}
+          onChange={(val) => {
+            if (!val) {
+              setTemplateId("");
+              setTools([]);
+              setToolId(null);
+              return;
+            }
+            handleTemplateChange(Number(val));
+          }}
+          placeholder="Выберите модель"
+          isClearable
+        />
+      </div>
 
       <label style={{ display: "block", marginTop: 12 }}>Конкретный инструмент:</label>
       {shouldHideToolSelect ? (

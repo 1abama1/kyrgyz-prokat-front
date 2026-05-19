@@ -52,8 +52,9 @@ export const DownloadExcelButton = ({ contractId, contractNumber }: Props) => {
       let existingPath = await window.contracts.checkExists(filename);
 
       if (!existingPath) {
-        alert("Сначала скачайте договор: нажмите кнопку «Отрыть Excel»");
-        return;
+        const blob = await downloadContractExcel(contractId);
+        const buffer = await blob.arrayBuffer();
+        existingPath = await window.contracts.saveExcel(buffer, filename);
       }
 
       await window.contracts.showItemInFolder(existingPath);
@@ -68,16 +69,16 @@ export const DownloadExcelButton = ({ contractId, contractNumber }: Props) => {
 
   return (
     <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-      <button 
-        className="btn-primary" 
+      <button
+        className="btn-primary"
         onClick={handleOpen}
         disabled={loading}
       >
         {loading ? "⏳ Открытие..." : "📄 Открыть Excel"}
       </button>
-      
-      <button 
-        className="btn-secondary" 
+
+      <button
+        className="btn-secondary"
         onClick={handleOpenFolder}
         disabled={loading}
       >

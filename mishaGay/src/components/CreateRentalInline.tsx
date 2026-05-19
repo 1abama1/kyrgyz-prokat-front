@@ -11,6 +11,7 @@ import { ErrorMessage } from "./ErrorMessage";
 import { ToolInstanceSelect } from "./ToolInstanceSelect";
 import { useClientCheck } from "../hooks/useClientCheck";
 import { ProblemClientWarning } from "./ProblemClientWarning";
+import { StyledSelect } from "./StyledSelect";
 import "../styles/create-rental.css";
 
 export interface CreateRentalInlineProps {
@@ -156,17 +157,15 @@ export const CreateRentalInline: FC<CreateRentalInlineProps> = ({ defaultClientI
         )}
 
         <label>Клиент</label>
-        <select
-          value={clientId}
-          onChange={e => setClientId(e.target.value ? Number(e.target.value) : "")}
-        >
-          <option value="">Выберите клиента</option>
-          {clients.map(c => (
-            <option key={c.id} value={c.id}>
-              {c.fullName} {c.phone ? `(${c.phone})` : ""}
-            </option>
-          ))}
-        </select>
+        <div style={{ marginBottom: 16 }}>
+          <StyledSelect
+            options={clients.map(c => ({ value: c.id, label: `${c.fullName} ${c.phone ? `(${c.phone})` : ""}` }))}
+            value={clientId}
+            onChange={(val) => setClientId(val ? Number(val) : "")}
+            placeholder="Выберите клиента"
+            isClearable
+          />
+        </div>
 
         {clientCheck.warning && !warningAccepted && (
           <ProblemClientWarning
@@ -180,33 +179,29 @@ export const CreateRentalInline: FC<CreateRentalInlineProps> = ({ defaultClientI
         )}
 
         <label>Категория</label>
-        <select
-          value={categoryId}
-          onChange={e => setCategoryId(e.target.value ? Number(e.target.value) : "")}
-        >
-          <option value="">Выберите категорию</option>
-          {categories.map(cat => (
-            <option key={cat.id} value={cat.id}>
-              {cat.name}
-            </option>
-          ))}
-        </select>
+        <div style={{ marginBottom: 16 }}>
+          <StyledSelect
+            options={categories.map(cat => ({ value: cat.id, label: cat.name }))}
+            value={categoryId}
+            onChange={(val) => setCategoryId(val ? Number(val) : "")}
+            placeholder="Выберите категорию"
+            isClearable
+          />
+        </div>
 
         {categoryId && (
           <>
             <label>Модель</label>
-            <select
-              value={templateId}
-              onChange={e => setTemplateId(e.target.value ? Number(e.target.value) : "")}
-              disabled={!categoryId}
-            >
-              <option value="">Выберите модель</option>
-              {templates.map(tmpl => (
-                <option key={tmpl.id} value={tmpl.id}>
-                  {tmpl.name}
-                </option>
-              ))}
-            </select>
+            <div style={{ marginBottom: 16 }}>
+              <StyledSelect
+                options={templates.map(tmpl => ({ value: tmpl.id, label: tmpl.name }))}
+                value={templateId}
+                onChange={(val) => setTemplateId(val ? Number(val) : "")}
+                isDisabled={!categoryId}
+                placeholder="Выберите модель"
+                isClearable
+              />
+            </div>
           </>
         )}
 

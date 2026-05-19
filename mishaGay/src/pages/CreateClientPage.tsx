@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { clientsAPI } from "../api/clients";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { CLIENT_TAGS, type ClientTag } from "../types/client.types";
+import { StyledSelect } from "../components/StyledSelect";
 import "../styles/create-client.css";
 
 export const CreateClientPage: FC = () => {
@@ -379,25 +380,18 @@ export const CreateClientPage: FC = () => {
           <section>
             <div>
               <label>Тег клиента</label>
-              <select
+              <StyledSelect
+                options={[
+                  { value: "", label: "Не выбран" },
+                  ...CLIENT_TAGS.map(tagOption => ({
+                    value: tagOption,
+                    label: tagOption
+                  }))
+                ]}
                 value={tag}
-                onChange={e => setTag(e.target.value as ClientTag | "")}
-                style={{
-                  padding: "10px 12px",
-                  borderRadius: "10px",
-                  border: "1px solid #d1d5db",
-                  fontSize: "14px",
-                  width: "100%",
-                  fontFamily: "inherit"
-                }}
-              >
-                <option value="">Не выбран</option>
-                {CLIENT_TAGS.map(tagOption => (
-                  <option key={tagOption} value={tagOption}>
-                    {tagOption}
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => setTag((val as ClientTag) || "")}
+                isSearchable={false}
+              />
             </div>
           </section>
 

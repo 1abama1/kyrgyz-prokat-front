@@ -8,6 +8,7 @@ import { ToolCategory } from "../types/tool.types";
 import { ToolTemplate } from "../types/tool.types";
 import { CreateToolDto } from "../types/dto/createTool.dto";
 import { ErrorMessage } from "../components/ErrorMessage";
+import { StyledSelect } from "../components/StyledSelect";
 
 export const CreateToolPage: FC = () => {
   const navigate = useNavigate();
@@ -184,62 +185,32 @@ export const CreateToolPage: FC = () => {
           <label style={{ display: "block", marginBottom: 4, fontWeight: 500 }}>
             Категория <span style={{ color: "red" }}>*</span>
           </label>
-          <select
+          <StyledSelect
+            options={categories.map(cat => ({ value: cat.id, label: cat.name }))}
             value={categoryId ?? ""}
-            onChange={(e) => {
-              const newCategoryId = e.target.value ? Number(e.target.value) : undefined;
+            onChange={(val) => {
+              const newCategoryId = val ? Number(val) : undefined;
               setCategoryId(newCategoryId);
-              setTemplateId(undefined); // Сбрасываем модель при смене категории
+              setTemplateId(undefined);
             }}
-            required
-            disabled={loadingData}
-            style={{
-              width: "100%",
-              padding: "8px 12px",
-              border: "1px solid #ddd",
-              borderRadius: "4px",
-              fontSize: 14,
-              background: loadingData ? "#f3f4f6" : "white",
-              cursor: loadingData ? "not-allowed" : "pointer"
-            }}
-          >
-            <option value="">Выберите категорию</option>
-            {categories.map(cat => (
-              <option key={cat.id} value={cat.id}>
-                {cat.name}
-              </option>
-            ))}
-          </select>
+            isDisabled={loadingData}
+            placeholder="Выберите категорию"
+            isClearable
+          />
         </div>
 
         <div style={{ marginBottom: 16 }}>
           <label style={{ display: "block", marginBottom: 4, fontWeight: 500 }}>
             Модель <span style={{ color: "red" }}>*</span>
           </label>
-          <select
+          <StyledSelect
+            options={templates.map(tmpl => ({ value: tmpl.id, label: tmpl.name }))}
             value={templateId ?? ""}
-            onChange={(e) => setTemplateId(e.target.value ? Number(e.target.value) : undefined)}
-            required
-            disabled={!categoryId || loadingData}
-            style={{
-              width: "100%",
-              padding: "8px 12px",
-              border: "1px solid #ddd",
-              borderRadius: "4px",
-              fontSize: 14,
-              background: !categoryId || loadingData ? "#f3f4f6" : "white",
-              cursor: !categoryId || loadingData ? "not-allowed" : "pointer"
-            }}
-          >
-            <option value="">
-              {!categoryId ? "Сначала выберите категорию" : "Выберите модель"}
-            </option>
-            {templates.map(tmpl => (
-              <option key={tmpl.id} value={tmpl.id}>
-                {tmpl.name}
-              </option>
-            ))}
-          </select>
+            onChange={(val) => setTemplateId(val ? Number(val) : undefined)}
+            isDisabled={!categoryId || loadingData}
+            placeholder={!categoryId ? "Сначала выберите категорию" : "Выберите модель"}
+            isClearable
+          />
         </div>
 
         <div style={{ marginBottom: 16 }}>

@@ -4,6 +4,7 @@ import { Layout } from "../components/Layout";
 import { categoriesAPI } from "../api/categories";
 import { templatesAPI } from "../api/templates";
 import { ErrorMessage } from "../components/ErrorMessage";
+import { StyledSelect } from "../components/StyledSelect";
 import type { CategoryDto } from "../types/inventory.types";
 
 export const CreateTemplatePage = () => {
@@ -86,30 +87,14 @@ export const CreateTemplatePage = () => {
             <label style={{ display: "block", marginBottom: 6, fontWeight: 500 }}>
               Категория <span style={{ color: "#dc2626" }}>*</span>
             </label>
-            <select
+            <StyledSelect
+              options={categories.map((cat) => ({ value: cat.id, label: cat.name }))}
               value={categoryId ?? ""}
-              onChange={(e) => setCategoryId(e.target.value ? Number(e.target.value) : undefined)}
-              disabled={loading || loadingCategories}
-              required
-              style={{
-                width: "100%",
-                padding: "10px 12px",
-                borderRadius: 8,
-                border: "1px solid #d1d5db",
-                background: loading || loadingCategories ? "#f9fafb" : "#fff",
-                fontSize: 14,
-                cursor: loading || loadingCategories ? "not-allowed" : "pointer",
-              }}
-            >
-              <option value="">
-                {loadingCategories ? "Загрузка категорий..." : "Выберите категорию"}
-              </option>
-              {categories.map((cat) => (
-                <option key={cat.id} value={cat.id}>
-                  {cat.name}
-                </option>
-              ))}
-            </select>
+              onChange={(val) => setCategoryId(val ? Number(val) : undefined)}
+              isDisabled={loading || loadingCategories}
+              placeholder={loadingCategories ? "Загрузка категорий..." : "Выберите категорию"}
+              isClearable
+            />
           </div>
 
           <div style={{ marginBottom: 16 }}>

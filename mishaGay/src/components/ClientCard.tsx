@@ -8,6 +8,7 @@ import type { ToolTemplate } from "../types/template.types";
 import type { ToolCategory } from "../types/category.types";
 import type { ClientCard as ClientCardResponse } from "../types/client.types";
 import { ToolInstanceSelect } from "./ToolInstanceSelect";
+import { StyledSelect } from "./StyledSelect";
 
 interface ClientCardProps {
   clientId: number;
@@ -158,41 +159,32 @@ export default function ClientCard({ clientId }: ClientCardProps) {
       <div className="contract-form mt-4" style={{ marginTop: 16 }}>
         <h3>Создать Excel договор</h3>
 
-        <select
-          className="form-select"
-          value={selectedCategory ?? ""}
-          onChange={(e) => {
-            const value = e.target.value ? Number(e.target.value) : null;
-            setSelectedCategory(value);
-            setSelectedTemplate(null);
-            setSelectedTool(null);
-            setTemplateTools([]);
-          }}
-        >
-          <option value="">Выберите категорию</option>
-          {categories.map(category => (
-            <option key={category.id} value={category.id}>
-              {category.name}
-            </option>
-          ))}
-        </select>
+        <div style={{ marginBottom: 16 }}>
+          <StyledSelect
+            options={categories.map(category => ({ value: category.id, label: category.name }))}
+            value={selectedCategory ?? ""}
+            onChange={(val) => {
+              const value = val ? Number(val) : null;
+              setSelectedCategory(value);
+              setSelectedTemplate(null);
+              setSelectedTool(null);
+              setTemplateTools([]);
+            }}
+            placeholder="Выберите категорию"
+            isClearable
+          />
+        </div>
 
-        <select
-          className="form-select mt-2"
-          disabled={!selectedCategory}
-          value={selectedTemplate ?? ""}
-          onChange={(e) => {
-            const value = e.target.value;
-            setSelectedTemplate(value ? Number(value) : null);
-          }}
-        >
-          <option value="">Выберите модель</option>
-          {filteredTemplates.map(template => (
-            <option key={template.id} value={template.id}>
-              {template.name}
-            </option>
-          ))}
-        </select>
+        <div style={{ marginBottom: 16 }}>
+          <StyledSelect
+            options={filteredTemplates.map(template => ({ value: template.id, label: template.name }))}
+            value={selectedTemplate ?? ""}
+            onChange={(val) => setSelectedTemplate(val ? Number(val) : null)}
+            isDisabled={!selectedCategory}
+            placeholder="Выберите модель"
+            isClearable
+          />
+        </div>
 
         <ToolInstanceSelect
           tools={templateTools}

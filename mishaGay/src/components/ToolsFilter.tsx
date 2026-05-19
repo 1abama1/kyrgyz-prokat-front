@@ -1,4 +1,5 @@
 import { ToolStatus } from "../types/tool.types";
+import { StyledSelect } from "./StyledSelect";
 
 interface Props {
   status?: ToolStatus;
@@ -14,32 +15,31 @@ export const ToolsFilter = ({
   onChange
 }: Props) => {
   return (
-    <div className="tools-filter">
-      <select
-        value={status ?? ""}
-        onChange={e =>
-          onChange({ status: e.target.value as ToolStatus || undefined, categoryId })
-        }
-      >
-        <option value="">Все статусы</option>
-        <option value="AVAILABLE">Свободные</option>
-        <option value="RENTED">В аренде</option>
-        <option value="OVERDUE">Просроченные</option>
-      </select>
+    <div className="tools-filter" style={{ display: "flex", gap: 16 }}>
+      <div style={{ flex: 1, minWidth: 200 }}>
+        <StyledSelect
+          options={[
+            { value: "AVAILABLE", label: "Свободные" },
+            { value: "RENTED", label: "В аренде" },
+            { value: "OVERDUE", label: "Просроченные" }
+          ]}
+          value={status ?? ""}
+          onChange={(val) => onChange({ status: (val as ToolStatus) || undefined, categoryId })}
+          placeholder="Все статусы"
+          isClearable
+          isSearchable={false}
+        />
+      </div>
 
-      <select
-        value={categoryId ?? ""}
-        onChange={e =>
-          onChange({ status, categoryId: e.target.value ? Number(e.target.value) : undefined })
-        }
-      >
-        <option value="">Все категории</option>
-        {categories.map(c => (
-          <option key={c.id} value={c.id}>
-            {c.name}
-          </option>
-        ))}
-      </select>
+      <div style={{ flex: 1, minWidth: 200 }}>
+        <StyledSelect
+          options={categories.map(c => ({ value: c.id, label: c.name }))}
+          value={categoryId ?? ""}
+          onChange={(val) => onChange({ status, categoryId: val ? Number(val) : undefined })}
+          placeholder="Все категории"
+          isClearable
+        />
+      </div>
     </div>
   );
 };

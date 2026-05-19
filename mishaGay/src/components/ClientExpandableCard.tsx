@@ -115,31 +115,7 @@ export const ClientExpandableCard: FC<Props> = ({ clientId, fullName, phone, wha
 
         {data && (
           <>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <h3 style={{ marginTop: 0, marginBottom: 0 }}>{data.fullName}</h3>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  navigate(`/clients/edit/${clientId}`);
-                }}
-                style={{
-                  background: "#1976d2",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: "6px",
-                  padding: "8px 16px",
-                  cursor: "pointer",
-                  fontWeight: 500,
-                  fontSize: 14,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6
-                }}
-                title="Редактировать клиента"
-              >
-                ✏️ Редактировать
-              </button>
-            </div>
+            <h3 style={{ marginTop: 0, marginBottom: 16 }}>{data.fullName}</h3>
 
             {/* === ОСНОВНАЯ ИНФА === */}
             <div style={{ marginBottom: 20 }}>

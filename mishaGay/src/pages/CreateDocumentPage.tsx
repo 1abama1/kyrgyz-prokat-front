@@ -8,6 +8,7 @@ import { Client, ClientCard } from "../types/client.types";
 import { ToolInstance } from "../types/tool.types";
 import { ToolTemplate } from "../types/template.types";
 import { ErrorMessage } from "../components/ErrorMessage";
+import { StyledSelect } from "../components/StyledSelect";
 import "../styles/create-rental.css";
 
 export const CreateDocumentPage: FC = () => {
@@ -46,18 +47,39 @@ export const CreateDocumentPage: FC = () => {
     }
   };
 
-  const handleTemplateSelect = async (id: number) => {
-    setSelectedTemplate(id);
+  const handleTemplateSelect = async (id: number | string | null) => {
+    const numId = id ? Number(id) : "";
+    setSelectedTemplate(numId);
     setSelectedTool("");
     setAvailableTools([]);
 
-    if (!id) return;
+    if (!numId) return;
     try {
       setError(null);
-      const free = await contractsAPI.getAvailableTools(id);
+      const free = await contractsAPI.getAvailableTools(Number(numId));
       setAvailableTools(free);
     } catch (err: any) {
       setError(err.message || "Ошибка загрузки доступных инструментов");
+    }
+  };
+
+  const handleClientSelect = async (val: number | string | null) => {
+    const id = val ? Number(val) : 0;
+    const client = clients.find(c => c.id === id) || null;
+    setSelectedClient(client);
+
+    if (!id) {
+      setClientCard(null);
+      return;
+    }
+
+    try {
+      setError(null);
+      const card = await clientsAPI.getCard(id);
+      setClientCard(card);
+    } catch (err: any) {
+      setError(err?.message || "Ошибка загрузки карточки клиента");
+      setClientCard(null);
     }
   };
 
@@ -95,130 +117,88 @@ export const CreateDocumentPage: FC = () => {
     }
   };
 
+  const clientOptions = clients.map(c => ({
+    value: c.id,
+    label: `${c.fullName} — ${c.phone}`
+  }));
+
+  const templateOptions = templates.map(t => ({
+    value: t.id,
+    label: t.name
+  }));
+
+  const toolOptions = availableTools.map(tool => ({
+    value: tool.id,
+    label: `${tool.name} — ${tool.inventoryNumber}`
+  }));
+
   return (
     <Layout>
-      <button
-        onClick={() => navigate("/documents")}
-        style={{
-          marginBottom: "20px",
-          padding: "8px 16px",
-          background: "#757575",
-          color: "white",
-          border: "none",
-          borderRadius: "4px",
-          cursor: "pointer"
-        }}
-      >
-        ← Назад к списку
-      </button>
+      <div className="rental-page">
+        <div className="rental-left">
+          <h1>Создание договора</h1>
 
-      <h1>Создание договора</h1>
-
-      {clientCard && (
-        <div className="client-card">
-          <strong>{clientCard.fullName}</strong>
-          <div>Тел: {clientCard.phone || "—"}</div>
-          <div>Email: {clientCard.email || "—"}</div>
-          <div>Тег: {clientCard.tag || "—"}</div>
-        </div>
-      )}
-
-      <ErrorMessage error={error} onClose={() => setError(null)} />
-
-      <form onSubmit={handleSubmit} style={{ maxWidth: 600 }}>
-        <div style={{ marginBottom: 16 }}>
-          <label>Клиент:</label>
-          <select
-            value={selectedClient?.id || ""}
-            onChange={async (e) => {
-              const id = Number(e.target.value);
-              const client = clients.find(c => c.id === id) || null;
-              setSelectedClient(client);
-
-              if (!id) {
-                setClientCard(null);
-                return;
-              }
-
-              try {
-                setError(null);
-                const card = await clientsAPI.getCard(id);
-                setClientCard(card);
-              } catch (err: any) {
-                setError(err?.message || "Ошибка загрузки карточки клиента");
-                setClientCard(null);
-              }
-            }}
-            required
-            style={{ width: "100%", padding: 8 }}
-          >
-            <option value="">Выберите клиента</option>
-            {clients.map((client) => (
-              <option key={client.id} value={client.id}>
-                {client.fullName} — {client.phone}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div style={{ marginBottom: 16 }}>
-          <label>Модель (шаблон) инструмента:</label>
-          <select
-            value={selectedTemplate}
-            onChange={(e) => handleTemplateSelect(Number(e.target.value))}
-            required
-            style={{ width: "100%", padding: 8 }}
-          >
-            <option value="">Выберите модель</option>
-            {templates.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div style={{ marginBottom: 16 }}>
-          <label>Конкретный инструмент:</label>
-          <select
-            value={selectedTool}
-            disabled={availableTools.length === 0}
-            onChange={(e) => setSelectedTool(Number(e.target.value))}
-            required
-            style={{ width: "100%", padding: 8 }}
-          >
-            <option value="">Выберите инструмент</option>
-            {availableTools.map((tool) => (
-              <option key={tool.id} value={tool.id}>
-                {tool.name} — {tool.inventoryNumber}
-              </option>
-            ))}
-          </select>
-
-          {selectedTemplate && availableTools.length === 0 && (
-            <div style={{ color: "red", marginTop: 5 }}>
-              Нет свободных инструментов этой модели 😢
+          {clientCard && (
+            <div className="client-card">
+              <strong>{clientCard.fullName}</strong>
+              <div>Тел: {clientCard.phone || "—"}</div>
+              <div>Email: {clientCard.email || "—"}</div>
+              <div>Тег: {clientCard.tag || "—"}</div>
             </div>
           )}
-        </div>
 
-        <button
-          type="submit"
-          disabled={loading}
-          style={{
-            width: "100%",
-            padding: 10,
-            background: "#1976d2",
-            color: "white",
-            borderRadius: 4,
-            border: "none",
-            cursor: loading ? "not-allowed" : "pointer"
-          }}
-        >
-          {loading ? "Создание..." : "Создать договор"}
-        </button>
-      </form>
+          <ErrorMessage error={error} onClose={() => setError(null)} />
+
+          <form onSubmit={handleSubmit}>
+            <label>Клиент</label>
+            <div style={{ marginBottom: 16 }}>
+              <StyledSelect
+                options={clientOptions}
+                value={selectedClient?.id || ""}
+                onChange={handleClientSelect}
+                placeholder="Выберите клиента"
+                isClearable
+                noOptionsMessage="Клиенты не найдены"
+              />
+            </div>
+
+            <label>Модель (шаблон) инструмента</label>
+            <div style={{ marginBottom: 16 }}>
+              <StyledSelect
+                options={templateOptions}
+                value={selectedTemplate}
+                onChange={handleTemplateSelect}
+                placeholder="Выберите модель"
+                isClearable
+                noOptionsMessage="Модели не найдены"
+              />
+            </div>
+
+            <label>Конкретный инструмент</label>
+            <div style={{ marginBottom: 16 }}>
+              <StyledSelect
+                options={toolOptions}
+                value={selectedTool}
+                onChange={(val) => setSelectedTool(val ? Number(val) : "")}
+                placeholder="Выберите инструмент"
+                isDisabled={availableTools.length === 0}
+                isClearable
+                noOptionsMessage="Инструменты не найдены"
+              />
+            </div>
+
+            {selectedTemplate && availableTools.length === 0 && (
+              <div className="no-tools-warning">
+                ⚠ Нет свободных инструментов этой модели
+              </div>
+            )}
+
+            <button type="submit" disabled={loading}>
+              {loading ? "Создание..." : "Создать договор"}
+            </button>
+          </form>
+        </div>
+      </div>
     </Layout>
   );
 };
-
