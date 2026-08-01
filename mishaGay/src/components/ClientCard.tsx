@@ -9,6 +9,7 @@ import type { ToolCategory } from "../types/category.types";
 import type { ClientCard as ClientCardResponse } from "../types/client.types";
 import { ToolInstanceSelect } from "./ToolInstanceSelect";
 import { StyledSelect } from "./StyledSelect";
+import { WhatsAppButton } from "./WhatsAppButton";
 
 interface ClientCardProps {
   clientId: number;
@@ -139,7 +140,16 @@ export default function ClientCard({ clientId }: ClientCardProps) {
     <div className="client-card">
       <h2>{client.fullName}</h2>
       <p><b>Тел:</b> {client.phone || "—"}</p>
-      <p><b>WhatsApp:</b> {client.whatsappPhone || client.phone || "—"}</p>
+      <p style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", margin: "0 0 .5em" }}>
+        <b>WhatsApp:</b>
+        <span>{client.whatsappPhone || client.phone || "—"}</span>
+        {(client.whatsappPhone || client.phone) && (
+          <WhatsAppButton
+            phone={client.whatsappPhone || client.phone}
+            variant="link"
+          />
+        )}
+      </p>
       <p><b>Email:</b> {client.email || "—"}</p>
       <p><b>Тег:</b> {client.tag ?? "—"}</p>
       <p>

@@ -14,6 +14,7 @@ interface StyledSelectProps {
   isClearable?: boolean;
   className?: string;
   noOptionsMessage?: string;
+  isSearchable?: boolean;
 }
 
 const selectStyles: StylesConfig<SelectOption, false, GroupBase<SelectOption>> = {

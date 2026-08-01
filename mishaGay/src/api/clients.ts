@@ -131,5 +131,14 @@ export const clientsAPI = {
       method: "PUT",
       body: clientData
     });
+  },
+  updatePublic: (id: number, clientData: any): Promise<any> => {
+    if (!id || isNaN(id) || id <= 0) {
+      return Promise.reject(new Error("Invalid client id: id must be a positive number"));
+    }
+    return apiCall<any>(`/api/clients/${id}`, {
+      method: "PUT",
+      body: clientData
+    });
   }
 };

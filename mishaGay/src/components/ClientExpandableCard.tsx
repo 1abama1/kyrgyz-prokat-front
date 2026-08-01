@@ -7,6 +7,7 @@ import type { RentalDocument } from "../types/RentalDocument";
 import { formatDate } from "../utils/formatters";
 import { ErrorMessage } from "./ErrorMessage";
 import { ClientDocumentsTable } from "./ClientDocumentsTable";
+import { WhatsAppButton } from "./WhatsAppButton";
 
 interface Props {
   clientId: number;
@@ -80,11 +81,14 @@ export const ClientExpandableCard: FC<Props> = ({ clientId, fullName, phone, wha
           </div>
           <div style={{ marginTop: 4, fontSize: 14, color: "#6b7280" }}>
             {data?.phone || phone || "—"}
-            {data?.whatsappPhone || whatsappPhone ? (
-              <span style={{ marginLeft: 12, color: "#0f766e" }}>
-                WA: {data?.whatsappPhone || whatsappPhone}
+            {(data?.whatsappPhone || whatsappPhone) && (
+              <span style={{ marginLeft: 10 }}>
+                <WhatsAppButton
+                  phone={data?.whatsappPhone || whatsappPhone}
+                  variant="link"
+                />
               </span>
-            ) : null}
+            )}
             {data?.createdAt && (
               <span style={{ marginLeft: 12 }}>
                 с {formatDate(data.createdAt)}
@@ -121,7 +125,16 @@ export const ClientExpandableCard: FC<Props> = ({ clientId, fullName, phone, wha
             <div style={{ marginBottom: 20 }}>
               <h4 style={{ marginTop: 0, marginBottom: 12 }}>Основная информация</h4>
               <p><strong>Телефон:</strong> {data.phone || "—"}</p>
-              <p><strong>WhatsApp:</strong> {data.whatsappPhone || data.phone || "—"}</p>
+              <p style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <strong>WhatsApp:</strong>
+                <span>{data.whatsappPhone || data.phone || "—"}</span>
+                {(data.whatsappPhone || data.phone) && (
+                  <WhatsAppButton
+                    phone={data.whatsappPhone || data.phone}
+                    variant="link"
+                  />
+                )}
+              </p>
               <p><strong>Email:</strong> {data.email || "—"}</p>
               <p>
                 <strong>Адрес регистрации:</strong>{" "}

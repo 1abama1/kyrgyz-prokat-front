@@ -316,6 +316,7 @@ label {
 @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
 @keyframes slideUp { from { opacity: 0; transform: translateY(16px) scale(.97) } to { opacity: 1; transform: none } }
 @keyframes selectMenuAppear { from { opacity: 0; transform: translateY(-4px) } to { opacity: 1; transform: none } }
+@keyframes spin { to { transform: rotate(360deg) } }
  
 /* ─── Общий контейнер страниц ─── */
 .page-container { width: 100%; height: 100%; }

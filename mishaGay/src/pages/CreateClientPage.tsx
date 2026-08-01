@@ -5,6 +5,7 @@ import { clientsAPI } from "../api/clients";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { CLIENT_TAGS, type ClientTag } from "../types/client.types";
 import { StyledSelect } from "../components/StyledSelect";
+import { PinChecker } from "../components/PinChecker";
 import "../styles/create-client.css";
 
 export const CreateClientPage: FC = () => {
@@ -363,16 +364,23 @@ export const CreateClientPage: FC = () => {
 
             <div>
               <label>ИНН</label>
-              <input
-                placeholder="ИНН (14 цифр)"
-                value={inn}
-                onChange={e => {
-                  const val = e.target.value.replace(/\D/g, "");
-                  if (val.length <= 14) {
-                    setInn(val);
-                  }
-                }}
-              />
+              <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+                <input
+                  placeholder="ИНН (14 цифр)"
+                  value={inn}
+                  style={{ flex: 1 }}
+                  inputMode="numeric"
+                  onChange={e => {
+                    const val = e.target.value.replace(/\D/g, "");
+                    if (val.length <= 14) setInn(val);
+                  }}
+                />
+              </div>
+              {inn.length === 14 && (
+                <div style={{ marginTop: 10 }}>
+                  <PinChecker initialPin={inn} showInput={false} />
+                </div>
+              )}
             </div>
           </section>
 
