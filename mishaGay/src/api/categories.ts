@@ -20,6 +20,12 @@ export const categoriesAPI = {
     });
   },
 
+  getAllFull: () =>
+    apiCall<CategoryFullDto[]>({
+      url: "/api/categories/all/full",
+    }),
+
+
   create: (data: CreateCategoryRequest) =>
     apiCall<CategoryDto>({
       url: "/api/categories",

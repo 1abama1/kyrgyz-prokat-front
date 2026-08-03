@@ -21,7 +21,6 @@ export const CreateClientPage: FC = () => {
   // Основное
   const [phone, setPhone] = useState("");
   const [whatsappPhone, setWhatsappPhone] = useState("");
-  const [email, setEmail] = useState("");
   const [registrationAddress, setRegistrationAddress] = useState({
     region: "",
     street: ""
@@ -89,7 +88,6 @@ export const CreateClientPage: FC = () => {
 
         setPhone(client.phone || "");
         setWhatsappPhone(client.whatsappPhone || client.phone || "");
-        setEmail(client.email || "");
         setRegistrationAddress({
           region: client.registrationAddress?.region || "",
           street: client.registrationAddress?.street || ""
@@ -141,7 +139,6 @@ export const CreateClientPage: FC = () => {
         fullName,
         phone,
         whatsappPhone: (whatsappPhone || phone || "").trim() || undefined,
-        email: email || undefined,
         registrationAddress:
           registrationAddress.region || registrationAddress.street
             ? registrationAddress
@@ -214,7 +211,15 @@ export const CreateClientPage: FC = () => {
   return (
     <Layout>
       <div className="create-client-page">
-        <form className="client-form-card" onSubmit={onSubmit}>
+        <form 
+          className="client-form-card" 
+          onSubmit={onSubmit}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+            }
+          }}
+        >
           <h1>{isEdit ? "Редактирование клиента" : "Создание клиента"}</h1>
 
           <ErrorMessage error={error} onClose={() => setError(null)} />
@@ -248,10 +253,6 @@ export const CreateClientPage: FC = () => {
               <div>
                 <label>Телефон *</label>
                 <input placeholder="Телефон *" value={phone} onChange={e => setPhone(e.target.value)} />
-              </div>
-              <div>
-                <label>Email</label>
-                <input placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} />
               </div>
             </div>
 

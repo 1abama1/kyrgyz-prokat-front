@@ -13,7 +13,7 @@ export const ActiveContractsPage = () => {
   // Состояния для модального окна закрытия
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedContractId, setSelectedContractId] = useState<number | null>(null);
-  const [paidAmount, setPaidAmount] = useState<number>(0);
+  const [paidAmount, setPaidAmount] = useState<number | string>(0);
   const [comment, setComment] = useState<string>("");
 
   const navigate = useNavigate();
@@ -67,7 +67,7 @@ export const ActiveContractsPage = () => {
     try {
       await contractsAPI.close(
         selectedContractId || undefined,
-        { paidAmount, comment },
+        { paidAmount: Number(paidAmount) || 0, comment },
         selectedRow?.offlineId
       );
       setIsModalOpen(false);
@@ -198,9 +198,14 @@ export const ActiveContractsPage = () => {
             <label style={{ marginBottom: '12px' }}>
               <span style={{ fontWeight: 600, marginBottom: '4px' }}>Сумма оплаты (KGS):</span>
               <input
-                type="number"
+                type="text"
+                inputMode="numeric"
                 value={paidAmount}
-                onChange={(e) => setPaidAmount(Number(e.target.value))}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/\D/g, "");
+                  setPaidAmount(val);
+                }}
+                onFocus={(e) => e.target.select()}
                 autoFocus
               />
             </label>

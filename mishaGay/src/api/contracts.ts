@@ -255,6 +255,29 @@ export async function downloadExcelContract(
 }
 
 /**
+ * Скачать уже существующий Excel-договор по ID
+ * GET /api/admin/contracts/{id}/excel
+ */
+export async function downloadExistingExcelContract(
+  contractId: number,
+  fallbackFilename = "contract.xlsx"
+): Promise<{ blob: Blob; filename: string }> {
+  const response = await fetch(`${API_BASE_URL}/api/admin/contracts/${contractId}/excel`, {
+    method: "GET",
+    headers: { ...buildAuthHeaders() }
+  });
+
+  if (!response.ok) {
+    await raiseError(response);
+  }
+
+  const blob = await response.blob();
+  const filename = extractFilename(response, fallbackFilename);
+
+  return { blob, filename };
+}
+
+/**
  * 5) Закрыть договор по id RentalDocument
  *    POST /api/admin/contracts/{contractId}/close
  */
@@ -436,6 +459,7 @@ export const contractsAPI = {
   close: closeContract,
   restore: restoreContract,
   downloadExcel: downloadExcelContract,
+  downloadExistingExcel: downloadExistingExcelContract,
   getActiveTable,
   getById,
   getHistoryByTool,

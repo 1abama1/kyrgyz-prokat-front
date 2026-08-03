@@ -12,6 +12,26 @@ interface Props {
 
 export const ClientDocumentsTable: FC<Props> = ({ documents, onRefresh }) => {
   const [editing, setEditing] = useState<RentalDocument | null>(null);
+  const [loadingDownload, setLoadingDownload] = useState<number | null>(null);
+
+  const handleDownloadExistingExcel = async (contractId: number, contractNumber: string) => {
+    try {
+      setLoadingDownload(contractId);
+      const { blob, filename } = await contractsAPI.downloadExistingExcel(contractId, `Договор_${contractNumber}.xlsx`);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      alert("Ошибка при скачивании: " + (err?.message || "Неизвестная ошибка"));
+    } finally {
+      setLoadingDownload(null);
+    }
+  };
+
   const [form, setForm] = useState({
     expectedReturnDate: "",
     amount: "",
@@ -95,10 +115,30 @@ export const ClientDocumentsTable: FC<Props> = ({ documents, onRefresh }) => {
                 </span>
               </td>
               <td>
+                <button
+                  onClick={() => handleDownloadExistingExcel(d.id, d.contractNumber)}
+                  disabled={loadingDownload === d.id}
+                  style={{
+                    background: "#e8f5e9",
+                    color: "#2e7d32",
+                    border: "1px solid #c8e6c9",
+                    borderRadius: 4,
+                    padding: "4px 8px",
+                    cursor: "pointer",
+                    fontSize: "12px",
+                    fontWeight: 500,
+                    marginRight: "8px",
+                    marginBottom: "4px"
+                  }}
+                  title="Переустановить / Скачать Excel заново"
+                >
+                  {loadingDownload === d.id ? "⏳..." : "⬇️ Excel"}
+                </button>
                 {canEdit(d.status) && (
                   <button
                     className="btn-edit"
                     onClick={() => openEdit(d)}
+                    style={{ marginBottom: "4px" }}
                   >
                     ✏️ Редактировать
                   </button>

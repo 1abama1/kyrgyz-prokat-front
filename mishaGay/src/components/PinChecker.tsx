@@ -438,6 +438,15 @@ function DebtorCard({ data }: { data: SotKgDebtorInfo }) {
         href={`https://portal.sot.kg/ru/debtors`}
         target="_blank"
         rel="noopener noreferrer"
+        onClick={() => {
+          if (data.pin) {
+            navigator.clipboard.writeText(data.pin).then(() => {
+              alert("ИНН (" + data.pin + ") скопирован!\nНа открывшемся сайте вставьте его в поле ввода и нажмите «Проверить».");
+            }).catch((err) => {
+              console.error("Не удалось скопировать ИНН", err);
+            });
+          }
+        }}
         style={{
           fontSize: 13,
           color: "var(--brand)",

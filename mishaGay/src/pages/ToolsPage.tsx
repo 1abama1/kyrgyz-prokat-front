@@ -19,16 +19,7 @@ export const ToolsPage = () => {
     setLoading(true);
 
     try {
-      // получаем список категорий
-      const shortCats = await categoriesAPI.getAll();
-
-      // на каждую категорию получаем полную структуру
-      const fullData: CategoryFullDto[] = [];
-      for (const cat of shortCats) {
-        const full = await categoriesAPI.getFull(cat.id);
-        fullData.push(full);
-      }
-
+      const fullData = await categoriesAPI.getAllFull();
       setCategories(fullData);
     } catch (error) {
       console.error("Ошибка загрузки данных:", error);

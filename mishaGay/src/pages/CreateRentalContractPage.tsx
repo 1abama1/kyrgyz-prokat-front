@@ -123,7 +123,7 @@ export const CreateRentalContractPage: FC = () => {
         toolId: Number(toolId),
       });
 
-      navigate("/documents");
+      navigate("/contracts/active");
     } catch (e: any) {
       // Улучшенная обработка ошибок
       const errorMessage = e?.message || e?.error || "Ошибка создания договора";

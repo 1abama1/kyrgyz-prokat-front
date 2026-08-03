@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
-import { downloadExcelContract } from "../api/contracts";
+﻿import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { downloadExcelContract, contractsAPI } from "../api/contracts";
 import { templatesAPI } from "../api/templates";
 import { categoriesAPI } from "../api/categories";
 import { getClientCard } from "../api/clients";
@@ -22,6 +23,7 @@ const normalizeClient = (data: ClientCardResponse): ClientCardResponse => ({
 });
 
 export default function ClientCard({ clientId }: ClientCardProps) {
+  const navigate = useNavigate();
   const [client, setClient] = useState<ClientCardResponse | null>(null);
   const [categories, setCategories] = useState<ToolCategory[]>([]);
   const [templates, setTemplates] = useState<ToolTemplate[]>([]);
@@ -150,7 +152,6 @@ export default function ClientCard({ clientId }: ClientCardProps) {
           />
         )}
       </p>
-      <p><b>Email:</b> {client.email || "—"}</p>
       <p><b>Тег:</b> {client.tag ?? "—"}</p>
       <p>
         <b>Адрес регистрации:</b>{" "}
@@ -167,6 +168,23 @@ export default function ClientCard({ clientId }: ClientCardProps) {
       <p><b>Адрес объекта:</b> {client.objectAddress || "—"}</p>
 
       <div className="contract-form mt-4" style={{ marginTop: 16 }}>
+        <div style={{ display: "flex", gap: "10px", marginBottom: "16px", flexWrap: "wrap" }}>
+          <button
+            onClick={() => navigate(`/clients/edit/${clientId}`)}
+            style={{
+              background: "#fff",
+              color: "#333",
+              border: "1px solid #ddd",
+              borderRadius: 6,
+              padding: "8px 16px",
+              cursor: "pointer",
+              fontWeight: 500
+            }}
+          >
+            ✏️ Изменить данные
+          </button>
+        </div>
+
         <h3>Создать Excel договор</h3>
 
         <div style={{ marginBottom: 16 }}>
@@ -221,10 +239,40 @@ export default function ClientCard({ clientId }: ClientCardProps) {
 
       <h3 className="mt-4">Активные договоры</h3>
       {client.activeContracts?.length ? (
-        <ul>
+        <ul style={{ listStyle: "none", padding: 0 }}>
           {client.activeContracts.map(c => (
-            <li key={c.id}>
-              Договор № {c.contractNumber}
+            <li key={c.id} style={{ marginBottom: "8px", display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap", padding: "8px", border: "1px solid #eee", borderRadius: "6px" }}>
+              <span>Договор № {c.contractNumber}</span>
+              <button 
+                onClick={async () => {
+                  try {
+                    const { blob, filename } = await contractsAPI.downloadExistingExcel(c.id, `Договор_${c.contractNumber}.xlsx`);
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = filename;
+                    a.click();
+                    a.remove();
+                    window.URL.revokeObjectURL(url);
+                  } catch (err: any) {
+                    alert("Ошибка при скачивании: " + (err?.message || "Неизвестная ошибка"));
+                  }
+                }}
+                style={{
+                  background: "#e8f5e9",
+                  color: "#2e7d32",
+                  border: "1px solid #c8e6c9",
+                  borderRadius: 4,
+                  padding: "4px 8px",
+                  cursor: "pointer",
+                  fontSize: "13px",
+                  fontWeight: 500,
+                  marginLeft: "auto"
+                }}
+                title="Скачать обновленный Excel договор"
+              >
+                ⬇️ Обновить Excel
+              </button>
             </li>
           ))}
         </ul>

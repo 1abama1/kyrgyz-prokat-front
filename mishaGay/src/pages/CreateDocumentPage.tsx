@@ -1,4 +1,4 @@
-import { FC, useState, useEffect, FormEvent } from "react";
+﻿import { FC, useState, useEffect, FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { Layout } from "../components/Layout";
 import { clientsAPI } from "../api/clients";
@@ -142,7 +142,6 @@ export const CreateDocumentPage: FC = () => {
             <div className="client-card">
               <strong>{clientCard.fullName}</strong>
               <div>Тел: {clientCard.phone || "—"}</div>
-              <div>Email: {clientCard.email || "—"}</div>
               <div>Тег: {clientCard.tag || "—"}</div>
             </div>
           )}

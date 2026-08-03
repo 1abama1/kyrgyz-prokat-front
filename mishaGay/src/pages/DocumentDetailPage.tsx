@@ -1,7 +1,8 @@
-import { FC, useEffect, useState } from "react";
+﻿import { FC, useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Layout } from "../components/Layout";
 import { documentsAPI } from "../api/documents";
+import { contractsAPI } from "../api/contracts";
 import { DocumentDetail } from "../types/document.types";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { formatDate } from "../utils/formatters";
@@ -14,6 +15,11 @@ export const DocumentDetailPage: FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [closing, setClosing] = useState(false);
+
+  // Состояния для модального окна закрытия
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [paidAmount, setPaidAmount] = useState<number | string>(0);
+  const [comment, setComment] = useState<string>("");
 
   useEffect(() => {
     if (!id) {
@@ -48,14 +54,20 @@ export const DocumentDetailPage: FC = () => {
     }
   };
 
-  const handleClose = async () => {
-    if (!document || !confirm("Вы уверены, что хотите закрыть договор?")) {
-      return;
-    }
+  const handleCloseClick = () => {
+    if (!document) return;
+    setPaidAmount(document.amount || 0);
+    setComment("");
+    setIsModalOpen(true);
+  };
+
+  const handleConfirmClose = async () => {
+    if (!document) return;
 
     try {
       setClosing(true);
-      await documentsAPI.close(document.id);
+      await contractsAPI.close(document.id, { paidAmount: Number(paidAmount) || 0, comment });
+      setIsModalOpen(false);
       await loadDocument(document.id);
     } catch (err: unknown) {
       if (err instanceof Error) {
@@ -156,7 +168,6 @@ export const DocumentDetailPage: FC = () => {
             <p><strong>Имя:</strong> {document.client.fullName || "—"}</p>
             <p><strong>Телефон:</strong> {document.client.phone || "—"}</p>
             <p><strong>WhatsApp:</strong> {document.client.whatsappPhone || document.client.phone || "—"}</p>
-            <p><strong>Email:</strong> {document.client.email || "—"}</p>
             <p><strong>Тег:</strong> {document.client.tag || "—"}</p>
           </>
         ) : (
@@ -225,7 +236,7 @@ export const DocumentDetailPage: FC = () => {
 
       {document.status === "ACTIVE" && (
         <button
-          onClick={handleClose}
+          onClick={handleCloseClick}
           disabled={closing}
           style={{
             padding: "10px 20px",
@@ -238,6 +249,57 @@ export const DocumentDetailPage: FC = () => {
         >
           {closing ? "Закрытие..." : "Закрыть договор"}
         </button>
+      )}
+
+      {/* Модальное окно закрытия */}
+      {isModalOpen && (
+        <div className="modal-overlay">
+          <div className="modal" style={{ border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}>
+            <h2 style={{ margin: '0 0 16px 0', fontSize: '20px' }}>Закрытие договора</h2>
+
+            <label style={{ marginBottom: '12px', display: 'block', textAlign: 'left' }}>
+              <span style={{ fontWeight: 600, marginBottom: '4px', display: 'block' }}>Сумма оплаты (KGS):</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={paidAmount}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/\D/g, "");
+                  setPaidAmount(val);
+                }}
+                onFocus={(e) => e.target.select()}
+                autoFocus
+                style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
+              />
+            </label>
+
+            <label style={{ marginBottom: '20px', display: 'block', textAlign: 'left' }}>
+              <span style={{ fontWeight: 600, marginBottom: '4px', display: 'block' }}>Комментарий:</span>
+              <textarea
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                placeholder="Причина закрытия, нюансы..."
+                style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px', minHeight: '80px', resize: 'vertical' }}
+              />
+            </label>
+
+            <div className="modal-actions" style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setIsModalOpen(false)}
+                style={{ padding: '8px 16px', background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+              >
+                Отмена
+              </button>
+              <button
+                onClick={handleConfirmClose}
+                disabled={closing}
+                style={{ padding: '8px 16px', background: '#1d6ef2', color: '#fff', border: 'none', borderRadius: '4px', cursor: closing ? 'not-allowed' : 'pointer' }}
+              >
+                Подтвердить закрытие
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </Layout>
   );

@@ -32,7 +32,6 @@ export interface CreateClientDto {
   fullName: string;
   phone: string;
   whatsappPhone?: string;
-  email?: string;
   registrationAddress?: AddressDto;
   livingAddress?: AddressDto;
   objectAddress?: string;
@@ -47,7 +46,6 @@ export interface Client {
   fullName: string;
   phone?: string | null;
   whatsappPhone?: string | null;
-  email?: string | null;
   registrationAddress?: AddressDto | null;
   livingAddress?: AddressDto | null;
   objectAddress?: string | null;
@@ -82,7 +80,6 @@ export interface ClientCard {
   fullName: string;
   phone?: string | null;
   whatsappPhone?: string | null;
-  email?: string | null;
   registrationAddress?: AddressDto | null;
   livingAddress?: AddressDto | null;
   objectAddress?: string | null;

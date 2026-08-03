@@ -1,4 +1,4 @@
-import { FC, useState } from "react";
+﻿import { FC, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { clientsAPI } from "../api/clients";
 import { contractsAPI } from "../api/contracts";
@@ -14,9 +14,10 @@ interface Props {
   fullName?: string | null;
   phone?: string | null;
   whatsappPhone?: string | null;
+  tag?: string | null;
 }
 
-export const ClientExpandableCard: FC<Props> = ({ clientId, fullName, phone, whatsappPhone }) => {
+export const ClientExpandableCard: FC<Props> = ({ clientId, fullName, phone, whatsappPhone, tag }) => {
   const navigate = useNavigate();
   const [data, setData] = useState<Client | null>(null);
   const [documents, setDocuments] = useState<RentalDocument[]>([]);
@@ -76,8 +77,20 @@ export const ClientExpandableCard: FC<Props> = ({ clientId, fullName, phone, wha
         }}
       >
         <div>
-          <div style={{ fontSize: 18, fontWeight: 600 }}>
-            {data?.fullName || fullName || `Клиент #${clientId}`}
+          <div style={{ fontSize: 18, fontWeight: 600, display: "flex", alignItems: "center", gap: "8px" }}>
+            <span>{data?.fullName || fullName || `Клиент #${clientId}`}</span>
+            {(data?.tag || tag) && (
+              <span style={{ 
+                fontSize: 12, 
+                padding: "2px 8px", 
+                borderRadius: "12px", 
+                background: (data?.tag || tag) === "Проблемный" ? "#fee2e2" : (data?.tag || tag) === "Должник" ? "#ffedd5" : "#dcfce7", 
+                color: (data?.tag || tag) === "Проблемный" ? "#991b1b" : (data?.tag || tag) === "Должник" ? "#9a3412" : "#166534",
+                fontWeight: 500
+              }}>
+                {data?.tag || tag}
+              </span>
+            )}
           </div>
           <div style={{ marginTop: 4, fontSize: 14, color: "#6b7280" }}>
             {data?.phone || phone || "—"}
@@ -135,7 +148,6 @@ export const ClientExpandableCard: FC<Props> = ({ clientId, fullName, phone, wha
                   />
                 )}
               </p>
-              <p><strong>Email:</strong> {data.email || "—"}</p>
               <p>
                 <strong>Адрес регистрации:</strong>{" "}
                 {data.registrationAddress
@@ -197,7 +209,7 @@ export const ClientExpandableCard: FC<Props> = ({ clientId, fullName, phone, wha
               </div>
             )}
 
-            <div style={{ marginBottom: 16 }}>
+            <div style={{ marginBottom: 16, display: "flex", gap: "10px", flexWrap: "wrap" }}>
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -214,6 +226,24 @@ export const ClientExpandableCard: FC<Props> = ({ clientId, fullName, phone, wha
                 }}
               >
                 ➕ Создать аренду
+              </button>
+
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate(`/clients/edit/${clientId}`);
+                }}
+                style={{
+                  background: "#fff",
+                  color: "#333",
+                  border: "1px solid #ddd",
+                  borderRadius: 6,
+                  padding: "10px 16px",
+                  cursor: "pointer",
+                  fontWeight: 500
+                }}
+              >
+                ✏️ Изменить
               </button>
             </div>
           </>
