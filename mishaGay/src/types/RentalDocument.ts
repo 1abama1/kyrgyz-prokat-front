@@ -8,7 +8,7 @@ export interface RentalDocument {
   id: number;
   contractNumber: string;
   startDateTime?: string; // ISO 8601 формат (2025-12-07T10:30:00)
-  expectedReturnDate?: string; // YYYY-MM-DD
+  returnDate?: string; // Фактическая дата возврата
   amount: number;
   comment?: string;
   status: ContractStatus;

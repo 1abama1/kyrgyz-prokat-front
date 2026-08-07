@@ -67,14 +67,78 @@ class SyncManager {
                 const idsToRemove = queue.map(q => q.id!);
                 await db.syncQueue.bulkDelete(idsToRemove);
 
-                console.log('[SyncManager] Sync completed successfully.');
+                console.log('[SyncManager] Push completed successfully.');
             } else {
-                console.error('[SyncManager] Sync failed with status:', response.status);
+                console.error('[SyncManager] Push failed with status:', response.status);
+                // If it's a 4xx client error (like 409 Conflict), the queue contains invalid data
+                // Clear the queue to prevent infinite looping on bad data
+                if (response.status >= 400 && response.status < 500) {
+                    console.warn('[SyncManager] Unrecoverable error during push. Clearing queue to prevent loop.');
+                    const idsToRemove = queue.map(q => q.id!);
+                    await db.syncQueue.bulkDelete(idsToRemove);
+                }
             }
         } catch (error) {
-            console.error('[SyncManager] Sync error:', error);
-        } finally {
-            this.isSyncing = false;
+            console.error('[SyncManager] Push error:', error);
+        }
+
+        // Фаза 2: Pull (скачивание изменений с сервера)
+        await this.pull();
+
+        this.isSyncing = false;
+    }
+
+    async pull() {
+        if (!navigator.onLine) return;
+        console.log('[SyncManager] Starting pull sync...');
+
+        try {
+            const lastSyncStr = localStorage.getItem('lastSyncTimestamp');
+            const since = lastSyncStr ? parseInt(lastSyncStr, 10) : 0;
+
+            const response = await fetch(`${API_BASE_URL}/api/v1/sync/pull?since=${since}`, {
+                headers: {
+                    'Authorization': `Bearer ${getToken()}`
+                }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+
+                if (data.clients && data.clients.length > 0) {
+                    await db.clients.bulkPut(data.clients);
+                }
+                if (data.tools && data.tools.length > 0) {
+                    await db.tools.bulkPut(data.tools);
+                }
+                if (data.categories && data.categories.length > 0) {
+                    await db.categories.bulkPut(data.categories);
+                }
+                if (data.templates && data.templates.length > 0) {
+                    await db.templates.bulkPut(data.templates);
+                }
+                if (data.documents && data.documents.length > 0) {
+                    // Map documents to LocalContract format if needed, but since it's just DTOs,
+                    // we'll store them as-is or merge them. For now, we'll store them directly
+                    // since our LocalContract matches closely, but we should make sure offlineId is handled.
+                    for (const doc of data.documents) {
+                        const existing = await db.contracts.get(doc.id);
+                        await db.contracts.put({
+                            ...existing,
+                            ...doc,
+                            offlineId: existing?.offlineId || doc.offlineId || crypto.randomUUID(), // Ensure offlineId exists
+                            syncStatus: 'synced'
+                        });
+                    }
+                }
+
+                if (data.lastSyncTimestamp) {
+                    localStorage.setItem('lastSyncTimestamp', data.lastSyncTimestamp.toString());
+                }
+                console.log('[SyncManager] Pull completed successfully.');
+            }
+        } catch (error) {
+            console.error('[SyncManager] Pull error:', error);
         }
     }
 

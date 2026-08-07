@@ -11,7 +11,7 @@ export interface TemplateDto {
   categoryId: number;
 }
 
-export type ToolStatusDto = "AVAILABLE" | "RENTED" | "BROKEN";
+export type ToolStatusDto = "AVAILABLE" | "RENTED" | "BROKEN" | "IN_REPAIR" | "DECOMMISSIONED";
 
 export interface ToolDto {
   id: number;
@@ -62,4 +62,12 @@ export interface CreateToolRequest {
   purchasePrice: number;
   dailyPrice: number;
 }
+
+export interface CreateToolBatchRequest {
+  templateId: number;
+  count: number;
+  dailyPrice?: number;
+  deposit?: number;
+}
+
 

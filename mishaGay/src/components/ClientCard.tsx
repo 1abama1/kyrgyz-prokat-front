@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { downloadExcelContract, contractsAPI } from "../api/contracts";
 import { templatesAPI } from "../api/templates";
@@ -165,7 +165,7 @@ export default function ClientCard({ clientId }: ClientCardProps) {
           ? `${client.livingAddress.region || ""}, ${client.livingAddress.street || ""}`.trim() || "—"
           : "—"}
       </p>
-      <p><b>Адрес объекта:</b> {client.objectAddress || "—"}</p>
+      {/* <p><b>Адрес объекта:</b> {client.objectAddress || "—"}</p> */}
 
       <div className="contract-form mt-4" style={{ marginTop: 16 }}>
         <div style={{ display: "flex", gap: "10px", marginBottom: "16px", flexWrap: "wrap" }}>

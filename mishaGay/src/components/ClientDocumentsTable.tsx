@@ -2,7 +2,7 @@ import { FC, useState } from "react";
 import { RentalDocument } from "../types/RentalDocument";
 import { getStatusLabel, getStatusClass } from "../utils/contractStatus";
 import { contractsAPI } from "../api/contracts";
-import { formatDate } from "../utils/formatters";
+import { ReinstallExcelButton } from "./ReinstallExcelButton";
 import "../styles/contracts.css";
 
 interface Props {
@@ -12,40 +12,40 @@ interface Props {
 
 export const ClientDocumentsTable: FC<Props> = ({ documents, onRefresh }) => {
   const [editing, setEditing] = useState<RentalDocument | null>(null);
-  const [loadingDownload, setLoadingDownload] = useState<number | null>(null);
-
-  const handleDownloadExistingExcel = async (contractId: number, contractNumber: string) => {
-    try {
-      setLoadingDownload(contractId);
-      const { blob, filename } = await contractsAPI.downloadExistingExcel(contractId, `Договор_${contractNumber}.xlsx`);
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-    } catch (err: any) {
-      alert("Ошибка при скачивании: " + (err?.message || "Неизвестная ошибка"));
-    } finally {
-      setLoadingDownload(null);
-    }
-  };
 
   const [form, setForm] = useState({
-    expectedReturnDate: "",
     amount: "",
     comment: ""
   });
 
-  const close = async (id: number) => {
-    const confirmed = window.confirm("Вы уверены, что хотите закрыть договор?");
-    if (!confirmed) {
-      return;
-    }
+  const [closingId, setClosingId] = useState<number | null>(null);
+  const [closeForm, setCloseForm] = useState({
+    paidAmount: "",
+    comment: "",
+    isBroken: false,
+    actualReturnDate: new Date().toISOString().slice(0, 16)
+  });
 
+  const openCloseModal = (id: number) => {
+    setClosingId(id);
+    setCloseForm({
+      paidAmount: "",
+      comment: "",
+      isBroken: false,
+      actualReturnDate: new Date().toISOString().slice(0, 16)
+    });
+  };
+
+  const submitClose = async () => {
+    if (!closingId) return;
     try {
-      await contractsAPI.close(id);
+      await contractsAPI.close(closingId, {
+        paidAmount: closeForm.paidAmount ? Number(closeForm.paidAmount) : undefined,
+        comment: closeForm.comment || undefined,
+        isBroken: closeForm.isBroken,
+        actualReturnDate: closeForm.actualReturnDate ? new Date(closeForm.actualReturnDate).toISOString() : undefined,
+      });
+      setClosingId(null);
       onRefresh();
     } catch (e: any) {
       alert(e.response?.data?.message || e.message || "Ошибка закрытия");
@@ -66,7 +66,6 @@ export const ClientDocumentsTable: FC<Props> = ({ documents, onRefresh }) => {
 
     setEditing(contract);
     setForm({
-      expectedReturnDate: contract.expectedReturnDate || "",
       amount: contract.amount?.toString() || "",
       comment: contract.comment || ""
     });
@@ -77,7 +76,6 @@ export const ClientDocumentsTable: FC<Props> = ({ documents, onRefresh }) => {
 
     try {
       await contractsAPI.update(editing.id, {
-        expectedReturnDate: form.expectedReturnDate || undefined,
         amount: form.amount ? Number(form.amount) : undefined,
         comment: form.comment || undefined
       });
@@ -97,7 +95,6 @@ export const ClientDocumentsTable: FC<Props> = ({ documents, onRefresh }) => {
         <thead>
           <tr>
             <th>№</th>
-            <th>План возврата</th>
             <th>Сумма</th>
             <th>Статус</th>
             <th></th>
@@ -107,38 +104,18 @@ export const ClientDocumentsTable: FC<Props> = ({ documents, onRefresh }) => {
           {documents.map(d => (
             <tr key={d.id}>
               <td>{d.contractNumber}</td>
-              <td>{d.expectedReturnDate ? formatDate(d.expectedReturnDate) : "—"}</td>
               <td>{d.amount} сом</td>
               <td>
                 <span className={getStatusClass(d.status)}>
                   {getStatusLabel(d.status)}
                 </span>
               </td>
-              <td>
-                <button
-                  onClick={() => handleDownloadExistingExcel(d.id, d.contractNumber)}
-                  disabled={loadingDownload === d.id}
-                  style={{
-                    background: "#e8f5e9",
-                    color: "#2e7d32",
-                    border: "1px solid #c8e6c9",
-                    borderRadius: 4,
-                    padding: "4px 8px",
-                    cursor: "pointer",
-                    fontSize: "12px",
-                    fontWeight: 500,
-                    marginRight: "8px",
-                    marginBottom: "4px"
-                  }}
-                  title="Переустановить / Скачать Excel заново"
-                >
-                  {loadingDownload === d.id ? "⏳..." : "⬇️ Excel"}
-                </button>
+              <td style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                <ReinstallExcelButton contractId={d.id} contractNumber={d.contractNumber} style={{ marginBottom: 0, marginRight: 0 }} />
                 {canEdit(d.status) && (
                   <button
                     className="btn-edit"
                     onClick={() => openEdit(d)}
-                    style={{ marginBottom: "4px" }}
                   >
                     ✏️ Редактировать
                   </button>
@@ -146,8 +123,7 @@ export const ClientDocumentsTable: FC<Props> = ({ documents, onRefresh }) => {
                 {canClose(d.status) && (
                   <button
                     className="btn-danger"
-                    onClick={() => close(d.id)}
-                    style={{ marginLeft: canEdit(d.status) ? 8 : 0 }}
+                    onClick={() => openCloseModal(d.id)}
                   >
                     Закрыть
                   </button>
@@ -162,20 +138,6 @@ export const ClientDocumentsTable: FC<Props> = ({ documents, onRefresh }) => {
         <div className="modal-overlay">
           <div className="modal">
             <h3>Редактировать договор № {editing.contractNumber}</h3>
-
-            <label>
-              Плановая дата возврата
-              <input
-                type="date"
-                value={form.expectedReturnDate}
-                onChange={e =>
-                  setForm(prev => ({ ...prev, expectedReturnDate: e.target.value }))
-                }
-                onKeyDown={e => {
-                  if (e.key === "Enter") e.preventDefault();
-                }}
-              />
-            </label>
 
             <label>
               Сумма аренды
@@ -204,6 +166,63 @@ export const ClientDocumentsTable: FC<Props> = ({ documents, onRefresh }) => {
             <div className="modal-actions">
               <button onClick={save}>✅ Сохранить</button>
               <button onClick={() => setEditing(null)}>❌ Отмена</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {closingId && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <h3>Закрытие договора</h3>
+
+            <label>
+              Фактическая дата возврата
+              <input
+                type="datetime-local"
+                value={closeForm.actualReturnDate}
+                onChange={e =>
+                  setCloseForm(prev => ({ ...prev, actualReturnDate: e.target.value }))
+                }
+              />
+            </label>
+
+            <label>
+              Внесенная сумма (сом)
+              <input
+                type="number"
+                value={closeForm.paidAmount}
+                onChange={e =>
+                  setCloseForm(prev => ({ ...prev, paidAmount: e.target.value }))
+                }
+                placeholder="Если пусто, берется плановая сумма"
+              />
+            </label>
+
+            <label>
+              Комментарий
+              <textarea
+                value={closeForm.comment}
+                onChange={e =>
+                  setCloseForm(prev => ({ ...prev, comment: e.target.value }))
+                }
+              />
+            </label>
+
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={closeForm.isBroken}
+                onChange={e =>
+                  setCloseForm(prev => ({ ...prev, isBroken: e.target.checked }))
+                }
+              />
+              <span style={{ color: '#d32f2f', fontWeight: 500 }}>Инструмент сломан (в ремонт)</span>
+            </label>
+
+            <div className="modal-actions" style={{ marginTop: '20px' }}>
+              <button onClick={submitClose} style={{ background: '#d32f2f', color: 'white' }}>✅ Закрыть договор</button>
+              <button onClick={() => setClosingId(null)}>❌ Отмена</button>
             </div>
           </div>
         </div>

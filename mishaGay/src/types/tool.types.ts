@@ -13,7 +13,9 @@ export type ToolStatus =
   | "AVAILABLE"
   | "RENTED"
   | "OVERDUE"
-  | "BROKEN";
+  | "BROKEN"
+  | "IN_REPAIR"
+  | "DECOMMISSIONED";
 
 export interface Tool {
   id: number;
@@ -45,7 +47,7 @@ export interface ToolInstance {
   deposit: number;
   purchasePrice: number;
   dailyPrice: number;
-  status: "AVAILABLE" | "RENTED" | "BROKEN";
+  status: ToolStatus;
   instanceNumber?: number;
 }
 

@@ -98,6 +98,7 @@ export const CreateRentalContractPage: FC = () => {
   const selectedClient = clients.find(c => c.id === Number(clientId));
   const clientCheck = useClientCheck(selectedClient);
 
+
   const onCreate = async () => {
     if (!clientId || !categoryId || !templateId || !toolId) {
       setError("Заполните все обязательные поля");
@@ -217,13 +218,16 @@ export const CreateRentalContractPage: FC = () => {
                 <StyledSelect
                   options={templateOptions}
                   value={templateId}
-                  onChange={(val) => setTemplateId(val ? Number(val) : "")}
+                  onChange={(val) => {
+                    setTemplateId(val ? Number(val) : "");
+                  }}
                   placeholder="Выберите модель"
                   isDisabled={!categoryId}
                   isClearable
                   noOptionsMessage="Модели не найдены"
                 />
               </div>
+
             </>
           )}
 

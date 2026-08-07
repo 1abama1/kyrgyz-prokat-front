@@ -36,4 +36,10 @@ export const templatesAPI = {
       method: "POST",
       data,
     }),
+
+  checkAvailability: (id: number, start: string, end: string) =>
+    apiCall<any>({
+      url: `/api/templates/${id}/availability`,
+      params: { start, end },
+    }),
 };

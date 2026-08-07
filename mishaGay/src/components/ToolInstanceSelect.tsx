@@ -20,7 +20,10 @@ type ToolOption = {
 const statusConfig: Record<ToolInstance["status"], { color: string; bg: string; icon: string; text: string }> = {
   AVAILABLE: { color: "#16A34A", bg: "#F0FDF4", icon: "●", text: "Доступен" },
   RENTED:    { color: "#DC2626", bg: "#FEF2F2", icon: "●", text: "Занят" },
-  BROKEN:    { color: "#D97706", bg: "#FFFBEB", icon: "●", text: "Сломан" }
+  BROKEN:    { color: "#D97706", bg: "#FFFBEB", icon: "●", text: "Сломан" },
+  OVERDUE:   { color: "#DC2626", bg: "#FEF2F2", icon: "●", text: "Просрочен" },
+  IN_REPAIR: { color: "#D97706", bg: "#FFFBEB", icon: "●", text: "В ремонте" },
+  DECOMMISSIONED: { color: "#64748B", bg: "#F1F5F9", icon: "●", text: "Списан" }
 };
 
 const selectStyles: StylesConfig<ToolOption, false> = {

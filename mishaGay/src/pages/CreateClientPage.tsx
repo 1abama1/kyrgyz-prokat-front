@@ -14,9 +14,7 @@ export const CreateClientPage: FC = () => {
   const isEdit = Boolean(id);
 
   // ФИО
-  const [lastName, setLastName] = useState("");
-  const [firstName, setFirstName] = useState("");
-  const [middleName, setMiddleName] = useState("");
+  const [fullName, setFullName] = useState("");
 
   // Основное
   const [phone, setPhone] = useState("");
@@ -64,7 +62,7 @@ export const CreateClientPage: FC = () => {
   const [loading, setLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(false);
 
-  const fullName = `${lastName} ${firstName} ${middleName}`.trim();
+
 
   // 🔽 ПОДТЯГИВАЕМ ДАННЫЕ ПРИ РЕДАКТИРОВАНИИ
   useEffect(() => {
@@ -80,11 +78,7 @@ export const CreateClientPage: FC = () => {
     setLoadingData(true);
     clientsAPI.getById(clientId)
       .then((client) => {
-        // Разбиваем fullName на части
-        const nameParts = (client.fullName || "").trim().split(/\s+/);
-        setLastName(nameParts[0] || "");
-        setFirstName(nameParts[1] || "");
-        setMiddleName(nameParts.slice(2).join(" ") || "");
+        setFullName(client.fullName || "");
 
         setPhone(client.phone || "");
         setWhatsappPhone(client.whatsappPhone || client.phone || "");
@@ -121,8 +115,8 @@ export const CreateClientPage: FC = () => {
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
-    if (!lastName || !firstName || !phone) {
-      setError("Введите фамилию, имя и телефон");
+    if (!fullName.trim() || !phone) {
+      setError("Введите ФИО и телефон");
       return;
     }
 
@@ -136,7 +130,7 @@ export const CreateClientPage: FC = () => {
 
     try {
       const clientData = {
-        fullName,
+        fullName: fullName.trim(),
         phone,
         whatsappPhone: (whatsappPhone || phone || "").trim() || undefined,
         registrationAddress:
@@ -234,19 +228,9 @@ export const CreateClientPage: FC = () => {
           <section>
             <h2>Данные клиента</h2>
 
-            <div className="grid-3">
-              <div>
-                <label>Фамилия *</label>
-                <input placeholder="Фамилия *" value={lastName} onChange={e => setLastName(e.target.value)} />
-              </div>
-              <div>
-                <label>Имя *</label>
-                <input placeholder="Имя *" value={firstName} onChange={e => setFirstName(e.target.value)} />
-              </div>
-              <div>
-                <label>Отчество</label>
-                <input placeholder="Отчество" value={middleName} onChange={e => setMiddleName(e.target.value)} />
-              </div>
+            <div>
+              <label>ФИО *</label>
+              <input placeholder="ФИО *" value={fullName} onChange={e => setFullName(e.target.value)} />
             </div>
 
             <div className="grid-2">
@@ -316,14 +300,14 @@ export const CreateClientPage: FC = () => {
                 </div>
               </div>
 
-              <div className="mt-4" style={{ marginTop: 16 }}>
+              {/* <div className="mt-4" style={{ marginTop: 16 }}>
                 <label>Адрес объекта</label>
                 <input
                   placeholder="Адрес объекта"
                   value={objectAddress}
                   onChange={e => setObjectAddress(e.target.value)}
                 />
-              </div>
+              </div> */}
             </section>
 
             <div>

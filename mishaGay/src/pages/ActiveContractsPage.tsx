@@ -141,7 +141,8 @@ export const ActiveContractsPage = () => {
                     <td>{row.clientName}</td>
                     <td>{row.toolName}</td>
                     <td>{formatDate(row.startDate)}</td>
-                    <td>
+                    <td style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                      {/* <ReinstallExcelButton contractId={row.contractId} /> */}
                       <button
                         onClick={() => {
                           if (row.contractId && !isNaN(row.contractId) && row.contractId > 0) {

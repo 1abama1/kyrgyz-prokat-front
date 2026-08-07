@@ -1,4 +1,4 @@
-﻿import { FC, useEffect, useState } from "react";
+import { FC, useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Layout } from "../components/Layout";
 import { documentsAPI } from "../api/documents";
@@ -115,10 +115,13 @@ export const DocumentDetailPage: FC = () => {
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
         <h1 style={{ margin: 0 }}>Договор №{document.contractNumber}</h1>
-        <DownloadExcelButton
-          contractId={document.id}
-          contractNumber={document.contractNumber}
-        />
+        <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+          {/* <ReinstallExcelButton contractId={document.id} contractNumber={document.contractNumber} style={{ padding: "8px 16px", fontSize: "14px" }} /> */}
+          <DownloadExcelButton
+            contractId={document.id}
+            contractNumber={document.contractNumber}
+          />
+        </div>
       </div>
       <ErrorMessage error={error} onClose={() => setError(null)} />
 

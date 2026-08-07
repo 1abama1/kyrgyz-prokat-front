@@ -6,7 +6,8 @@ import { categoriesAPI } from "../api/categories";
 import { templatesAPI } from "../api/templates";
 import { ToolCategory } from "../types/tool.types";
 import { ToolTemplate } from "../types/tool.types";
-import { CreateToolDto } from "../types/dto/createTool.dto";
+import { CreateToolRequest } from "../types/inventory.types";
+import { CreateToolBatchRequest } from "../types/inventory.types";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { StyledSelect } from "../components/StyledSelect";
 
@@ -31,6 +32,10 @@ export const CreateToolPage: FC = () => {
   const [deposit, setDeposit] = useState<number>(0);
   const [purchasePrice, setPurchasePrice] = useState<number>(0);
   const [dailyPrice, setDailyPrice] = useState<number>(0);
+  
+  // Для пакетного создания
+  const [isBatch, setIsBatch] = useState(false);
+  const [count, setCount] = useState<number>(1);
 
   // Загружаем категории при монтировании
   useEffect(() => {
@@ -133,8 +138,18 @@ export const CreateToolPage: FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!templateId || !name || !inventoryNumber) {
-      setError("Заполните обязательные поля: категория, модель, название и инвентарный номер");
+    if (!templateId) {
+      setError("Выберите модель");
+      return;
+    }
+
+    if (!isBatch && (!name || !inventoryNumber)) {
+      setError("Заполните обязательные поля: название и инвентарный номер");
+      return;
+    }
+
+    if (isBatch && count < 1) {
+      setError("Количество должно быть больше 0");
       return;
     }
 
@@ -142,23 +157,30 @@ export const CreateToolPage: FC = () => {
     setError(null);
 
     try {
-      const toolData: CreateToolDto = {
-        templateId,
-        name,
-        inventoryNumber,
-        article,
-        deposit,
-        purchasePrice,
-        dailyPrice,
-      };
-
       if (isEdit && id) {
-        // Для редактирования используем update (если он поддерживает новую структуру)
-        // Пока что просто создаём новый, так как update может не поддерживать новую структуру
         setError("Редактирование пока не поддерживается для новой структуры");
         return;
       } else {
-        await toolsAPI.create(toolData);
+        if (isBatch) {
+          const batchData: CreateToolBatchRequest = {
+            templateId,
+            count,
+            dailyPrice,
+            deposit,
+          };
+          await toolsAPI.createBatch(batchData);
+        } else {
+          const toolData: CreateToolRequest = {
+            templateId,
+            name,
+            inventoryNumber,
+            article,
+            deposit,
+            purchasePrice,
+            dailyPrice,
+          };
+          await toolsAPI.create(toolData);
+        }
       }
 
       navigate("/tools");
@@ -177,6 +199,39 @@ export const CreateToolPage: FC = () => {
       {loadingData && (
         <div style={{ textAlign: "center", padding: "20px", color: "#666" }}>
           Загрузка данных...
+        </div>
+      )}
+
+      {!isEdit && (
+        <div style={{ marginBottom: 20, display: "flex", gap: "10px" }}>
+          <button
+            onClick={() => setIsBatch(false)}
+            style={{
+              padding: "8px 16px",
+              background: !isBatch ? "#1976d2" : "#f3f4f6",
+              color: !isBatch ? "white" : "#374151",
+              border: "1px solid #d1d5db",
+              borderRadius: "4px",
+              cursor: "pointer",
+              fontWeight: 500
+            }}
+          >
+            Одиночное создание
+          </button>
+          <button
+            onClick={() => setIsBatch(true)}
+            style={{
+              padding: "8px 16px",
+              background: isBatch ? "#1976d2" : "#f3f4f6",
+              color: isBatch ? "white" : "#374151",
+              border: "1px solid #d1d5db",
+              borderRadius: "4px",
+              cursor: "pointer",
+              fontWeight: 500
+            }}
+          >
+            Пакетное создание
+          </button>
         </div>
       )}
 
@@ -213,67 +268,115 @@ export const CreateToolPage: FC = () => {
           />
         </div>
 
-        <div style={{ marginBottom: 16 }}>
-          <label style={{ display: "block", marginBottom: 4, fontWeight: 500 }}>
-            Название <span style={{ color: "red" }}>*</span>
-          </label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-            disabled={loadingData}
-            style={{
-              width: "100%",
-              padding: "8px 12px",
-              border: "1px solid #ddd",
-              borderRadius: "4px",
-              fontSize: 14,
-              background: loadingData ? "#f3f4f6" : "white"
-            }}
-          />
-        </div>
+        {isBatch ? (
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ display: "block", marginBottom: 4, fontWeight: 500 }}>
+              Количество создаваемых инструментов <span style={{ color: "red" }}>*</span>
+            </label>
+            <input
+              type="number"
+              value={count}
+              onChange={(e) => setCount(Number(e.target.value))}
+              required
+              min="1"
+              disabled={loadingData}
+              style={{
+                width: "100%",
+                padding: "8px 12px",
+                border: "1px solid #ddd",
+                borderRadius: "4px",
+                fontSize: 14,
+                background: loadingData ? "#f3f4f6" : "white"
+              }}
+            />
+          </div>
+        ) : (
+          <>
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display: "block", marginBottom: 4, fontWeight: 500 }}>
+                Название <span style={{ color: "red" }}>*</span>
+              </label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                disabled={loadingData}
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  border: "1px solid #ddd",
+                  borderRadius: "4px",
+                  fontSize: 14,
+                  background: loadingData ? "#f3f4f6" : "white"
+                }}
+              />
+            </div>
 
-        <div style={{ marginBottom: 16 }}>
-          <label style={{ display: "block", marginBottom: 4, fontWeight: 500 }}>
-            Инвентарный номер <span style={{ color: "red" }}>*</span>
-          </label>
-          <input
-            type="text"
-            value={inventoryNumber}
-            onChange={(e) => setInventoryNumber(e.target.value)}
-            required
-            disabled={loadingData}
-            style={{
-              width: "100%",
-              padding: "8px 12px",
-              border: "1px solid #ddd",
-              borderRadius: "4px",
-              fontSize: 14,
-              background: loadingData ? "#f3f4f6" : "white"
-            }}
-          />
-        </div>
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display: "block", marginBottom: 4, fontWeight: 500 }}>
+                Инвентарный номер <span style={{ color: "red" }}>*</span>
+              </label>
+              <input
+                type="text"
+                value={inventoryNumber}
+                onChange={(e) => setInventoryNumber(e.target.value)}
+                required
+                disabled={loadingData}
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  border: "1px solid #ddd",
+                  borderRadius: "4px",
+                  fontSize: 14,
+                  background: loadingData ? "#f3f4f6" : "white"
+                }}
+              />
+            </div>
 
-        <div style={{ marginBottom: 16 }}>
-          <label style={{ display: "block", marginBottom: 4, fontWeight: 500 }}>
-            Артикул
-          </label>
-          <input
-            type="text"
-            value={article}
-            onChange={(e) => setArticle(e.target.value)}
-            disabled={loadingData}
-            style={{
-              width: "100%",
-              padding: "8px 12px",
-              border: "1px solid #ddd",
-              borderRadius: "4px",
-              fontSize: 14,
-              background: loadingData ? "#f3f4f6" : "white"
-            }}
-          />
-        </div>
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display: "block", marginBottom: 4, fontWeight: 500 }}>
+                Артикул
+              </label>
+              <input
+                type="text"
+                value={article}
+                onChange={(e) => setArticle(e.target.value)}
+                disabled={loadingData}
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  border: "1px solid #ddd",
+                  borderRadius: "4px",
+                  fontSize: 14,
+                  background: loadingData ? "#f3f4f6" : "white"
+                }}
+              />
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display: "block", marginBottom: 4, fontWeight: 500 }}>
+                Цена покупки (сом)
+              </label>
+              <input
+                type="number"
+                value={purchasePrice}
+                onChange={(e) => setPurchasePrice(Number(e.target.value))}
+                min="0"
+                step="0.01"
+                disabled={loadingData}
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  border: "1px solid #ddd",
+                  borderRadius: "4px",
+                  fontSize: 14,
+                  background: loadingData ? "#f3f4f6" : "white"
+                }}
+              />
+            </div>
+          </>
+        )}
 
         <div style={{ marginBottom: 16 }}>
           <label style={{ display: "block", marginBottom: 4, fontWeight: 500 }}>

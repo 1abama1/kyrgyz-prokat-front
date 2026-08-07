@@ -33,6 +33,13 @@ export const toolsAPI = {
       data,
     }),
 
+  createBatch: (data: any) =>
+    apiCall<ToolDto[]>({
+      url: "/api/tools/batch",
+      method: "POST",
+      data,
+    }),
+
   getTodayAll: () =>
     apiCall<ToolDto[]>({
       url: "/api/tools/today",

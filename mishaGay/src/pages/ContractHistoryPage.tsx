@@ -137,6 +137,7 @@ export const ContractHistoryPage = () => {
                     </td>
                     <td>
                       <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                        {/* <ReinstallExcelButton contractId={item.id} contractNumber={String(item.id)} /> */}
                         <button
                           className="btn-edit"
                           onClick={() => navigate(`/documents/${item.id}`)}

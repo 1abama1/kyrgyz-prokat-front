@@ -10,11 +10,10 @@ export interface CreateContractPayload {
   clientId: number;
   toolId: number; // ID конкретного экземпляра инструмента (Tool), а не модели
   contractNumber?: string; // Опционально, если бэкенд генерирует автоматически
-  startDateTime?: string; // Опционально, ISO 8601 формат (2025-12-07T10:30:00)
+  offlineId?: string;
 }
 
 export interface UpdateContractPayload {
-  expectedReturnDate?: string;
   amount?: number;
   comment?: string;
 }
@@ -128,13 +127,12 @@ export async function createContract(
     clientId: payload.clientId,
     toolId: payload.toolId,
     contractNumber: payload.contractNumber,
-    startDateTime: payload.startDateTime || new Date().toISOString(),
+    startDateTime: new Date().toISOString(),
     status: 'ACTIVE',
     syncStatus: 'pending',
     updatedAt: Date.now()
   });
 
-  // Try to sync or just enqueue
   if (navigator.onLine) {
     try {
       const response = await fetch(`${API_BASE_URL}/api/admin/contracts/create`, {
@@ -143,7 +141,7 @@ export async function createContract(
           "Content-Type": "application/json",
           ...buildAuthHeaders()
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify({ ...payload, offlineId })
       });
 
       if (response.ok) {
@@ -155,8 +153,14 @@ export async function createContract(
           syncStatus: 'synced'
         });
         return data;
+      } else {
+        await raiseError(response);
       }
-    } catch (e) {
+    } catch (e: any) {
+      if (e && e.status) {
+        // This is a server error, not an offline network error
+        throw e;
+      }
       console.warn("Offline: failed to create contract on server, enqueued.", e);
     }
   }
@@ -211,8 +215,13 @@ export async function updateContract(
           await db.contracts.where('id').equals(contractId).modify({ syncStatus: 'synced' });
         }
         return data;
+      } else {
+        await raiseError(response);
       }
-    } catch (e) {
+    } catch (e: any) {
+      if (e && e.status) {
+        throw e;
+      }
       console.warn("Offline: failed to update contract on server, enqueued.", e);
     }
   }
@@ -283,7 +292,7 @@ export async function downloadExistingExcelContract(
  */
 export async function closeContract(
   contractId: number | undefined,
-  payload?: { paidAmount?: number; comment?: string },
+  payload?: { paidAmount?: number; comment?: string; isBroken?: boolean; actualReturnDate?: string },
   offlineId?: string
 ): Promise<any> {
   // Update local DB
@@ -318,8 +327,13 @@ export async function closeContract(
           await db.contracts.where('id').equals(contractId).modify({ syncStatus: 'synced' });
         }
         try { return await response.json(); } catch { return null; }
+      } else {
+        await raiseError(response);
       }
-    } catch (e) {
+    } catch (e: any) {
+      if (e && e.status) {
+        throw e;
+      }
       console.warn("Offline: failed to close contract on server, enqueued.", e);
     }
   }

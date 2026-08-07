@@ -28,12 +28,20 @@ export interface SyncAction {
 export class AppDatabase extends Dexie {
     contracts!: Table<LocalContract>;
     syncQueue!: Table<SyncAction>;
+    clients!: Table<any>;
+    tools!: Table<any>;
+    categories!: Table<any>;
+    templates!: Table<any>;
 
     constructor() {
         super('RentalDocsDB');
-        this.version(2).stores({
+        this.version(3).stores({
             contracts: '++id, offlineId, clientId, toolId, status, syncStatus, updatedAt',
-            syncQueue: '++id, type, offlineId, createdAt'
+            syncQueue: '++id, type, offlineId, createdAt',
+            clients: 'id, fullName, phone, updatedAt',
+            tools: 'id, name, inventoryNumber, status, updatedAt',
+            categories: 'id, name',
+            templates: 'id, name, categoryId'
         });
     }
 }
