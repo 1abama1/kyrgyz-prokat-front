@@ -38,7 +38,7 @@ export class AppDatabase extends Dexie {
         this.version(3).stores({
             contracts: '++id, offlineId, clientId, toolId, status, syncStatus, updatedAt',
             syncQueue: '++id, type, offlineId, createdAt',
-            clients: 'id, fullName, phone, updatedAt',
+            clients: 'id, fullName, whatsappPhone, updatedAt',
             tools: 'id, name, inventoryNumber, status, updatedAt',
             categories: 'id, name',
             templates: 'id, name, categoryId'

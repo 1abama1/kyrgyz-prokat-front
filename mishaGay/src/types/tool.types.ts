@@ -1,12 +1,13 @@
 export interface ToolCategory {
-  id: number;
+  id: string;
   name: string;
 }
 
 export interface ToolTemplate {
-  id: number;
+  id: string;
   name: string;
-  categoryId: number;
+  categoryId: string;
+  categoryName?: string;
 }
 
 export type ToolStatus =
@@ -15,27 +16,28 @@ export type ToolStatus =
   | "OVERDUE"
   | "BROKEN"
   | "IN_REPAIR"
-  | "DECOMMISSIONED";
+  | "DECOMMISSIONED"
+  | "LOST"
+  | "WRITTEN_OFF";
 
 export interface Tool {
   id: number;
   name: string;
   inventoryNumber: string;
+  instanceNumber?: number;
   serialNumber?: string | null;
   article: string;
-  deposit: number;
+  depositAmount: number;
   purchasePrice: number;
-  dailyPrice: number;
+  dailyRentalPrice: number;
 
   status: ToolStatus;
 
-  templateId: number;
-  templateName: string;
+  templateId: string;
+  templateName?: string;
 
-  categoryId: number;
-  categoryName: string;
-
-  images: ToolImage[];
+  categoryId?: string;
+  categoryName?: string;
 }
 
 // Краткое описание экземпляра инструмента для выбора в CRM
@@ -44,9 +46,9 @@ export interface ToolInstance {
   name: string;
   inventoryNumber: string;
   article: string;
-  deposit: number;
+  depositAmount: number;
   purchasePrice: number;
-  dailyPrice: number;
+  dailyRentalPrice: number;
   status: ToolStatus;
   instanceNumber?: number;
 }
@@ -59,9 +61,4 @@ export interface ToolHistoryEntry {
   managerName?: string | null;
   profit?: number | null;
   status: string;
-}
-
-export interface ToolImage {
-  id: number;
-  fileName: string;
 }

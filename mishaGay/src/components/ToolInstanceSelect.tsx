@@ -19,11 +19,13 @@ type ToolOption = {
 
 const statusConfig: Record<ToolInstance["status"], { color: string; bg: string; icon: string; text: string }> = {
   AVAILABLE: { color: "#16A34A", bg: "#F0FDF4", icon: "●", text: "Доступен" },
-  RENTED:    { color: "#DC2626", bg: "#FEF2F2", icon: "●", text: "Занят" },
+  RENTED:    { color: "#DC2626", bg: "#FEF2F2", icon: "●", text: "В аренде" },
   BROKEN:    { color: "#D97706", bg: "#FFFBEB", icon: "●", text: "Сломан" },
   OVERDUE:   { color: "#DC2626", bg: "#FEF2F2", icon: "●", text: "Просрочен" },
   IN_REPAIR: { color: "#D97706", bg: "#FFFBEB", icon: "●", text: "В ремонте" },
-  DECOMMISSIONED: { color: "#64748B", bg: "#F1F5F9", icon: "●", text: "Списан" }
+  DECOMMISSIONED: { color: "#64748B", bg: "#F1F5F9", icon: "●", text: "Списан" },
+  LOST: { color: "#64748B", bg: "#F1F5F9", icon: "●", text: "Утерян" },
+  WRITTEN_OFF: { color: "#64748B", bg: "#F1F5F9", icon: "●", text: "Списан (Брак)" }
 };
 
 const selectStyles: StylesConfig<ToolOption, false> = {
@@ -216,9 +218,9 @@ export const ToolInstanceSelect = ({
               fontSize: 12,
               opacity: 0.8
             }}>
-              <span><strong style={{ fontWeight: 600 }}>{t.dailyPrice}</strong> / сутки</span>
+              <span><strong style={{ fontWeight: 600 }}>{t.dailyRentalPrice}</strong> / сутки</span>
               <span style={{ opacity: 0.5 }}>|</span>
-              <span>Залог: <strong style={{ fontWeight: 600 }}>{t.deposit}</strong></span>
+              <span>Залог: <strong style={{ fontWeight: 600 }}>{t.depositAmount}</strong></span>
             </div>
           </div>
         );

@@ -22,8 +22,8 @@ export const CreateToolPage: FC = () => {
 
   const [categories, setCategories] = useState<ToolCategory[]>([]);
   const [templates, setTemplates] = useState<ToolTemplate[]>([]);
-  const [categoryId, setCategoryId] = useState<number | undefined>();
-  const [templateId, setTemplateId] = useState<number | undefined>();
+  const [categoryId, setCategoryId] = useState<string | undefined>();
+  const [templateId, setTemplateId] = useState<string | undefined>();
   
   // Новые поля
   const [name, setName] = useState("");
@@ -65,13 +65,13 @@ export const CreateToolPage: FC = () => {
   useEffect(() => {
     const templateIdParam = searchParams.get("templateId");
     if (templateIdParam && !isEdit) {
-      const id = Number(templateIdParam);
-      if (!isNaN(id) && id > 0) {
+      const id = templateIdParam;
+      if (id) {
         // Если категория уже известна из query — просто ставим шаблон
         const categoryIdParam = searchParams.get("categoryId");
-        const parsedCat = categoryIdParam ? Number(categoryIdParam) : undefined;
+        const parsedCat = categoryIdParam;
 
-        if (parsedCat && !isNaN(parsedCat) && parsedCat > 0) {
+        if (parsedCat) {
           setCategoryId(parsedCat);
           setTemplateId(id);
         } else {
@@ -97,10 +97,7 @@ export const CreateToolPage: FC = () => {
     if (isEdit) return;
     const categoryIdParam = searchParams.get("categoryId");
     if (categoryIdParam) {
-      const parsed = Number(categoryIdParam);
-      if (!isNaN(parsed) && parsed > 0) {
-        setCategoryId(parsed);
-      }
+      setCategoryId(categoryIdParam);
     }
   }, [searchParams, isEdit]);
 
@@ -109,11 +106,6 @@ export const CreateToolPage: FC = () => {
     if (!isEdit || !id) return;
 
     const toolId = Number(id);
-    if (isNaN(toolId) || toolId <= 0) {
-      setError("Неверный ID инструмента");
-      setLoadingData(false);
-      return;
-    }
 
     setLoadingData(true);
     toolsAPI.getOne(toolId)
@@ -123,9 +115,9 @@ export const CreateToolPage: FC = () => {
         setName(tool.name || "");
         setInventoryNumber(tool.inventoryNumber || "");
         setArticle(tool.article || "");
-        setDeposit(tool.deposit || 0);
+        setDeposit(tool.depositAmount || 0);
         setPurchasePrice(tool.purchasePrice || 0);
-        setDailyPrice(tool.dailyPrice || 0);
+        setDailyPrice(tool.dailyRentalPrice || 0);
       })
       .catch((err: any) => {
         setError(err?.message || "Ошибка загрузки данных инструмента");
@@ -165,12 +157,10 @@ export const CreateToolPage: FC = () => {
           const batchData: CreateToolBatchRequest = {
             templateId,
             count,
-            dailyPrice,
-            deposit,
           };
           await toolsAPI.createBatch(batchData);
         } else {
-          const toolData: CreateToolRequest = {
+          const toolData = {
             templateId,
             name,
             inventoryNumber,
@@ -178,7 +168,7 @@ export const CreateToolPage: FC = () => {
             deposit,
             purchasePrice,
             dailyPrice,
-          };
+          } as unknown as CreateToolRequest;
           await toolsAPI.create(toolData);
         }
       }
@@ -244,7 +234,7 @@ export const CreateToolPage: FC = () => {
             options={categories.map(cat => ({ value: cat.id, label: cat.name }))}
             value={categoryId ?? ""}
             onChange={(val) => {
-              const newCategoryId = val ? Number(val) : undefined;
+              const newCategoryId = val ? String(val) : undefined;
               setCategoryId(newCategoryId);
               setTemplateId(undefined);
             }}
@@ -261,7 +251,7 @@ export const CreateToolPage: FC = () => {
           <StyledSelect
             options={templates.map(tmpl => ({ value: tmpl.id, label: tmpl.name }))}
             value={templateId ?? ""}
-            onChange={(val) => setTemplateId(val ? Number(val) : undefined)}
+            onChange={(val) => setTemplateId(val ? String(val) : undefined)}
             isDisabled={!categoryId || loadingData}
             placeholder={!categoryId ? "Сначала выберите категорию" : "Выберите модель"}
             isClearable

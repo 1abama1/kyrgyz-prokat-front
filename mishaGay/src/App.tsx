@@ -13,6 +13,7 @@ import { CreateRentalContractPage } from "./pages/CreateRentalContractPage";
 import { ActiveContractsPage } from "./pages/ActiveContractsPage";
 import { CreateCategoryPage } from "./pages/CreateCategoryPage";
 import { CreateTemplatePage } from "./pages/CreateTemplatePage";
+import { TemplateCardPage } from "./pages/TemplateCardPage";
 import { ContractHistoryPage } from "./pages/ContractHistoryPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { isAuthenticated } from "./utils/auth";
@@ -108,6 +109,14 @@ function App() {
           element={
             <ProtectedRoute>
               <CreateTemplatePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/templates/:id"
+          element={
+            <ProtectedRoute>
+              <TemplateCardPage />
             </ProtectedRoute>
           }
         />

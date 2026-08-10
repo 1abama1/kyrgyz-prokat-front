@@ -8,7 +8,7 @@ import { syncManager } from "../db/syncManager";
 
 export interface CreateContractPayload {
   clientId: number;
-  toolId: number; // ID конкретного экземпляра инструмента (Tool), а не модели
+  toolId: number;
   contractNumber?: string; // Опционально, если бэкенд генерирует автоматически
   offlineId?: string;
 }
@@ -98,7 +98,7 @@ export async function getClientDocuments(clientId: number): Promise<RentalDocume
  *    GET /api/admin/contracts/available?templateId=...
  *    Возвращает только AVAILABLE экземпляры конкретной модели
  */
-export async function getAvailableTools(templateId: number): Promise<ToolInstance[]> {
+export async function getAvailableTools(templateId: string): Promise<ToolInstance[]> {
   const response = await fetch(
     `${API_BASE_URL}/api/admin/contracts/available?templateId=${templateId}`,
     { headers: { ...buildAuthHeaders() } }
@@ -146,12 +146,17 @@ export async function createContract(
 
       if (response.ok) {
         const data = await response.json();
-        // Update local record with real ID
-        await db.contracts.where('offlineId').equals(offlineId).modify({
-          id: data.id,
-          contractNumber: data.contractNumber,
-          syncStatus: 'synced'
-        });
+        // Dexie doesn't allow changing the primary key. We must delete the old record and add a new one.
+        const oldRecord = await db.contracts.where('offlineId').equals(offlineId).first();
+        if (oldRecord) {
+          await db.contracts.delete(oldRecord.id!);
+          await db.contracts.add({
+            ...oldRecord,
+            id: data.id,
+            contractNumber: data.contractNumber,
+            syncStatus: 'synced'
+          });
+        }
         return data;
       } else {
         await raiseError(response);
@@ -458,10 +463,19 @@ export async function getHistoryByTool(toolId: number): Promise<any[]> {
   });
 }
 
-export async function getHistoryTable(toolId?: number): Promise<any[]> {
+export async function getHistoryTable(
+  toolId?: number | string,
+  from?: string,
+  to?: string
+): Promise<any[]> {
+  const params: any = {};
+  if (toolId) params.toolId = toolId;
+  if (from) params.from = from;
+  if (to) params.to = to;
+  
   return apiCall<any[]>({
     url: `/api/contracts/history-table`,
-    params: toolId ? { toolId } : undefined,
+    params: Object.keys(params).length > 0 ? params : undefined,
   });
 }
 

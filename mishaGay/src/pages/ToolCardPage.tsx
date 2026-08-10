@@ -25,12 +25,6 @@ export const ToolCardPage: FC = () => {
     }
 
     const toolId = Number(id);
-    if (isNaN(toolId) || toolId <= 0) {
-      setError("Неверный ID инструмента");
-      setLoading(false);
-      return;
-    }
-
     loadTool(toolId);
   }, [id]);
 
@@ -50,6 +44,23 @@ export const ToolCardPage: FC = () => {
         setError("Ошибка загрузки инструмента");
       }
     } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleStatusChange = async (newStatus: string) => {
+    if (!tool) return;
+    try {
+      setLoading(true);
+      setError(null);
+      await toolsAPI.updateStatus(tool.id, newStatus);
+      await loadTool(tool.id);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("Ошибка обновления статуса");
+      }
       setLoading(false);
     }
   };
@@ -78,10 +89,12 @@ export const ToolCardPage: FC = () => {
         <ErrorMessage error={error} onClose={() => setError(null)} />
 
         <div className="tool-card-header">
-          <h1 className="tools-page-title">{tool.name}</h1>
+          <h1 className="tools-page-title">
+            №{tool.instanceNumber ?? tool.id} — {tool.name}
+          </h1>
           <button
             onClick={() => {
-              if (id && !isNaN(Number(id)) && Number(id) > 0) {
+              if (id) {
                 navigate(`/tools/edit/${id}`);
               } else {
                 console.error("Invalid tool id for edit:", id);
@@ -134,7 +147,7 @@ export const ToolCardPage: FC = () => {
             <h3 className="tool-card-section-title">Финансовая информация</h3>
             <div className="tool-card-field">
               <span className="tool-card-label">Залог:</span>
-              <span className="tool-card-value">{tool.deposit} сом</span>
+              <span className="tool-card-value">{tool.depositAmount} сом</span>
             </div>
             <div className="tool-card-field">
               <span className="tool-card-label">Цена закупки:</span>
@@ -142,20 +155,45 @@ export const ToolCardPage: FC = () => {
             </div>
             <div className="tool-card-field">
               <span className="tool-card-label">Цена в сутки:</span>
-              <span className="tool-card-value">{tool.dailyPrice} сом</span>
+              <span className="tool-card-value">{tool.dailyRentalPrice} сом</span>
             </div>
           </div>
 
-          {tool.images && tool.images.length > 0 && (
-            <div className="tool-card-section">
-              <h3 className="tool-card-section-title">Фото</h3>
-              <ul className="tool-card-images">
-                {tool.images.map(img => (
-                  <li key={img.id}>{img.fileName}</li>
-                ))}
-              </ul>
+          <div className="tool-card-section">
+            <h3 className="tool-card-section-title">Управление статусом</h3>
+            <div className="tool-card-field">
+              <span className="tool-card-label">Изменить статус:</span>
+              <div style={{ flex: 1, maxWidth: 300 }}>
+                <select
+                  value={tool.status}
+                  onChange={(e) => handleStatusChange(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    borderRadius: "4px",
+                    border: "1px solid #ddd",
+                  }}
+                  disabled={tool.status === "RENTED"}
+                >
+                  <option value="AVAILABLE">Доступен</option>
+                  <option value="IN_REPAIR">В ремонте</option>
+                  <option value="WRITTEN_OFF">Списан</option>
+                  <option value="LOST">Утерян</option>
+                  <option value="DECOMMISSIONED">Снят с учета</option>
+                  {tool.status === "RENTED" && (
+                    <option value="RENTED" disabled>
+                      В аренде
+                    </option>
+                  )}
+                </select>
+                {tool.status === "RENTED" && (
+                  <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}>
+                    Статус арендованного инструмента можно изменить только при его возврате.
+                  </div>
+                )}
+              </div>
             </div>
-          )}
+          </div>
 
           <div className="tool-card-section">
             <h3 className="tool-card-section-title">История выдачи</h3>

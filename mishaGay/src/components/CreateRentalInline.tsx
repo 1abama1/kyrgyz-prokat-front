@@ -15,20 +15,20 @@ import { StyledSelect } from "./StyledSelect";
 import "../styles/create-rental.css";
 
 export interface CreateRentalInlineProps {
-  defaultClientId?: number;
+  defaultClientId?: string;
   onCreated: () => void;
 }
 
 export const CreateRentalInline: FC<CreateRentalInlineProps> = ({ defaultClientId, onCreated }) => {
   const [clients, setClients] = useState<Client[]>([]);
-  const [clientId, setClientId] = useState<number | "">(defaultClientId ?? "");
+  const [clientId, setClientId] = useState<string | "">(defaultClientId ?? "");
   
   // Новая архитектура: Категория → Модель → Экземпляр
   const [categories, setCategories] = useState<ToolCategory[]>([]);
-  const [categoryId, setCategoryId] = useState<number | "">("");
+  const [categoryId, setCategoryId] = useState<string | "">("");
   
   const [templates, setTemplates] = useState<ToolTemplate[]>([]);
-  const [templateId, setTemplateId] = useState<number | "">("");
+  const [templateId, setTemplateId] = useState<string | "">("");
   
   const [tools, setTools] = useState<ToolInstance[]>([]);
   const [toolId, setToolId] = useState<number | null>(null);
@@ -51,13 +51,13 @@ export const CreateRentalInline: FC<CreateRentalInlineProps> = ({ defaultClientI
     setWarningAccepted(false);
   }, [clientId]);
 
-  const selectedClient = clients.find(c => c.id === Number(clientId));
+  const selectedClient = clients.find(c => String(c.id) === clientId);
   const clientCheck = useClientCheck(selectedClient);
 
   // Загрузка моделей при выборе категории
   useEffect(() => {
     if (categoryId) {
-      templatesAPI.getByCategory(Number(categoryId))
+      templatesAPI.getByCategory(categoryId)
         .then(setTemplates)
         .catch(err => {
           setError(err.message || "Ошибка загрузки моделей");
@@ -77,7 +77,7 @@ export const CreateRentalInline: FC<CreateRentalInlineProps> = ({ defaultClientI
   // Загрузка экземпляров при выборе модели (все статусы)
   useEffect(() => {
     if (templateId) {
-      templatesAPI.getFull(Number(templateId))
+      templatesAPI.getFull(templateId)
         .then((fullTemplate) => setTools(fullTemplate.tools ?? []))
         .catch(err => {
           setError(err.message || "Ошибка загрузки инструментов");
@@ -112,7 +112,7 @@ export const CreateRentalInline: FC<CreateRentalInlineProps> = ({ defaultClientI
     try {
       await contractsAPI.createContract({
         clientId: Number(clientId),
-        toolId: Number(toolId)
+        toolId: toolId as number
       });
 
       // Сброс формы
@@ -131,7 +131,7 @@ export const CreateRentalInline: FC<CreateRentalInlineProps> = ({ defaultClientI
         setError("Этот инструмент уже в аренде. Выберите другой инструмент.");
         // Обновляем список доступных инструментов для выбранной модели
         if (templateId) {
-          templatesAPI.getFull(Number(templateId))
+          templatesAPI.getFull(templateId)
             .then(full => setTools(full.tools ?? []))
             .catch(() => {});
         }
@@ -159,9 +159,9 @@ export const CreateRentalInline: FC<CreateRentalInlineProps> = ({ defaultClientI
         <label>Клиент</label>
         <div style={{ marginBottom: 16 }}>
           <StyledSelect
-            options={clients.map(c => ({ value: c.id, label: `${c.fullName} ${c.phone ? `(${c.phone})` : ""}` }))}
+            options={clients.map(c => ({ value: c.id, label: `${c.fullName} ${c.whatsappPhone ? `(${c.whatsappPhone})` : ""}` }))}
             value={clientId}
-            onChange={(val) => setClientId(val ? Number(val) : "")}
+            onChange={(val) => setClientId(val ? String(val) : "")}
             placeholder="Выберите клиента"
             isClearable
           />
@@ -183,7 +183,7 @@ export const CreateRentalInline: FC<CreateRentalInlineProps> = ({ defaultClientI
           <StyledSelect
             options={categories.map(cat => ({ value: cat.id, label: cat.name }))}
             value={categoryId}
-            onChange={(val) => setCategoryId(val ? Number(val) : "")}
+            onChange={(val) => setCategoryId(val ? String(val) : "")}
             placeholder="Выберите категорию"
             isClearable
           />
@@ -196,7 +196,7 @@ export const CreateRentalInline: FC<CreateRentalInlineProps> = ({ defaultClientI
               <StyledSelect
                 options={templates.map(tmpl => ({ value: tmpl.id, label: tmpl.name }))}
                 value={templateId}
-                onChange={(val) => setTemplateId(val ? Number(val) : "")}
+                onChange={(val) => setTemplateId(val ? String(val) : "")}
                 isDisabled={!categoryId}
                 placeholder="Выберите модель"
                 isClearable

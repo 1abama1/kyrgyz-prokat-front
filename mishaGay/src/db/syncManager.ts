@@ -43,14 +43,16 @@ class SyncManager {
                 // Handle ID mapping
                 if (result.idMappings) {
                     for (const mapping of result.idMappings) {
-                        await db.contracts
-                            .where('offlineId')
-                            .equals(mapping.offlineId)
-                            .modify({
+                        const oldRecord = await db.contracts.where('offlineId').equals(mapping.offlineId).first();
+                        if (oldRecord) {
+                            await db.contracts.delete(oldRecord.id!);
+                            await db.contracts.add({
+                                ...oldRecord,
                                 id: mapping.backendId,
                                 contractNumber: mapping.contractNumber,
                                 syncStatus: 'synced'
                             });
+                        }
                     }
                 }
 

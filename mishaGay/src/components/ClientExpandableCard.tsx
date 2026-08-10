@@ -1,4 +1,4 @@
-﻿import { FC, useState } from "react";
+import { FC, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { clientsAPI } from "../api/clients";
 import { contractsAPI } from "../api/contracts";
@@ -12,12 +12,12 @@ import { WhatsAppButton } from "./WhatsAppButton";
 interface Props {
   clientId: number;
   fullName?: string | null;
-  phone?: string | null;
   whatsappPhone?: string | null;
+  additionalPhone?: string | null;
   tag?: string | null;
 }
 
-export const ClientExpandableCard: FC<Props> = ({ clientId, fullName, phone, whatsappPhone, tag }) => {
+export const ClientExpandableCard: FC<Props> = ({ clientId, fullName, whatsappPhone, additionalPhone, tag }) => {
   const navigate = useNavigate();
   const [data, setData] = useState<Client | null>(null);
   const [documents, setDocuments] = useState<RentalDocument[]>([]);
@@ -93,7 +93,7 @@ export const ClientExpandableCard: FC<Props> = ({ clientId, fullName, phone, wha
             )}
           </div>
           <div style={{ marginTop: 4, fontSize: 14, color: "#6b7280" }}>
-            {data?.phone || phone || "—"}
+            {data?.whatsappPhone || whatsappPhone || "—"}
             {(data?.whatsappPhone || whatsappPhone) && (
               <span style={{ marginLeft: 10 }}>
                 <WhatsAppButton
@@ -137,17 +137,17 @@ export const ClientExpandableCard: FC<Props> = ({ clientId, fullName, phone, wha
             {/* === ОСНОВНАЯ ИНФА === */}
             <div style={{ marginBottom: 20 }}>
               <h4 style={{ marginTop: 0, marginBottom: 12 }}>Основная информация</h4>
-              <p><strong>Телефон:</strong> {data.phone || "—"}</p>
               <p style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                <strong>WhatsApp:</strong>
-                <span>{data.whatsappPhone || data.phone || "—"}</span>
-                {(data.whatsappPhone || data.phone) && (
+                <strong>WhatsApp (осн):</strong>
+                <span>{data.whatsappPhone || "—"}</span>
+                {data.whatsappPhone && (
                   <WhatsAppButton
-                    phone={data.whatsappPhone || data.phone}
+                    phone={data.whatsappPhone}
                     variant="link"
                   />
                 )}
               </p>
+              <p><strong>Доп. телефон:</strong> {data?.additionalPhone || additionalPhone || "—"}</p>
               <p>
                 <strong>Адрес регистрации:</strong>{" "}
                 {data.registrationAddress

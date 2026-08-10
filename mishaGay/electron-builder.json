@@ -7,11 +7,12 @@
   "files": [
     "dist/**/*",
     "electron/**/*",
+    "src/assets/logo.png",
     "package.json"
   ],
   "win": {
     "target": "nsis",
-    "icon": "public/icon.png",
+    "icon": "src/assets/logo.png",
     "signAndEditExecutable": false
   },
   "nsis": {

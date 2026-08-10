@@ -18,7 +18,7 @@ export const ClientDocumentsTable: FC<Props> = ({ documents, onRefresh }) => {
     comment: ""
   });
 
-  const [closingId, setClosingId] = useState<number | null>(null);
+  const [closingId, setClosingId] = useState<string | null>(null);
   const [closeForm, setCloseForm] = useState({
     paidAmount: "",
     comment: "",
@@ -26,8 +26,8 @@ export const ClientDocumentsTable: FC<Props> = ({ documents, onRefresh }) => {
     actualReturnDate: new Date().toISOString().slice(0, 16)
   });
 
-  const openCloseModal = (id: number) => {
-    setClosingId(id);
+  const openCloseModal = (id: number | string) => {
+    setClosingId(String(id));
     setCloseForm({
       paidAmount: "",
       comment: "",
@@ -39,12 +39,16 @@ export const ClientDocumentsTable: FC<Props> = ({ documents, onRefresh }) => {
   const submitClose = async () => {
     if (!closingId) return;
     try {
-      await contractsAPI.close(closingId, {
+      const isOfflineId = isNaN(Number(closingId));
+      const contractId = isOfflineId ? undefined : Number(closingId);
+      const offlineId = isOfflineId ? closingId : undefined;
+
+      await contractsAPI.close(contractId, {
         paidAmount: closeForm.paidAmount ? Number(closeForm.paidAmount) : undefined,
         comment: closeForm.comment || undefined,
         isBroken: closeForm.isBroken,
         actualReturnDate: closeForm.actualReturnDate ? new Date(closeForm.actualReturnDate).toISOString() : undefined,
-      });
+      }, offlineId);
       setClosingId(null);
       onRefresh();
     } catch (e: any) {
@@ -75,10 +79,14 @@ export const ClientDocumentsTable: FC<Props> = ({ documents, onRefresh }) => {
     if (!editing) return;
 
     try {
-      await contractsAPI.update(editing.id, {
+      const isOfflineId = isNaN(Number(editing.id));
+      const contractId = isOfflineId ? undefined : Number(editing.id);
+      const offlineId = isOfflineId ? String(editing.id) : undefined;
+
+      await contractsAPI.update(contractId, {
         amount: form.amount ? Number(form.amount) : undefined,
         comment: form.comment || undefined
-      });
+      }, offlineId);
 
       alert("Договор обновлён");
       setEditing(null);
@@ -111,7 +119,9 @@ export const ClientDocumentsTable: FC<Props> = ({ documents, onRefresh }) => {
                 </span>
               </td>
               <td style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-                <ReinstallExcelButton contractId={d.id} contractNumber={d.contractNumber} style={{ marginBottom: 0, marginRight: 0 }} />
+                {!isNaN(Number(d.id)) && (
+                  <ReinstallExcelButton contractId={Number(d.id)} contractNumber={d.contractNumber} style={{ marginBottom: 0, marginRight: 0 }} />
+                )}
                 {canEdit(d.status) && (
                   <button
                     className="btn-edit"

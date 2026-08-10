@@ -55,7 +55,7 @@ function createWindow() {
             contextIsolation: true,
             nodeIntegration: false
         },
-        icon: path.join(__dirname, "../public/icon.png")
+        icon: path.join(__dirname, "../src/assets/logo.png")
     });
     // Отключить меню
     Menu.setApplicationMenu(null);

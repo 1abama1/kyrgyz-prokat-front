@@ -1,18 +1,14 @@
-export type ContractStatus =
-  | "ACTIVE"
-  | "OVERDUE"
-  | "CLOSED"
-  | "TERMINATED";
+import type { ContractStatus } from "./Contract";
+export type { ContractStatus };
 
 export interface RentalDocument {
   id: number;
   contractNumber: string;
-  startDateTime?: string; // ISO 8601 формат (2025-12-07T10:30:00)
-  returnDate?: string; // Фактическая дата возврата
+  startDateTime?: string; 
+  returnDate?: string; 
   amount: number;
   comment?: string;
   status: ContractStatus;
-  clientId?: number; // ID клиента для удобства
-  toolId?: number; // ID экземпляра инструмента для удобства
+  clientId?: number; 
+  toolId?: number; 
 }
-

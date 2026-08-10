@@ -14,6 +14,7 @@ import { ToolInstanceSelect } from "../components/ToolInstanceSelect";
 import { StyledSelect } from "../components/StyledSelect";
 import { useClientCheck } from "../hooks/useClientCheck";
 import { ProblemClientWarning } from "../components/ProblemClientWarning";
+import { matchPhone } from "../utils/phoneMatch";
 import "../styles/create-rental.css";
 
 export const CreateRentalContractPage: FC = () => {
@@ -24,15 +25,15 @@ export const CreateRentalContractPage: FC = () => {
   
   // Новая архитектура: Категория → Модель → Экземпляр
   const [categories, setCategories] = useState<ToolCategory[]>([]);
-  const [categoryId, setCategoryId] = useState<number | "">("");
+  const [categoryId, setCategoryId] = useState<string | "">("");
   
   const [templates, setTemplates] = useState<ToolTemplate[]>([]);
-  const [templateId, setTemplateId] = useState<number | "">("");
+  const [templateId, setTemplateId] = useState<string | "">("");
   
   const [tools, setTools] = useState<ToolInstance[]>([]);
   const [toolId, setToolId] = useState<number | null>(null);
 
-  const [clientId, setClientId] = useState<number | "">("");
+  const [clientId, setClientId] = useState<string | "">("");
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -47,7 +48,7 @@ export const CreateRentalContractPage: FC = () => {
   // Загрузка моделей при выборе категории
   useEffect(() => {
     if (categoryId) {
-      templatesAPI.getByCategory(Number(categoryId))
+      templatesAPI.getByCategory(categoryId)
         .then(setTemplates)
         .catch(err => {
           setError(err.message || "Ошибка загрузки моделей");
@@ -67,7 +68,7 @@ export const CreateRentalContractPage: FC = () => {
   // Загрузка экземпляров при выборе модели (все статусы)
   useEffect(() => {
     if (templateId) {
-      templatesAPI.getFull(Number(templateId))
+      templatesAPI.getFull(templateId)
         .then((fullTemplate) => setTools(fullTemplate.tools ?? []))
         .catch(err => {
           setError(err.message || "Ошибка загрузки инструментов");
@@ -84,10 +85,7 @@ export const CreateRentalContractPage: FC = () => {
   useEffect(() => {
     const clientIdParam = searchParams.get("clientId");
     if (clientIdParam) {
-      const id = Number(clientIdParam);
-      if (!isNaN(id) && id > 0) {
-        setClientId(id);
-      }
+      setClientId(clientIdParam);
     }
   }, [searchParams]);
 
@@ -95,7 +93,7 @@ export const CreateRentalContractPage: FC = () => {
     setWarningAccepted(false);
   }, [clientId]);
 
-  const selectedClient = clients.find(c => c.id === Number(clientId));
+  const selectedClient = clients.find(c => String(c.id) === clientId);
   const clientCheck = useClientCheck(selectedClient);
 
 
@@ -121,7 +119,7 @@ export const CreateRentalContractPage: FC = () => {
     try {
       await contractsAPI.createContract({
         clientId: Number(clientId),
-        toolId: Number(toolId),
+        toolId: toolId as number,
       });
 
       navigate("/contracts/active");
@@ -135,7 +133,7 @@ export const CreateRentalContractPage: FC = () => {
         setError("Этот инструмент уже в аренде. Выберите другой инструмент.");
         // Обновляем список доступных инструментов для выбранной модели
         if (templateId) {
-          templatesAPI.getFull(Number(templateId))
+          templatesAPI.getFull(templateId)
             .then(full => setTools(full.tools ?? []))
             .catch(() => {});
         }
@@ -149,7 +147,7 @@ export const CreateRentalContractPage: FC = () => {
 
   const clientOptions = clients.map(c => ({
     value: c.id,
-    label: `${c.fullName}${c.phone ? ` (${c.phone})` : ""}`
+    label: `${c.fullName}${c.whatsappPhone ? ` (${c.whatsappPhone})` : ""}`
   }));
 
   const categoryOptions = categories.map(cat => ({
@@ -161,6 +159,19 @@ export const CreateRentalContractPage: FC = () => {
     value: tmpl.id,
     label: tmpl.name
   }));
+
+  const clientFilterOption = (option: { label: string; value: string | number; data: any }, inputValue: string) => {
+    if (!inputValue) return true;
+    if (option.label.toLowerCase().includes(inputValue.toLowerCase())) return true;
+    
+    const client = clients.find(c => c.id === option.value);
+    if (client) {
+      if (matchPhone(client.whatsappPhone, inputValue)) return true;
+      if (matchPhone(client.additionalPhone, inputValue)) return true;
+    }
+    
+    return false;
+  };
 
   return (
     <Layout>
@@ -181,10 +192,11 @@ export const CreateRentalContractPage: FC = () => {
             <StyledSelect
               options={clientOptions}
               value={clientId}
-              onChange={(val) => setClientId(val ? Number(val) : "")}
+              onChange={(val) => setClientId(val ? String(val) : "")}
               placeholder="Выберите клиента"
               isClearable
               noOptionsMessage="Клиенты не найдены"
+              filterOption={clientFilterOption}
             />
           </div>
 
@@ -204,7 +216,7 @@ export const CreateRentalContractPage: FC = () => {
             <StyledSelect
               options={categoryOptions}
               value={categoryId}
-              onChange={(val) => setCategoryId(val ? Number(val) : "")}
+              onChange={(val) => setCategoryId(val ? String(val) : "")}
               placeholder="Выберите категорию"
               isClearable
               noOptionsMessage="Категории не найдены"
@@ -219,7 +231,7 @@ export const CreateRentalContractPage: FC = () => {
                   options={templateOptions}
                   value={templateId}
                   onChange={(val) => {
-                    setTemplateId(val ? Number(val) : "");
+                    setTemplateId(val ? String(val) : "");
                   }}
                   placeholder="Выберите модель"
                   isDisabled={!categoryId}

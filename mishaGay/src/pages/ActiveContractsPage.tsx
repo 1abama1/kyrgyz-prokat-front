@@ -13,6 +13,7 @@ export const ActiveContractsPage = () => {
   // Состояния для модального окна закрытия
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedContractId, setSelectedContractId] = useState<number | null>(null);
+  const [selectedOfflineId, setSelectedOfflineId] = useState<string | null>(null);
   const [paidAmount, setPaidAmount] = useState<number | string>(0);
   const [comment, setComment] = useState<string>("");
 
@@ -53,16 +54,20 @@ export const ActiveContractsPage = () => {
     }
   };
 
-  const handleCloseClick = (contractId: number, currentBalance: number) => {
-    setSelectedContractId(contractId);
+  const handleCloseClick = (contractId: number, offlineId: string | undefined, currentBalance: number) => {
+    setSelectedContractId(contractId || null);
+    setSelectedOfflineId(offlineId || null);
     setPaidAmount(currentBalance || 0);
     setComment("");
     setIsModalOpen(true);
   };
 
   const handleConfirmClose = async () => {
-    const selectedRow = rows.find(r => r.contractId === selectedContractId || (selectedContractId === 0 && r.offlineId === (selectedContractId as any).offlineId));
-    if (!selectedContractId && !selectedRow?.offlineId) return;
+    const selectedRow = rows.find(r => 
+      (selectedContractId && r.contractId === selectedContractId) || 
+      (selectedOfflineId && r.offlineId === selectedOfflineId)
+    );
+    if (!selectedRow) return;
 
     try {
       await contractsAPI.close(
@@ -145,11 +150,11 @@ export const ActiveContractsPage = () => {
                       {/* <ReinstallExcelButton contractId={row.contractId} /> */}
                       <button
                         onClick={() => {
-                          if (row.contractId && !isNaN(row.contractId) && row.contractId > 0) {
+                          if (row.contractId) {
                             navigate(`/documents/${row.contractId}`);
                           } else {
                             console.error("Invalid contractId:", row.contractId);
-                            alert("Ошибка: неверный ID договора");
+                            alert("Ошибка: этот договор еще не синхронизирован, невозможно открыть");
                           }
                         }}
                         className="btn-small"
@@ -161,20 +166,7 @@ export const ActiveContractsPage = () => {
                     <td>
                       <button
                         onClick={() => {
-                          if (row.contractId && row.contractId > 0) {
-                            handleCloseClick(row.contractId, row.balance);
-                          } else if (row.offlineId) {
-                            // If it's an offline contract, we use 0 as ID and pass offlineId via some mechanism
-                            // For simplicity, I'll update handleCloseClick to accept offlineId too if needed, 
-                            // but here I'll just pass 0 and let it find by offlineId in rows
-                            setSelectedContractId(0);
-                            setPaidAmount(row.balance || 0);
-                            setComment("");
-                            setIsModalOpen(true);
-                          } else {
-                            console.error("Invalid contractId:", row.contractId);
-                            alert("Ошибка: неверный ID договора");
-                          }
+                          handleCloseClick(row.contractId, row.offlineId, row.balance);
                         }}
                         className="btn-danger"
                         type="button"
@@ -199,13 +191,9 @@ export const ActiveContractsPage = () => {
             <label style={{ marginBottom: '12px' }}>
               <span style={{ fontWeight: 600, marginBottom: '4px' }}>Сумма оплаты (KGS):</span>
               <input
-                type="text"
-                inputMode="numeric"
+                type="number"
                 value={paidAmount}
-                onChange={(e) => {
-                  const val = e.target.value.replace(/\D/g, "");
-                  setPaidAmount(val);
-                }}
+                onChange={(e) => setPaidAmount(e.target.value)}
                 onFocus={(e) => e.target.select()}
                 autoFocus
               />

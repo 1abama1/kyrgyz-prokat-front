@@ -15,6 +15,7 @@ interface StyledSelectProps {
   className?: string;
   noOptionsMessage?: string;
   isSearchable?: boolean;
+  filterOption?: (option: { label: string; value: string | number; data: SelectOption }, inputValue: string) => boolean;
 }
 
 const selectStyles: StylesConfig<SelectOption, false, GroupBase<SelectOption>> = {
@@ -120,9 +121,10 @@ export const StyledSelect = ({
   isClearable = false,
   isSearchable = true,
   className,
-  noOptionsMessage = "Ничего не найдено"
+  noOptionsMessage = "Ничего не найдено",
+  filterOption
 }: StyledSelectProps) => {
-  const selectedOption = options.find((opt) => opt.value === value) ?? null;
+  const selectedOption = options.find((opt) => String(opt.value) === String(value)) ?? null;
 
   return (
     <Select<SelectOption, false>
@@ -138,6 +140,7 @@ export const StyledSelect = ({
       noOptionsMessage={() => noOptionsMessage}
       styles={selectStyles}
       menuPortalTarget={document.body}
+      filterOption={filterOption}
     />
   );
 };

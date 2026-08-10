@@ -30,8 +30,8 @@ export interface ClientImageMeta {
 
 export interface CreateClientDto {
   fullName: string;
-  phone: string;
-  whatsappPhone?: string;
+  whatsappPhone: string;
+  additionalPhone?: string;
   registrationAddress?: AddressDto;
   livingAddress?: AddressDto;
   objectAddress?: string;
@@ -44,8 +44,8 @@ export interface CreateClientDto {
 export interface Client {
   id: number;
   fullName: string;
-  phone?: string | null;
   whatsappPhone?: string | null;
+  additionalPhone?: string | null;
   registrationAddress?: AddressDto | null;
   livingAddress?: AddressDto | null;
   objectAddress?: string | null;
@@ -78,8 +78,8 @@ export interface ContractHistoryDto {
 export interface ClientCard {
   id: number;
   fullName: string;
-  phone?: string | null;
   whatsappPhone?: string | null;
+  additionalPhone?: string | null;
   registrationAddress?: AddressDto | null;
   livingAddress?: AddressDto | null;
   objectAddress?: string | null;

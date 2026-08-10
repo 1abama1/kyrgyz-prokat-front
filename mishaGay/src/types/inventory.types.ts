@@ -1,48 +1,42 @@
-// Базовые DTO, соответствующие Java бэкенду
-
 export interface CategoryDto {
-  id: number;
+  id: string;
   name: string;
 }
 
 export interface TemplateDto {
-  id: number;
+  id: string;
   name: string;
-  categoryId: number;
+  categoryId: string;
 }
 
-export type ToolStatusDto = "AVAILABLE" | "RENTED" | "BROKEN" | "IN_REPAIR" | "DECOMMISSIONED";
+export type ToolStatusDto = "AVAILABLE" | "RENTED" | "BROKEN" | "IN_REPAIR" | "DECOMMISSIONED" | "LOST" | "WRITTEN_OFF";
 
 export interface ToolDto {
   id: number;
   name: string;
   inventoryNumber: string;
   article: string;
-  deposit: number;
+  depositAmount: number;
   purchasePrice: number;
-  dailyPrice: number;
+  dailyRentalPrice: number;
   status: ToolStatusDto;
   instanceNumber?: number;
   serialNumber?: string | null;
-  categoryId?: number;
-  templateId?: number;
+  categoryId?: string;
+  templateId?: string;
 }
 
-// Full DTO для полной структуры
-
 export interface TemplateFullDto {
-  id: number;
+  id: string;
   name: string;
   tools: ToolDto[];
 }
 
 export interface CategoryFullDto {
-  id: number;
+  id: string;
   name: string;
   templates: TemplateFullDto[];
 }
-
-// Request DTO для создания
 
 export interface CreateCategoryRequest {
   name: string;
@@ -50,24 +44,16 @@ export interface CreateCategoryRequest {
 
 export interface CreateTemplateRequest {
   name: string;
-  categoryId: number;
+  categoryId: string;
 }
 
 export interface CreateToolRequest {
-  templateId: number;
-  name: string;
+  templateId: string;
   inventoryNumber: string;
-  article: string;
-  deposit: number;
-  purchasePrice: number;
-  dailyPrice: number;
+  serialNumber?: string | null;
 }
 
 export interface CreateToolBatchRequest {
-  templateId: number;
+  templateId: string;
   count: number;
-  dailyPrice?: number;
-  deposit?: number;
 }
-
-

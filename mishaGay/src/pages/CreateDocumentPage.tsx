@@ -1,4 +1,4 @@
-﻿import { FC, useState, useEffect, FormEvent } from "react";
+import { FC, useState, useEffect, FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { Layout } from "../components/Layout";
 import { clientsAPI } from "../api/clients";
@@ -18,8 +18,8 @@ export const CreateDocumentPage: FC = () => {
 
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [clientCard, setClientCard] = useState<ClientCard | null>(null);
-  const [selectedTemplate, setSelectedTemplate] = useState<number | "">("");
-  const [selectedTool, setSelectedTool] = useState<number | "">("");
+  const [selectedTemplate, setSelectedTemplate] = useState<string | "">("");
+  const [selectedTool, setSelectedTool] = useState<number | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -47,16 +47,16 @@ export const CreateDocumentPage: FC = () => {
     }
   };
 
-  const handleTemplateSelect = async (id: number | string | null) => {
-    const numId = id ? Number(id) : "";
+  const handleTemplateSelect = async (id: string | number | null) => {
+    const numId = id ? String(id) : "";
     setSelectedTemplate(numId);
-    setSelectedTool("");
+    setSelectedTool(null);
     setAvailableTools([]);
 
     if (!numId) return;
     try {
       setError(null);
-      const free = await contractsAPI.getAvailableTools(Number(numId));
+      const free = await contractsAPI.getAvailableTools(numId);
       setAvailableTools(free);
     } catch (err: any) {
       setError(err.message || "Ошибка загрузки доступных инструментов");
@@ -97,7 +97,7 @@ export const CreateDocumentPage: FC = () => {
     try {
       await contractsAPI.createContract({
         clientId: selectedClient.id,
-        toolId: Number(selectedTool)
+        toolId: selectedTool! as number
       });
 
       navigate("/documents");
@@ -119,7 +119,7 @@ export const CreateDocumentPage: FC = () => {
 
   const clientOptions = clients.map(c => ({
     value: c.id,
-    label: `${c.fullName} — ${c.phone}`
+    label: `${c.fullName} — ${c.whatsappPhone || "—"}`
   }));
 
   const templateOptions = templates.map(t => ({
@@ -141,7 +141,7 @@ export const CreateDocumentPage: FC = () => {
           {clientCard && (
             <div className="client-card">
               <strong>{clientCard.fullName}</strong>
-              <div>Тел: {clientCard.phone || "—"}</div>
+              <div>WhatsApp (осн): {clientCard.whatsappPhone || "—"}</div>
               <div>Тег: {clientCard.tag || "—"}</div>
             </div>
           )}
@@ -177,8 +177,8 @@ export const CreateDocumentPage: FC = () => {
             <div style={{ marginBottom: 16 }}>
               <StyledSelect
                 options={toolOptions}
-                value={selectedTool}
-                onChange={(val) => setSelectedTool(val ? Number(val) : "")}
+                value={selectedTool ?? ""}
+                onChange={(val) => setSelectedTool(val ? Number(val) : null)}
                 placeholder="Выберите инструмент"
                 isDisabled={availableTools.length === 0}
                 isClearable

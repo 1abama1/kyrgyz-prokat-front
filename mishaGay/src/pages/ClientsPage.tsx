@@ -5,6 +5,7 @@ import { clientsAPI } from "../api/clients";
 import { Client, CLIENT_TAGS } from "../types/client.types";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { ClientExpandableCard } from "../components/ClientExpandableCard";
+import { matchPhone } from "../utils/phoneMatch";
 
 export const ClientsPage: FC = () => {
   const [allClients, setAllClients] = useState<Client[]>([]);
@@ -31,8 +32,8 @@ export const ClientsPage: FC = () => {
       const q = searchQuery.trim().toLowerCase();
       filtered = filtered.filter((client) => {
         const fullName = client.fullName?.toLowerCase() ?? "";
-        const phone = client.phone?.toLowerCase() ?? "";
         const whatsapp = client.whatsappPhone?.toLowerCase() ?? "";
+        const additional = client.additionalPhone?.toLowerCase() ?? "";
         const inn = client.passport?.inn?.toLowerCase() ?? "";
         const regAddr =
           `${client.registrationAddress?.region || ""} ${client.registrationAddress?.street || ""}`
@@ -42,8 +43,10 @@ export const ClientsPage: FC = () => {
             .toLowerCase();
         return (
           fullName.includes(q) ||
-          phone.includes(q) ||
           whatsapp.includes(q) ||
+          matchPhone(client.whatsappPhone, q) ||
+          additional.includes(q) ||
+          matchPhone(client.additionalPhone, q) ||
           inn.includes(q) ||
           regAddr.includes(q) ||
           liveAddr.includes(q)
@@ -124,8 +127,8 @@ export const ClientsPage: FC = () => {
               key={client.id}
               clientId={client.id}
               fullName={client.fullName}
-              phone={client.phone || undefined}
               whatsappPhone={client.whatsappPhone || undefined}
+              additionalPhone={client.additionalPhone || undefined}
               tag={client.tag}
             />
           ))}

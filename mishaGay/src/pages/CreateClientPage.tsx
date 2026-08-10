@@ -6,6 +6,7 @@ import { ErrorMessage } from "../components/ErrorMessage";
 import { CLIENT_TAGS, type ClientTag } from "../types/client.types";
 import { StyledSelect } from "../components/StyledSelect";
 import { PinChecker } from "../components/PinChecker";
+import { DatePicker } from "../components/DatePicker";
 import "../styles/create-client.css";
 
 export const CreateClientPage: FC = () => {
@@ -17,8 +18,8 @@ export const CreateClientPage: FC = () => {
   const [fullName, setFullName] = useState("");
 
   // Основное
-  const [phone, setPhone] = useState("");
   const [whatsappPhone, setWhatsappPhone] = useState("");
+  const [additionalPhone, setAdditionalPhone] = useState("");
   const [registrationAddress, setRegistrationAddress] = useState({
     region: "",
     street: ""
@@ -27,7 +28,7 @@ export const CreateClientPage: FC = () => {
     region: "",
     street: ""
   });
-  const [birthDate, setBirthDate] = useState("");
+  const [birthDate, setBirthDate] = useState<Date | null>(null);
   const [comment, setComment] = useState("");
   const [tag, setTag] = useState<ClientTag | "">("");
   const [objectAddress, setObjectAddress] = useState("");
@@ -37,7 +38,7 @@ export const CreateClientPage: FC = () => {
   const [number, setNumber] = useState("");
   const [issuedBy, setIssuedBy] = useState("");
   const [subdivisionCode, setSubdivisionCode] = useState("");
-  const [issueDate, setIssueDate] = useState("");
+  const [issueDate, setIssueDate] = useState<Date | null>(null);
   const [inn, setInn] = useState("");
 
   // Фото (4 слота: 0-1 основные, 2-3 дополнительные)
@@ -68,20 +69,20 @@ export const CreateClientPage: FC = () => {
   useEffect(() => {
     if (!isEdit || !id) return;
 
-    const clientId = Number(id);
-    if (isNaN(clientId) || clientId <= 0) {
+    const clientId = id;
+    if (!clientId) {
       setError("Неверный ID клиента");
       setLoadingData(false);
       return;
     }
 
     setLoadingData(true);
-    clientsAPI.getById(clientId)
+    clientsAPI.getById(Number(clientId))
       .then((client) => {
         setFullName(client.fullName || "");
 
-        setPhone(client.phone || "");
-        setWhatsappPhone(client.whatsappPhone || client.phone || "");
+        setWhatsappPhone(client.whatsappPhone || "");
+        setAdditionalPhone(client.additionalPhone || "");
         setRegistrationAddress({
           region: client.registrationAddress?.region || "",
           street: client.registrationAddress?.street || ""
@@ -91,7 +92,7 @@ export const CreateClientPage: FC = () => {
           street: client.livingAddress?.street || ""
         });
         setObjectAddress(client.objectAddress || "");
-        setBirthDate(client.birthDate || "");
+        setBirthDate(client.birthDate ? new Date(client.birthDate) : null);
         setComment(client.comment || "");
         setTag(client.tag || "");
 
@@ -100,7 +101,7 @@ export const CreateClientPage: FC = () => {
           setNumber(client.passport.number || "");
           setIssuedBy(client.passport.issuedBy || "");
           setSubdivisionCode(client.passport.subdivisionCode || "");
-          setIssueDate(client.passport.issueDate || "");
+          setIssueDate(client.passport.issueDate ? new Date(client.passport.issueDate) : null);
           setInn(client.passport.inn || "");
         }
       })
@@ -115,8 +116,8 @@ export const CreateClientPage: FC = () => {
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
-    if (!fullName.trim() || !phone) {
-      setError("Введите ФИО и телефон");
+    if (!fullName.trim() || !whatsappPhone) {
+      setError("Введите ФИО и основной телефон (WhatsApp)");
       return;
     }
 
@@ -131,8 +132,8 @@ export const CreateClientPage: FC = () => {
     try {
       const clientData = {
         fullName: fullName.trim(),
-        phone,
-        whatsappPhone: (whatsappPhone || phone || "").trim() || undefined,
+        whatsappPhone,
+        additionalPhone: (additionalPhone || "").trim() || undefined,
         registrationAddress:
           registrationAddress.region || registrationAddress.street
             ? registrationAddress
@@ -142,7 +143,7 @@ export const CreateClientPage: FC = () => {
             ? livingAddress
             : undefined,
         objectAddress: objectAddress || undefined,
-        birthDate: birthDate || undefined,
+        birthDate: birthDate ? `${birthDate.getFullYear()}-${String(birthDate.getMonth() + 1).padStart(2, '0')}-${String(birthDate.getDate()).padStart(2, '0')}` : undefined,
         comment: comment || undefined,
         tag: tag || undefined,
         passport: series || number || inn ? {
@@ -150,7 +151,7 @@ export const CreateClientPage: FC = () => {
           number: number || undefined,
           issuedBy: issuedBy || undefined,
           subdivisionCode: subdivisionCode || undefined,
-          issueDate: issueDate || undefined,
+          issueDate: issueDate ? `${issueDate.getFullYear()}-${String(issueDate.getMonth() + 1).padStart(2, '0')}-${String(issueDate.getDate()).padStart(2, '0')}` : undefined,
           inn: inn || undefined
         } : undefined
       };
@@ -158,7 +159,7 @@ export const CreateClientPage: FC = () => {
       let client;
       if (isEdit && id) {
         const clientId = Number(id);
-        if (isNaN(clientId) || clientId <= 0) {
+        if (!clientId || isNaN(clientId)) {
           setError("Неверный ID клиента");
           return;
         }
@@ -189,11 +190,7 @@ export const CreateClientPage: FC = () => {
       if (isEdit) {
         navigate("/clients");
       } else {
-        if (client.id && !isNaN(Number(client.id)) && Number(client.id) > 0) {
-          navigate(`/clients`);
-        } else {
-          navigate("/clients");
-        }
+        navigate("/clients");
       }
     } catch (e: any) {
       setError(e.message || (isEdit ? "Ошибка обновления клиента" : "Ошибка создания клиента"));
@@ -211,6 +208,30 @@ export const CreateClientPage: FC = () => {
           onKeyDown={(e) => {
             if (e.key === "Enter") {
               e.preventDefault();
+              return;
+            }
+            if (["ArrowDown", "ArrowUp", "ArrowLeft", "ArrowRight"].includes(e.key)) {
+              const target = e.target as HTMLInputElement;
+              
+              // Only move left/right if cursor is at the beginning/end of the text
+              if (e.key === "ArrowLeft" && target.selectionStart !== 0) return;
+              if (e.key === "ArrowRight" && target.selectionEnd !== target.value.length) return;
+
+              const form = e.currentTarget;
+              const focusable = Array.from(
+                form.querySelectorAll<HTMLInputElement>('input:not([type="hidden"]):not([type="file"]):not([disabled])')
+              );
+              const index = focusable.indexOf(target);
+              if (index > -1) {
+                e.preventDefault();
+                let nextIndex = 0;
+                if (e.key === "ArrowDown" || e.key === "ArrowRight") {
+                  nextIndex = index + 1 < focusable.length ? index + 1 : 0;
+                } else {
+                  nextIndex = index > 0 ? index - 1 : focusable.length - 1;
+                }
+                focusable[nextIndex].focus();
+              }
             }
           }}
         >
@@ -235,18 +256,18 @@ export const CreateClientPage: FC = () => {
 
             <div className="grid-2">
               <div>
-                <label>Телефон *</label>
-                <input placeholder="Телефон *" value={phone} onChange={e => setPhone(e.target.value)} />
+                <label>WhatsApp телефон (Основной) *</label>
+                <input placeholder="WhatsApp *" value={whatsappPhone} onChange={e => setWhatsappPhone(e.target.value)} />
               </div>
-            </div>
 
-            <div>
-              <label>WhatsApp телефон</label>
-              <input
-                placeholder="Введите WhatsApp номер (по умолчанию как телефон)"
-                value={whatsappPhone}
-                onChange={e => setWhatsappPhone(e.target.value)}
-              />
+              <div>
+                <label>Дополнительный телефон</label>
+                <input
+                  placeholder="Введите доп. номер"
+                  value={additionalPhone}
+                  onChange={e => setAdditionalPhone(e.target.value)}
+                />
+              </div>
             </div>
 
             <section>
@@ -312,7 +333,12 @@ export const CreateClientPage: FC = () => {
 
             <div>
               <label>Дата рождения</label>
-              <input type="date" value={birthDate} onChange={e => setBirthDate(e.target.value)} />
+              <DatePicker
+                value={birthDate}
+                onChange={setBirthDate}
+                placeholder="Выберите дату"
+                style={{ width: "100%", display: "block", marginBottom: 14 }}
+              />
             </div>
           </section>
 
@@ -343,7 +369,12 @@ export const CreateClientPage: FC = () => {
               </div>
               <div>
                 <label>Дата выдачи</label>
-                <input type="date" value={issueDate} onChange={e => setIssueDate(e.target.value)} />
+                <DatePicker
+                  value={issueDate}
+                  onChange={setIssueDate}
+                  placeholder="Выберите дату"
+                  style={{ width: "100%", display: "block", marginBottom: 14 }}
+                />
               </div>
             </div>
 

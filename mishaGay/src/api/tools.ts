@@ -9,8 +9,8 @@ export const toolsAPI = {
     }),
 
   getOne: (id: number) => {
-    if (!id || isNaN(id) || id <= 0) {
-      return Promise.reject(new Error("Invalid tool id: id must be a positive number"));
+    if (!id) {
+      return Promise.reject(new Error("Invalid tool id"));
     }
     return apiCall<ToolDto>({
       url: `/api/tools/${id}`,
@@ -18,8 +18,8 @@ export const toolsAPI = {
   },
 
   getHistory: (id: number) => {
-    if (!id || isNaN(id) || id <= 0) {
-      return Promise.reject(new Error("Invalid tool id: id must be a positive number"));
+    if (!id) {
+      return Promise.reject(new Error("Invalid tool id"));
     }
     return apiCall<ToolHistoryEntry[]>({
       url: `/api/tools/${id}/history`,
@@ -60,9 +60,16 @@ export const toolsAPI = {
       url: "/api/tools/available/old",
     }),
 
-  getByTemplate: (templateId: number) =>
+  getByTemplate: (templateId: string) =>
     apiCall<ToolDto[]>({
       url: `/api/tools/template/${templateId}`,
+    }),
+
+  updateStatus: (id: number, status: string, reason?: string) =>
+    apiCall<ToolDto>({
+      url: `/api/tools/${id}/status`,
+      method: "PUT",
+      data: { status, reason },
     }),
 
   uploadImage: (toolId: number, formData: FormData) =>
@@ -73,12 +80,12 @@ export const toolsAPI = {
       isMultipart: true,
     }),
 
-  getImageDetails: (imageId: number) =>
+  getImageDetails: (imageId: string) =>
     apiCall<any>({
       url: `/api/tools/images/${imageId}`,
     }),
 
-  deleteImage: (imageId: number) =>
+  deleteImage: (imageId: string) =>
     apiCall<void>({
       url: `/api/tools/images/${imageId}`,
       method: "DELETE",

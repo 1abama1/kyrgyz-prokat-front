@@ -45,8 +45,8 @@ export const ToolCard: FC<ToolCardProps> = ({ tool, onClick }) => {
           {toolStatusLabel(tool.status)}
         </span>
       </p>
-      <p><strong>Залог:</strong> {tool.deposit} сом</p>
-      <p><strong>Дневная цена:</strong> {tool.dailyPrice} сом</p>
+      <p><strong>Залог:</strong> {tool.depositAmount} сом</p>
+      <p><strong>Дневная цена:</strong> {tool.dailyRentalPrice} сом</p>
     </div>
   );
 };

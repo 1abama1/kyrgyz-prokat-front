@@ -10,7 +10,7 @@ import type { CategoryDto } from "../types/inventory.types";
 export const CreateTemplatePage = () => {
   const [searchParams] = useSearchParams();
   const [categories, setCategories] = useState<CategoryDto[]>([]);
-  const [categoryId, setCategoryId] = useState<number | undefined>(undefined);
+  const [categoryId, setCategoryId] = useState<string | undefined>(undefined);
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
   const [loadingCategories, setLoadingCategories] = useState(false);
@@ -29,10 +29,7 @@ export const CreateTemplatePage = () => {
   useEffect(() => {
     const catId = searchParams.get("categoryId");
     if (catId) {
-      const parsed = Number(catId);
-      if (!isNaN(parsed) && parsed > 0) {
-        setCategoryId(parsed);
-      }
+      setCategoryId(catId);
     }
   }, [searchParams]);
 
@@ -90,7 +87,7 @@ export const CreateTemplatePage = () => {
             <StyledSelect
               options={categories.map((cat) => ({ value: cat.id, label: cat.name }))}
               value={categoryId ?? ""}
-              onChange={(val) => setCategoryId(val ? Number(val) : undefined)}
+              onChange={(val) => setCategoryId(val ? String(val) : undefined)}
               isDisabled={loading || loadingCategories}
               placeholder={loadingCategories ? "Загрузка категорий..." : "Выберите категорию"}
               isClearable

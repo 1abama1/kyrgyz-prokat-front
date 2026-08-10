@@ -29,8 +29,8 @@ export default function ClientCard({ clientId }: ClientCardProps) {
   const [templates, setTemplates] = useState<ToolTemplate[]>([]);
   const [templateTools, setTemplateTools] = useState<ToolInstance[]>([]);
 
-  const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
-  const [selectedTemplate, setSelectedTemplate] = useState<number | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [selectedTool, setSelectedTool] = useState<number | null>(null);
 
   const [loadingDownload, setLoadingDownload] = useState(false);
@@ -82,7 +82,7 @@ export default function ClientCard({ clientId }: ClientCardProps) {
     }
   };
 
-  const loadTemplateTools = async (templateId: number) => {
+  const loadTemplateTools = async (templateId: string) => {
     try {
       setLoadingAvailable(true);
       const data = await templatesAPI.getFull(templateId);
@@ -104,7 +104,7 @@ export default function ClientCard({ clientId }: ClientCardProps) {
     try {
       const { blob, filename } = await downloadExcelContract({
         clientId,
-        toolId: selectedTool
+        toolId: selectedTool! as number
       });
 
       const url = window.URL.createObjectURL(blob);
@@ -141,17 +141,17 @@ export default function ClientCard({ clientId }: ClientCardProps) {
   return (
     <div className="client-card">
       <h2>{client.fullName}</h2>
-      <p><b>Тел:</b> {client.phone || "—"}</p>
       <p style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", margin: "0 0 .5em" }}>
-        <b>WhatsApp:</b>
-        <span>{client.whatsappPhone || client.phone || "—"}</span>
-        {(client.whatsappPhone || client.phone) && (
+        <b>WhatsApp (осн):</b>
+        <span>{client.whatsappPhone || "—"}</span>
+        {client.whatsappPhone && (
           <WhatsAppButton
-            phone={client.whatsappPhone || client.phone}
+            phone={client.whatsappPhone}
             variant="link"
           />
         )}
       </p>
+      <p><b>Доп. телефон:</b> {client.additionalPhone || "—"}</p>
       <p><b>Тег:</b> {client.tag ?? "—"}</p>
       <p>
         <b>Адрес регистрации:</b>{" "}
@@ -192,7 +192,7 @@ export default function ClientCard({ clientId }: ClientCardProps) {
             options={categories.map(category => ({ value: category.id, label: category.name }))}
             value={selectedCategory ?? ""}
             onChange={(val) => {
-              const value = val ? Number(val) : null;
+              const value = val ? String(val) : null;
               setSelectedCategory(value);
               setSelectedTemplate(null);
               setSelectedTool(null);
@@ -207,7 +207,7 @@ export default function ClientCard({ clientId }: ClientCardProps) {
           <StyledSelect
             options={filteredTemplates.map(template => ({ value: template.id, label: template.name }))}
             value={selectedTemplate ?? ""}
-            onChange={(val) => setSelectedTemplate(val ? Number(val) : null)}
+            onChange={(val) => setSelectedTemplate(val ? String(val) : null)}
             isDisabled={!selectedCategory}
             placeholder="Выберите модель"
             isClearable

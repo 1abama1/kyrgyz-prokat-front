@@ -169,8 +169,8 @@ export const DocumentDetailPage: FC = () => {
         {document.client ? (
           <>
             <p><strong>Имя:</strong> {document.client.fullName || "—"}</p>
-            <p><strong>Телефон:</strong> {document.client.phone || "—"}</p>
-            <p><strong>WhatsApp:</strong> {document.client.whatsappPhone || document.client.phone || "—"}</p>
+            <p><strong>WhatsApp (осн):</strong> {document.client.whatsappPhone || "—"}</p>
+            <p><strong>Доп. телефон:</strong> {document.client.additionalPhone || "—"}</p>
             <p><strong>Тег:</strong> {document.client.tag || "—"}</p>
           </>
         ) : (
@@ -266,10 +266,7 @@ export const DocumentDetailPage: FC = () => {
                 type="text"
                 inputMode="numeric"
                 value={paidAmount}
-                onChange={(e) => {
-                  const val = e.target.value.replace(/\D/g, "");
-                  setPaidAmount(val);
-                }}
+                onChange={(e) => setPaidAmount(e.target.value.replace(/\D/g, ''))}
                 onFocus={(e) => e.target.select()}
                 autoFocus
                 style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}

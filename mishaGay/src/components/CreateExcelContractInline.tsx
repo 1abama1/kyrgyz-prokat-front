@@ -21,8 +21,8 @@ export const CreateExcelContractInline: FC<Props> = ({ client, onContractCreated
   const [templates, setTemplates] = useState<ToolTemplate[]>([]);
   const [tools, setTools] = useState<ToolInstance[]>([]);
 
-  const [category, setCategory] = useState<number | "">("");
-  const [templateId, setTemplateId] = useState<number | "">("");
+  const [category, setCategory] = useState<string | "">("");
+  const [templateId, setTemplateId] = useState<string | "">("");
   const [toolId, setToolId] = useState<number | null>(null);
 
   const [error, setError] = useState<string | null>(null);
@@ -30,7 +30,7 @@ export const CreateExcelContractInline: FC<Props> = ({ client, onContractCreated
   const [creating, setCreating] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [savingExcel, setSavingExcel] = useState(false);
-  const [createdContractId, setCreatedContractId] = useState<number | null>(null);
+  const [createdContractId, setCreatedContractId] = useState<string | null>(null);
   const [excelSaved, setExcelSaved] = useState(false);
   const clientHasActiveContract = Boolean(client.hasActiveContract);
 
@@ -63,14 +63,14 @@ export const CreateExcelContractInline: FC<Props> = ({ client, onContractCreated
     setCreatedContractId(null);
   }, [client.id]);
 
-  const handleCategoryChange = (value: number | "") => {
+  const handleCategoryChange = (value: string | "") => {
     setCategory(value);
     setTemplateId("");
     setToolId(null);
     setTools([]);
   };
 
-  const handleTemplateChange = async (value: number) => {
+  const handleTemplateChange = async (value: string) => {
     setTemplateId(value);
     setToolId(null);
     setTools([]);
@@ -104,7 +104,7 @@ export const CreateExcelContractInline: FC<Props> = ({ client, onContractCreated
     try {
       const res = await contractsAPI.createContract({
         clientId: client.id,
-        toolId: Number(toolId)
+        toolId: toolId as number
       });
 
       setCreatedContractId(res.id);
@@ -147,7 +147,7 @@ export const CreateExcelContractInline: FC<Props> = ({ client, onContractCreated
         setError("Этот инструмент уже в аренде. Выберите другой инструмент.");
         // Обновляем список доступных инструментов для выбранной модели
         if (templateId) {
-          templatesAPI.getFull(Number(templateId))
+          templatesAPI.getFull(templateId)
             .then((full) => setTools(full.tools ?? []))
             .catch(() => {});
         }
@@ -177,7 +177,7 @@ export const CreateExcelContractInline: FC<Props> = ({ client, onContractCreated
 
       const { blob, filename } = await contractsAPI.downloadExcel({
         clientId: client.id,
-        toolId: Number(toolId)
+        toolId: toolId as number
       });
 
       // Сохраняем через Electron (проверка уже выполнена выше)
@@ -246,7 +246,7 @@ export const CreateExcelContractInline: FC<Props> = ({ client, onContractCreated
           options={categories.map(c => ({ value: c.id, label: c.name }))}
           value={category}
           isDisabled={isCategoryDisabled}
-          onChange={(val) => handleCategoryChange(val ? Number(val) : "")}
+          onChange={(val) => handleCategoryChange(val ? String(val) : "")}
           placeholder="Выберите категорию"
           isClearable
         />
@@ -265,7 +265,7 @@ export const CreateExcelContractInline: FC<Props> = ({ client, onContractCreated
               setToolId(null);
               return;
             }
-            handleTemplateChange(Number(val));
+            handleTemplateChange(String(val));
           }}
           placeholder="Выберите модель"
           isClearable

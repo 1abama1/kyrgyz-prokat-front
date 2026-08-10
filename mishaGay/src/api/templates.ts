@@ -11,9 +11,9 @@ export const templatesAPI = {
       url: "/api/templates",
     }),
 
-  getByCategory: (categoryId: number) => {
-    if (!categoryId || isNaN(categoryId) || categoryId <= 0) {
-      return Promise.reject(new Error("Invalid category id: id must be a positive number"));
+  getByCategory: (categoryId: string) => {
+    if (!categoryId) {
+      return Promise.reject(new Error("Invalid category id"));
     }
     return apiCall<TemplateDto[]>({
       url: `/api/templates`,
@@ -21,9 +21,9 @@ export const templatesAPI = {
     });
   },
 
-  getFull: (id: number) => {
-    if (!id || isNaN(id) || id <= 0) {
-      return Promise.reject(new Error("Invalid template id: id must be a positive number"));
+  getFull: (id: string) => {
+    if (!id) {
+      return Promise.reject(new Error("Invalid template id"));
     }
     return apiCall<TemplateFullDto>({
       url: `/api/templates/${id}`,
@@ -37,7 +37,7 @@ export const templatesAPI = {
       data,
     }),
 
-  checkAvailability: (id: number, start: string, end: string) =>
+  checkAvailability: (id: string, start: string, end: string) =>
     apiCall<any>({
       url: `/api/templates/${id}/availability`,
       params: { start, end },

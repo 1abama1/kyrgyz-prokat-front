@@ -4,21 +4,25 @@ import type { CategoryFullDto } from "../types/inventory.types";
 
 interface InventoryTreeProps {
   categories: CategoryFullDto[];
+  searchActive?: boolean;
   onToolOpen?: (toolId: number) => void;
-  onAddTemplate?: (categoryId: number) => void;
-  onAddTool?: (templateId: number, categoryId: number) => void;
+  onTemplateOpen?: (templateId: string) => void;
+  onAddTemplate?: (categoryId: string) => void;
+  onAddTool?: (templateId: string, categoryId: string) => void;
 }
 
 export const InventoryTree = ({
   categories,
+  searchActive,
   onToolOpen,
+  onTemplateOpen,
   onAddTemplate,
   onAddTool
 }: InventoryTreeProps) => {
-  const [openCategories, setOpenCategories] = useState<Set<number>>(new Set());
-  const [openTemplates, setOpenTemplates] = useState<Set<number>>(new Set());
+  const [openCategories, setOpenCategories] = useState<Set<string>>(new Set());
+  const [openTemplates, setOpenTemplates] = useState<Set<string>>(new Set());
 
-  const toggleCategory = (id: number) => {
+  const toggleCategory = (id: string) => {
     setOpenCategories((prev) => {
       const next = new Set(prev);
       if (next.has(id)) {
@@ -30,7 +34,7 @@ export const InventoryTree = ({
     });
   };
 
-  const toggleTemplate = (id: number) => {
+  const toggleTemplate = (id: string) => {
     setOpenTemplates((prev) => {
       const next = new Set(prev);
       if (next.has(id)) {
@@ -45,7 +49,7 @@ export const InventoryTree = ({
   return (
     <div className="inventory-tree">
       {categories.map((cat) => {
-        const categoryOpen = openCategories.has(cat.id);
+        const categoryOpen = searchActive || openCategories.has(cat.id);
 
         return (
           <div key={cat.id} className="tree-category">
@@ -82,7 +86,7 @@ export const InventoryTree = ({
                 )}
 
                 {cat.templates.map((tpl) => {
-                  const templateOpen = openTemplates.has(tpl.id);
+                  const templateOpen = searchActive || openTemplates.has(tpl.id);
 
                   return (
                     <div key={tpl.id} className="tree-template">
@@ -98,6 +102,19 @@ export const InventoryTree = ({
                             {tpl.tools.length} экз.
                           </span>
                         </button>
+                        
+                        {onTemplateOpen && (
+                          <button
+                            className="btn-small"
+                            style={{ marginRight: 8 }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onTemplateOpen(tpl.id);
+                            }}
+                          >
+                            Бронирования
+                          </button>
+                        )}
 
                         {onAddTool && (
                           <button
