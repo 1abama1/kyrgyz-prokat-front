@@ -390,27 +390,7 @@ export const CreateToolPage: FC = () => {
           />
         </div>
 
-        <div style={{ marginBottom: 16 }}>
-          <label style={{ display: "block", marginBottom: 4, fontWeight: 500 }}>
-            Цена покупки (сом)
-          </label>
-          <input
-            type="number"
-            value={purchasePrice}
-            onChange={(e) => setPurchasePrice(Number(e.target.value))}
-            min="0"
-            step="0.01"
-            disabled={loadingData}
-            style={{
-              width: "100%",
-              padding: "8px 12px",
-              border: "1px solid #ddd",
-              borderRadius: "4px",
-              fontSize: 14,
-              background: loadingData ? "#f3f4f6" : "white"
-            }}
-          />
-        </div>
+
 
         <div style={{ marginBottom: 24 }}>
           <label style={{ display: "block", marginBottom: 4, fontWeight: 500 }}>

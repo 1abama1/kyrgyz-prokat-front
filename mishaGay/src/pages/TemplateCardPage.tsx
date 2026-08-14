@@ -2,15 +2,11 @@ import { FC, useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Layout } from "../components/Layout";
 import { templatesAPI } from "../api/templates";
-import { bookingsAPI } from "../api/bookings";
-import { clientsAPI } from "../api/clients";
-import { TemplateFullDto } from "../types/inventory.types";
-import { BookingDto } from "../types/booking.types";
-import { Client } from "../types/client.types";
+import { categoriesAPI } from "../api/categories";
+import { TemplateFullDto, CategoryDto } from "../types/inventory.types";
 import { ErrorMessage } from "../components/ErrorMessage";
-import { toolStatusLabel, getToolStatusClass } from "../utils/toolStatus";
+import { ToolStatusBadge } from "../components/ToolStatusBadge";
 import { StyledSelect } from "../components/StyledSelect";
-import { DatePicker } from "../components/DatePicker";
 import "../styles/tools.css";
 
 export const TemplateCardPage: FC = () => {
@@ -18,20 +14,19 @@ export const TemplateCardPage: FC = () => {
   const navigate = useNavigate();
   
   const [template, setTemplate] = useState<TemplateFullDto | null>(null);
-  const [bookings, setBookings] = useState<BookingDto[]>([]);
-  const [clients, setClients] = useState<Client[]>([]);
   
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  // Booking Form State
-  const [bookingClientId, setBookingClientId] = useState<string>("");
-  const [bookingStartDate, setBookingStartDate] = useState<Date | null>(null);
-  const [bookingStartTime, setBookingStartTime] = useState<string>("10:00");
-  const [bookingEndDate, setBookingEndDate] = useState<Date | null>(null);
-  const [bookingEndTime, setBookingEndTime] = useState<string>("10:00");
-  const [bookingComment, setBookingComment] = useState<string>("");
-  const [creatingBooking, setCreatingBooking] = useState(false);
+  // Edit mode state
+  const [isEditing, setIsEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editCategoryId, setEditCategoryId] = useState("");
+  const [editDailyRentalPrice, setEditDailyRentalPrice] = useState<number>(0);
+  const [editDepositAmount, setEditDepositAmount] = useState<number>(0);
+  const [editPurchasePrice, setEditPurchasePrice] = useState<number>(0);
+  const [categories, setCategories] = useState<CategoryDto[]>([]);
 
   useEffect(() => {
     if (!id) {
@@ -40,7 +35,7 @@ export const TemplateCardPage: FC = () => {
       return;
     }
     loadData(id);
-    clientsAPI.getAll().then(setClients).catch(() => {});
+    categoriesAPI.getAll().then(setCategories).catch(console.error);
   }, [id]);
 
   const loadData = async (templateId: string) => {
@@ -49,8 +44,14 @@ export const TemplateCardPage: FC = () => {
       setError(null);
       const tmpl = await templatesAPI.getFull(templateId);
       setTemplate(tmpl);
-      const bks = await bookingsAPI.getByTemplate(templateId);
-      setBookings(bks);
+      setEditName(tmpl.name);
+      
+      setEditDailyRentalPrice(tmpl.dailyRentalPrice || 0);
+      setEditDepositAmount(tmpl.depositAmount || 0);
+      setEditPurchasePrice(tmpl.purchasePrice || 0);
+      
+      // We added categoryId to TemplateFullDto
+      setEditCategoryId(tmpl.categoryId || "");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Ошибка загрузки модели");
     } finally {
@@ -58,49 +59,26 @@ export const TemplateCardPage: FC = () => {
     }
   };
 
-  const handleCreateBooking = async () => {
+  const handleSave = async () => {
     if (!id) return;
-    if (!bookingClientId || !bookingStartDate || !bookingEndDate) {
-      setError("Заполните клиента, начало и окончание брони");
-      return;
-    }
     try {
-      setCreatingBooking(true);
+      setSaving(true);
       setError(null);
-
-      const startYMD = `${bookingStartDate.getFullYear()}-${String(bookingStartDate.getMonth() + 1).padStart(2, '0')}-${String(bookingStartDate.getDate()).padStart(2, '0')}`;
-      const endYMD = `${bookingEndDate.getFullYear()}-${String(bookingEndDate.getMonth() + 1).padStart(2, '0')}-${String(bookingEndDate.getDate()).padStart(2, '0')}`;
-
-      await bookingsAPI.createBooking({
-        templateId: id,
-        clientId: Number(bookingClientId),
-        startDateTime: `${startYMD}T${bookingStartTime}`,
-        endDateTime: `${endYMD}T${bookingEndTime}`,
-        comment: bookingComment,
+      
+      await templatesAPI.update(id, {
+        name: editName,
+        categoryId: editCategoryId,
+        dailyRentalPrice: editDailyRentalPrice,
+        depositAmount: editDepositAmount,
+        purchasePrice: editPurchasePrice,
       });
-
-      setBookingClientId("");
-      setBookingStartDate(null);
-      setBookingStartTime("10:00");
-      setBookingEndDate(null);
-      setBookingEndTime("10:00");
-      setBookingComment("");
-      // Reload
+      
       await loadData(id);
+      setIsEditing(false);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Ошибка создания брони");
+      setError(err instanceof Error ? err.message : "Ошибка сохранения модели");
     } finally {
-      setCreatingBooking(false);
-    }
-  };
-
-  const handleCancelBooking = async (bookingId: string) => {
-    if (!window.confirm("Отменить эту бронь?")) return;
-    try {
-      await bookingsAPI.cancelBooking(bookingId);
-      if (id) await loadData(id);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Ошибка отмены брони");
+      setSaving(false);
     }
   };
 
@@ -112,17 +90,129 @@ export const TemplateCardPage: FC = () => {
     return <Layout><ErrorMessage error="Модель не найдена" onClose={() => {}} /></Layout>;
   }
 
+  const firstTool = template.tools && template.tools.length > 0 ? template.tools[0] : null;
+
   return (
     <Layout>
       <div className="tools-page">
         <ErrorMessage error={error} onClose={() => setError(null)} />
         
-        <div className="tool-card-header">
-          <h1 className="tools-page-title">Модель: {template.name}</h1>
+        <button
+          type="button"
+          className="btn-small"
+          onClick={() => window.history.length > 1 ? window.history.back() : (window.location.href = "/tools")}
+          style={{ marginBottom: 16 }}
+        >
+          ← Назад
+        </button>
+
+        <div className="tool-card-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <h1 className="tools-page-title">
+            {isEditing ? "Редактирование модели" : `Модель: ${template.name}`}
+          </h1>
+          {!isEditing && (
+            <button className="btn-secondary" onClick={() => setIsEditing(true)}>
+              Изменить
+            </button>
+          )}
         </div>
 
         <div className="tool-card-info">
-          <div className="tool-card-section">
+          {isEditing ? (
+            <div className="tool-card-section" style={{ background: "#f9fafb", padding: 20, borderRadius: 8 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+                <div>
+                  <label style={{ display: "block", marginBottom: 6, fontWeight: 500 }}>Название модели</label>
+                  <input
+                    type="text"
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    style={{ width: "100%", padding: "10px", borderRadius: 4, border: "1px solid #ccc" }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: "block", marginBottom: 6, fontWeight: 500 }}>Категория</label>
+                  <StyledSelect
+                    options={categories.map(c => ({ value: c.id, label: c.name }))}
+                    value={editCategoryId}
+                    onChange={(val) => setEditCategoryId(String(val))}
+                    placeholder="Выберите категорию"
+                  />
+                </div>
+                <div>
+                  <label style={{ display: "block", marginBottom: 6, fontWeight: 500 }}>Цена за сутки (с)</label>
+                  <input
+                    type="number"
+                    value={editDailyRentalPrice}
+                    onChange={(e) => setEditDailyRentalPrice(Number(e.target.value))}
+                    style={{ width: "100%", padding: "10px", borderRadius: 4, border: "1px solid #ccc" }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: "block", marginBottom: 6, fontWeight: 500 }}>Сумма залога (с)</label>
+                  <input
+                    type="number"
+                    value={editDepositAmount}
+                    onChange={(e) => setEditDepositAmount(Number(e.target.value))}
+                    style={{ width: "100%", padding: "10px", borderRadius: 4, border: "1px solid #ccc" }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: "block", marginBottom: 6, fontWeight: 500 }}>Стоимость инструмента (с)</label>
+                  <input
+                    type="number"
+                    value={editPurchasePrice}
+                    onChange={(e) => setEditPurchasePrice(Number(e.target.value))}
+                    style={{ width: "100%", padding: "10px", borderRadius: 4, border: "1px solid #ccc" }}
+                  />
+                </div>
+              </div>
+              <div style={{ marginTop: 24, display: "flex", gap: 12 }}>
+                <button className="btn-primary" onClick={handleSave} disabled={saving}>
+                  {saving ? "Сохранение..." : "Сохранить"}
+                </button>
+                <button className="btn-secondary" onClick={() => setIsEditing(false)} disabled={saving}>
+                  Отмена
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="tool-card-section" style={{ background: "#fff", padding: 20, borderRadius: 8, border: "1px solid #eee" }}>
+              <h3 className="tool-card-section-title">Информация о модели</h3>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginTop: 16 }}>
+                <div>
+                  <p style={{ color: "#666", margin: 0, fontSize: 14 }}>Название</p>
+                  <p style={{ fontWeight: 500, fontSize: 16, margin: "4px 0 0" }}>{template.name}</p>
+                </div>
+                <div>
+                  <p style={{ color: "#666", margin: 0, fontSize: 14 }}>Категория</p>
+                  <p style={{ fontWeight: 500, fontSize: 16, margin: "4px 0 0" }}>
+                    {categories.find(c => c.id === template.categoryId)?.name || "—"}
+                  </p>
+                </div>
+                <div>
+                  <p style={{ color: "#666", margin: 0, fontSize: 14 }}>Цена за сутки</p>
+                  <p style={{ fontWeight: 500, fontSize: 16, margin: "4px 0 0" }}>
+                    {template.dailyRentalPrice ? `${template.dailyRentalPrice} с` : "—"}
+                  </p>
+                </div>
+                <div>
+                  <p style={{ color: "#666", margin: 0, fontSize: 14 }}>Сумма залога</p>
+                  <p style={{ fontWeight: 500, fontSize: 16, margin: "4px 0 0" }}>
+                    {template.depositAmount ? `${template.depositAmount} с` : "—"}
+                  </p>
+                </div>
+                <div>
+                  <p style={{ color: "#666", margin: 0, fontSize: 14 }}>Стоимость инструмента</p>
+                  <p style={{ fontWeight: 500, fontSize: 16, margin: "4px 0 0" }}>
+                    {template.purchasePrice ? `${template.purchasePrice} с` : "—"}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="tool-card-section" style={{ marginTop: 32 }}>
             <h3 className="tool-card-section-title">Экземпляры ({template.tools.length})</h3>
             {template.tools.length === 0 ? (
               <p style={{ color: "#666" }}>Нет экземпляров</p>
@@ -142,9 +232,7 @@ export const TemplateCardPage: FC = () => {
                       <td style={{ padding: "8px" }}>{idx + 1}</td>
                       <td style={{ padding: "8px" }}>{t.inventoryNumber}</td>
                       <td style={{ padding: "8px" }}>
-                        <span className={getToolStatusClass(t.status as any)}>
-                          {toolStatusLabel(t.status as any)}
-                        </span>
+                        <ToolStatusBadge status={t.activeBookingId ? "BOOKED" : t.status} />
                       </td>
                       <td style={{ padding: "8px" }}>
                         <button
@@ -161,136 +249,6 @@ export const TemplateCardPage: FC = () => {
                         >
                           Открыть
                         </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-
-          <div className="tool-card-section">
-            <h3 className="tool-card-section-title">Бронирования</h3>
-            
-            <div style={{ background: "#f9fafb", padding: "16px", borderRadius: "8px", marginBottom: "24px" }}>
-              <h4>Создать бронь</h4>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px", marginTop: "12px" }}>
-                <div>
-                  <label style={{ display: "block", marginBottom: "4px", fontSize: "14px" }}>Клиент</label>
-                  <StyledSelect
-                    options={clients.map(c => ({ value: c.id, label: `${c.fullName} ${c.whatsappPhone ? `(${c.whatsappPhone})` : ""}` }))}
-                    value={bookingClientId}
-                    onChange={(val) => setBookingClientId(val ? String(val) : "")}
-                    placeholder="Выберите клиента"
-                  />
-                </div>
-                <div>
-                  <label style={{ display: "block", marginBottom: "4px", fontSize: "14px" }}>Начало</label>
-                  <div style={{ display: "flex", gap: "8px" }}>
-                    <DatePicker
-                      value={bookingStartDate}
-                      onChange={setBookingStartDate}
-                      placeholder="Дата"
-                      style={{ flex: 1, display: "block" }}
-                    />
-                    <input
-                      type="time"
-                      className="datepicker-input"
-                      style={{ width: "100px" }}
-                      value={bookingStartTime}
-                      onChange={(e) => setBookingStartTime(e.target.value)}
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label style={{ display: "block", marginBottom: "4px", fontSize: "14px" }}>Окончание</label>
-                  <div style={{ display: "flex", gap: "8px" }}>
-                    <DatePicker
-                      value={bookingEndDate}
-                      onChange={setBookingEndDate}
-                      placeholder="Дата"
-                      style={{ flex: 1, display: "block" }}
-                    />
-                    <input
-                      type="time"
-                      className="datepicker-input"
-                      style={{ width: "100px" }}
-                      value={bookingEndTime}
-                      onChange={(e) => setBookingEndTime(e.target.value)}
-                    />
-                  </div>
-                </div>
-                <div style={{ gridColumn: "1 / -1" }}>
-                  <label style={{ display: "block", marginBottom: "4px", fontSize: "14px" }}>Комментарий</label>
-                  <input
-                    type="text"
-                    value={bookingComment}
-                    onChange={(e) => setBookingComment(e.target.value)}
-                    placeholder="Необязательно"
-                    style={{ width: "100%", padding: "8px", border: "1px solid #ddd", borderRadius: "4px" }}
-                  />
-                </div>
-                <div style={{ gridColumn: "1 / -1" }}>
-                  <button
-                    className="btn-primary"
-                    onClick={handleCreateBooking}
-                    disabled={creatingBooking || !bookingClientId || !bookingStartDate || !bookingEndDate}
-                  >
-                    {creatingBooking ? "Создание..." : "Создать бронь"}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {bookings.length === 0 ? (
-              <p style={{ color: "#666" }}>Нет активных броней</p>
-            ) : (
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                <thead>
-                  <tr style={{ borderBottom: "2px solid #eee", textAlign: "left" }}>
-                    <th style={{ padding: "8px" }}>Клиент</th>
-                    <th style={{ padding: "8px" }}>Начало</th>
-                    <th style={{ padding: "8px" }}>Окончание</th>
-                    <th style={{ padding: "8px" }}>Статус</th>
-                    <th style={{ padding: "8px" }}>Комментарий</th>
-                    <th style={{ padding: "8px" }}>Действия</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {bookings.map((b) => (
-                    <tr key={b.id} style={{ borderBottom: "1px solid #eee" }}>
-                      <td style={{ padding: "8px", fontWeight: "bold" }}>{b.clientName}</td>
-                      <td style={{ padding: "8px" }}>{new Date(b.startDateTime).toLocaleString()}</td>
-                      <td style={{ padding: "8px" }}>{new Date(b.endDateTime).toLocaleString()}</td>
-                      <td style={{ padding: "8px" }}>
-                        <span style={{
-                          padding: "4px 8px",
-                          borderRadius: "4px",
-                          fontSize: "12px",
-                          background: b.status === "ACTIVE" ? "#dcfce7" : b.status === "CANCELLED" ? "#fee2e2" : "#f3f4f6",
-                          color: b.status === "ACTIVE" ? "#166534" : b.status === "CANCELLED" ? "#991b1b" : "#374151"
-                        }}>
-                          {b.status === "ACTIVE" ? "Активна" : b.status === "CANCELLED" ? "Отменена" : "Завершена"}
-                        </span>
-                      </td>
-                      <td style={{ padding: "8px" }}>{b.comment || "—"}</td>
-                      <td style={{ padding: "8px" }}>
-                        {b.status === "ACTIVE" && (
-                          <button
-                            onClick={() => handleCancelBooking(b.id)}
-                            style={{
-                              background: "transparent",
-                              border: "1px solid #dc2626",
-                              color: "#dc2626",
-                              padding: "4px 8px",
-                              borderRadius: "4px",
-                              cursor: "pointer",
-                              fontSize: "12px",
-                            }}
-                          >
-                            Отменить
-                          </button>
-                        )}
                       </td>
                     </tr>
                   ))}

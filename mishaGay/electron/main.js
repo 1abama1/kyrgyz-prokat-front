@@ -98,6 +98,11 @@ ipcMain.handle("show-item-in-folder", async (_, filePath) => {
   shell.showItemInFolder(filePath);
 });
 
+ipcMain.handle("open-external-url", async (_, url) => {
+  log.info(`[IPC] Открытие внешней ссылки: ${url}`);
+  await shell.openExternal(url);
+});
+
 console.log("🔥 IPC handlers registered successfully");
 
 // Прием логов из фронтенда
@@ -137,6 +142,13 @@ function createWindow() {
       log.error(`[Main] Failed to load index.html: ${err.message}`);
     });
   }
+
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith("http:") || url.startsWith("https:")) {
+      shell.openExternal(url);
+    }
+    return { action: "deny" };
+  });
 
   mainWindow.on("closed", () => {
     mainWindow = null;

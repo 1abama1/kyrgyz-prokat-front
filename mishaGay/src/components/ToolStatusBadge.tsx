@@ -5,6 +5,7 @@ type BadgeConfig = { bg: string; color: string; label: string; dot: string; };
 const STATUS_MAP: Record<string, BadgeConfig> = {
   AVAILABLE: { bg: "#DCFCE7", color: "#15803D", dot: "#22C55E", label: "Доступен"      },
   RENTED:    { bg: "#DBEAFE", color: "#1D4ED8", dot: "#3B82F6", label: "В аренде"      },
+  BOOKED:    { bg: "#F3E8FF", color: "#7E22CE", dot: "#A855F7", label: "Забронирован"  },
   BROKEN:    { bg: "#FEF9C3", color: "#A16207", dot: "#EAB308", label: "Сломан"        },
   OVERDUE:   { bg: "#FEE2E2", color: "#B91C1C", dot: "#EF4444", label: "Просрочен"     },
   SERVICE:   { bg: "#FEF3C7", color: "#92400E", dot: "#F59E0B", label: "Обслуживание"  },

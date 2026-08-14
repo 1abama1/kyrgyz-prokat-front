@@ -18,22 +18,20 @@ export const DownloadExcelButton = ({ contractId, contractNumber }: Props) => {
         return;
       }
 
-      const filename = `Договор №${contractNumber}.xlsx`;
-      const existingPath = await window.contracts.checkExists(filename);
-
-      if (existingPath) {
-        await window.contracts.openExcel(existingPath);
-        return;
-      }
+      const filename = `Договор №-${contractNumber}.xlsx`;
 
       const blob = await downloadContractExcel(contractId);
       const buffer = await blob.arrayBuffer();
       const savedPath = await window.contracts.saveExcel(buffer, filename);
       await window.contracts.openExcel(savedPath);
 
-    } catch (e) {
+    } catch (e: any) {
       console.error("Error opening Excel:", e);
-      alert("Ошибка при открытии Excel");
+      if (e.message && e.message.includes("EBUSY")) {
+        alert("Файл уже открыт в Excel. Пожалуйста, закройте его перед обновлением.");
+      } else {
+        alert("Ошибка при загрузке или открытии Excel. Убедитесь, что файл не открыт в другой программе.");
+      }
     } finally {
       setLoading(false);
     }

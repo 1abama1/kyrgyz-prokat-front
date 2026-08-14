@@ -2,6 +2,8 @@ export function toolStatusLabel(status: string) {
   switch (status) {
     case "AVAILABLE":
       return "Доступен";
+    case "BOOKED":
+      return "Забронирован";
     case "RENTED":
       return "В аренде";
     case "BROKEN":
@@ -23,6 +25,8 @@ export function getToolStatusClass(status: string) {
   switch (status) {
     case "AVAILABLE":
       return "tool-status-available";
+    case "BOOKED":
+      return "tool-status-booked";
     case "RENTED":
       return "tool-status-rented";
     case "BROKEN":

@@ -2,7 +2,6 @@ import { FC, useState } from "react";
 import { RentalDocument } from "../types/RentalDocument";
 import { getStatusLabel, getStatusClass } from "../utils/contractStatus";
 import { contractsAPI } from "../api/contracts";
-import { ReinstallExcelButton } from "./ReinstallExcelButton";
 import "../styles/contracts.css";
 
 interface Props {
@@ -119,9 +118,6 @@ export const ClientDocumentsTable: FC<Props> = ({ documents, onRefresh }) => {
                 </span>
               </td>
               <td style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-                {!isNaN(Number(d.id)) && (
-                  <ReinstallExcelButton contractId={Number(d.id)} contractNumber={d.contractNumber} style={{ marginBottom: 0, marginRight: 0 }} />
-                )}
                 {canEdit(d.status) && (
                   <button
                     className="btn-edit"

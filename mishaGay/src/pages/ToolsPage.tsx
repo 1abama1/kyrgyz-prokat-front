@@ -5,6 +5,7 @@ import { CategoryFullDto } from "../types/inventory.types";
 import { useNavigate } from "react-router-dom";
 import { Layout } from "../components/Layout";
 import { InventoryTree } from "../components/InventoryTree";
+import { BookingModal } from "../components/BookingModal";
 import "../styles/tools.css";
   
 export const ToolsPage = () => {
@@ -12,6 +13,19 @@ export const ToolsPage = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const navigate = useNavigate();
+
+  const [bookingModal, setBookingModal] = useState<{
+    isOpen: boolean;
+    toolInstanceId: number;
+    toolInstanceNumber?: number;
+    templateId: string;
+    templateName: string;
+  }>({
+    isOpen: false,
+    toolInstanceId: 0,
+    templateId: "",
+    templateName: "",
+  });
 
   useEffect(() => {
     load();
@@ -120,6 +134,8 @@ export const ToolsPage = () => {
             categories={filteredAndSortedCategories}
             searchActive={!!searchQuery.trim()}
             onAddTemplate={(catId) => navigate(`/templates/create?categoryId=${catId}`)}
+            onTemplateOpen={(tplId) => navigate(`/templates/${tplId}`)}
+            onTemplateEdit={(tplId) => navigate(`/templates/edit/${tplId}`)}
             onAddTool={async (tplId) => {
               try {
                 await toolsAPI.createBatch({ templateId: tplId, count: 1 });
@@ -129,11 +145,33 @@ export const ToolsPage = () => {
                 alert("Не удалось создать экземпляр");
               }
             }}
-            onToolOpen={(toolId) => navigate(`/tools/${toolId}`)}
-            onTemplateOpen={(templateId) => navigate(`/templates/${templateId}`)}
+            onBookTool={(toolId, toolNumber, templateId, templateName) => {
+              setBookingModal({
+                isOpen: true,
+                toolInstanceId: toolId,
+                toolInstanceNumber: toolNumber,
+                templateId,
+                templateName,
+              });
+            }}
+            onViewBooking={(bookingId) => {
+              navigate(`/bookings?id=${bookingId}`);
+            }}
           />
         )}
       </div>
+
+      <BookingModal
+        isOpen={bookingModal.isOpen}
+        onClose={() => setBookingModal(prev => ({ ...prev, isOpen: false }))}
+        onSuccess={() => {
+          // Can show success toast or reload data if needed
+        }}
+        toolInstanceId={bookingModal.toolInstanceId}
+        toolInstanceNumber={bookingModal.toolInstanceNumber}
+        templateId={bookingModal.templateId}
+        templateName={bookingModal.templateName}
+      />
     </Layout>
   );
 };

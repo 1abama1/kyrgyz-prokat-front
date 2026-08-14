@@ -15,6 +15,7 @@ import { CreateCategoryPage } from "./pages/CreateCategoryPage";
 import { CreateTemplatePage } from "./pages/CreateTemplatePage";
 import { TemplateCardPage } from "./pages/TemplateCardPage";
 import { ContractHistoryPage } from "./pages/ContractHistoryPage";
+import { BookingsPage } from "./pages/BookingsPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { isAuthenticated } from "./utils/auth";
 import { SyncStatus } from "./components/SyncStatus";
@@ -113,10 +114,26 @@ function App() {
           }
         />
         <Route
+          path="/templates/edit/:id"
+          element={
+            <ProtectedRoute>
+              <CreateTemplatePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/templates/:id"
           element={
             <ProtectedRoute>
               <TemplateCardPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/bookings"
+          element={
+            <ProtectedRoute>
+              <BookingsPage />
             </ProtectedRoute>
           }
         />

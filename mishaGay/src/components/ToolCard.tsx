@@ -47,6 +47,7 @@ export const ToolCard: FC<ToolCardProps> = ({ tool, onClick }) => {
       </p>
       <p><strong>Залог:</strong> {tool.depositAmount} сом</p>
       <p><strong>Дневная цена:</strong> {tool.dailyRentalPrice} сом</p>
+      <p><strong>Стоимость (покупка):</strong> {tool.purchasePrice} сом</p>
     </div>
   );
 };

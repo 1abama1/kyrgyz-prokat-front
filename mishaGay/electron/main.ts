@@ -90,6 +90,14 @@ function createWindow(): void {
     });
   }
 
+  // Перехватываем создание новых окон (например, при window.open)
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith("http:") || url.startsWith("https:")) {
+      shell.openExternal(url);
+    }
+    return { action: "deny" };
+  });
+
   mainWindow.on("closed", () => {
     mainWindow = null;
   });
@@ -133,6 +141,11 @@ ipcMain.handle("save-contract-excel", async (_event, { buffer, filename }: { buf
 ipcMain.handle("open-contract-excel", async (_event, filePath: string) => {
   log.info(`[IPC] Вызов open-contract-excel для пути: ${filePath}`);
   return shell.openPath(filePath);
+});
+
+ipcMain.handle("open-external-url", async (_event, url: string) => {
+  log.info(`[IPC] Открытие внешней ссылки: ${url}`);
+  await shell.openExternal(url);
 });
 
 app.whenReady().then(() => {

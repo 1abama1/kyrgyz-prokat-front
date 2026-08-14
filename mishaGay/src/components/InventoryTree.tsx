@@ -7,17 +7,21 @@ interface InventoryTreeProps {
   searchActive?: boolean;
   onToolOpen?: (toolId: number) => void;
   onTemplateOpen?: (templateId: string) => void;
+  onTemplateEdit?: (templateId: string) => void;
   onAddTemplate?: (categoryId: string) => void;
   onAddTool?: (templateId: string, categoryId: string) => void;
+  onBookTool?: (toolId: number, toolInstanceNumber: number | undefined, templateId: string, templateName: string) => void;
+  onViewBooking?: (bookingId: string) => void;
 }
 
 export const InventoryTree = ({
   categories,
   searchActive,
-  onToolOpen,
   onTemplateOpen,
   onAddTemplate,
-  onAddTool
+  onAddTool,
+  onBookTool,
+  onViewBooking
 }: InventoryTreeProps) => {
   const [openCategories, setOpenCategories] = useState<Set<string>>(new Set());
   const [openTemplates, setOpenTemplates] = useState<Set<string>>(new Set());
@@ -103,16 +107,18 @@ export const InventoryTree = ({
                           </span>
                         </button>
                         
+                        
+
                         {onTemplateOpen && (
                           <button
-                            className="btn-small"
-                            style={{ marginRight: 8 }}
+                            className="btn-small btn-secondary"
                             onClick={(e) => {
                               e.stopPropagation();
                               onTemplateOpen(tpl.id);
                             }}
+                            style={{ marginLeft: 8 }}
                           >
-                            Бронирования
+                            Открыть
                           </button>
                         )}
 
@@ -123,6 +129,7 @@ export const InventoryTree = ({
                               e.stopPropagation();
                               onAddTool(tpl.id, cat.id);
                             }}
+                            style={{ marginLeft: 8 }}
                           >
                             + Экземпляр
                           </button>
@@ -141,17 +148,27 @@ export const InventoryTree = ({
                                     <span className="tree-tool-name">
                                       №{tool.instanceNumber ?? tool.id} — {tool.name}
                                     </span>
-                                    <ToolStatusBadge status={tool.status} />
+                                    <ToolStatusBadge status={tool.activeBookingId ? "BOOKED" : tool.status} />
                                   </div>
-                                  {onToolOpen && (
-                                    <button
-                                      className="btn-small"
-                                      style={{ marginLeft: 8 }}
-                                      onClick={() => onToolOpen(tool.id)}
-                                    >
-                                      Открыть →
-                                    </button>
-                                  )}
+                                    {tool.activeBookingId ? (
+                                      onViewBooking && (
+                                        <button
+                                          className="btn-small btn-secondary"
+                                          style={{ marginLeft: 8 }}
+                                          onClick={() => onViewBooking(tool.activeBookingId!)}
+                                        >
+                                          Посмотреть бронь
+                                        </button>
+                                      )
+                                    ) : onBookTool ? (
+                                      <button
+                                        className="btn-small btn-primary"
+                                        style={{ marginLeft: 8 }}
+                                        onClick={() => onBookTool(tool.id, tool.instanceNumber, tpl.id, tpl.name)}
+                                      >
+                                        Забронировать
+                                      </button>
+                                    ) : null}
                                 </li>
                               ))}
                             </ul>

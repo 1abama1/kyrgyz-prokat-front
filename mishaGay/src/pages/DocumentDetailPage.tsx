@@ -188,19 +188,19 @@ export const DocumentDetailPage: FC = () => {
         marginBottom: "20px"
       }}>
         <h2>Инструмент</h2>
-        {document.tool && document.toolId ? (
+        {(document.tool || document.toolInstance) && document.toolId ? (
           <>
-            <p><strong>Название:</strong> {document.tool.name}</p>
-            <p><strong>Категория:</strong> {document.tool.categoryName || "—"}</p>
-            <p><strong>Серийный номер:</strong> {document.tool.serialNumber || "—"}</p>
+            <p><strong>Название:</strong> {(document.tool || document.toolInstance)?.name}</p>
+            <p><strong>Категория:</strong> {(document.tool || document.toolInstance)?.categoryName || "—"}</p>
+            <p><strong>Инвентарный / Серийный номер:</strong> {(document.tool || document.toolInstance)?.inventoryNumber || (document.tool || document.toolInstance)?.serialNumber || "—"}</p>
             <p><strong>Статус:</strong>
               <span style={{
-                background: document.tool.status === "AVAILABLE" ? "#c8e6c9" : "#ffcdd2",
+                background: (document.tool || document.toolInstance)?.status === "AVAILABLE" ? "#c8e6c9" : "#ffcdd2",
                 padding: "4px 8px",
                 borderRadius: "4px",
                 marginLeft: "8px"
               }}>
-                {document.tool.status === "AVAILABLE" ? "Доступен" : "В аренде"}
+                {(document.tool || document.toolInstance)?.status === "AVAILABLE" ? "Доступен" : "В аренде"}
               </span>
             </p>
             {document.toolId &&

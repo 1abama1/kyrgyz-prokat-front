@@ -15,8 +15,18 @@ export const bookingsAPI = {
       method: "POST",
     }),
 
+  getAllBookings: () =>
+    apiCall<BookingDto[]>({
+      url: "/api/bookings",
+    }),
+
   getByTemplate: (templateId: string) =>
     apiCall<BookingDto[]>({
       url: `/api/bookings/template/${templateId}`,
+    }),
+
+  getByToolInstance: (toolInstanceId: number) =>
+    apiCall<BookingDto[]>({
+      url: `/api/bookings/tool/${toolInstanceId}`,
     }),
 };

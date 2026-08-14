@@ -42,4 +42,11 @@ export const templatesAPI = {
       url: `/api/templates/${id}/availability`,
       params: { start, end },
     }),
+
+  update: (id: string, data: import("../types/inventory.types").UpdateTemplateRequest) =>
+    apiCall<TemplateDto>({
+      url: `/api/templates/${id}`,
+      method: "PUT",
+      data,
+    }),
 };

@@ -26,7 +26,28 @@ export function WhatsAppButton({ phone, variant = "link" }: WhatsAppButtonProps)
     setLoading(true);
     try {
       const data = await helperAPI.getWhatsAppUrl(phone);
-      window.open(data.url, "_blank", "noopener,noreferrer");
+      
+      const waUrl = new URL(data.url);
+      let cleanPhone = "";
+      if (waUrl.hostname.includes("wa.me")) {
+        cleanPhone = waUrl.pathname.replace('/', '');
+      } else if (waUrl.searchParams.has("phone")) {
+        cleanPhone = waUrl.searchParams.get("phone") || "";
+      } else {
+        // Fallback: extract digits from the original phone prop
+        cleanPhone = phone?.replace(/\D/g, '') || "";
+      }
+      
+      const appLink = `whatsapp://send?phone=${cleanPhone}`;
+
+      if ((window as any).electronAPI && (window as any).electronAPI.openExternalUrl) {
+        await (window as any).electronAPI.openExternalUrl(appLink);
+      } else {
+        const newWindow = window.open(data.url, "_blank", "noopener,noreferrer");
+        setTimeout(() => {
+            if (newWindow) newWindow.close();
+        }, 5000);
+      }
     } catch (err: any) {
       setError(err?.message || "Не удалось открыть WhatsApp");
     } finally {

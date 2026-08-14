@@ -24,11 +24,16 @@ export interface ToolDto {
   serialNumber?: string | null;
   categoryId?: string;
   templateId?: string;
+  activeBookingId?: string;
 }
 
 export interface TemplateFullDto {
   id: string;
   name: string;
+  categoryId: string;
+  dailyRentalPrice: number;
+  depositAmount: number;
+  purchasePrice: number;
   tools: ToolDto[];
 }
 
@@ -45,6 +50,17 @@ export interface CreateCategoryRequest {
 export interface CreateTemplateRequest {
   name: string;
   categoryId: string;
+  dailyRentalPrice?: number;
+  depositAmount?: number;
+  purchasePrice?: number;
+}
+
+export interface UpdateTemplateRequest {
+  name: string;
+  categoryId: string;
+  dailyRentalPrice?: number;
+  depositAmount?: number;
+  purchasePrice?: number;
 }
 
 export interface CreateToolRequest {

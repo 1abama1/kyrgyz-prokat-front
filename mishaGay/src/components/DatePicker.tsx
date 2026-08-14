@@ -21,6 +21,7 @@ interface DatePickerProps {
   disabled?: boolean;
   className?: string;
   style?: React.CSSProperties;
+  placement?: "top" | "bottom";
 }
 
 interface CustomSelectProps {
@@ -99,7 +100,8 @@ export const DatePicker: React.FC<DatePickerProps> = ({
   placeholder = "Выберите дату...",
   disabled = false,
   className,
-  style
+  style,
+  placement = "bottom"
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [inputValue, setInputValue] = useState(formatDateToInput(value));
@@ -234,9 +236,8 @@ export const DatePicker: React.FC<DatePickerProps> = ({
   // Пресеты
   const presets = [
     { label: "Сегодня", date: new Date() },
-    { label: "Завтра", date: addDays(new Date(), 1) },
-    { label: "Конец недели", date: addDays(getStartOfWeek(new Date()), 6) },
-    { label: "Через месяц", date: addMonths(new Date(), 1) }
+    { label: "Вчера", date: addDays(new Date(), -1) },
+    { label: "На прошлой неделе", date: addDays(new Date(), -7) }
   ];
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -345,7 +346,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({
       {isOpen && (
         <>
           <div className="datepicker-overlay" onClick={() => setIsOpen(false)} />
-          <div className="datepicker-popup" role="dialog" aria-label="Выбор даты">
+          <div className={`datepicker-popup ${placement === "top" ? "position-top" : ""}`} role="dialog" aria-label="Выбор даты">
             
             {/* Панель пресетов */}
             <div className="datepicker-presets">

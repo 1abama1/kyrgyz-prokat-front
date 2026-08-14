@@ -33,6 +33,7 @@ export interface CreateDocumentDto {
 
 export interface DocumentDetail extends Document {
   client?: Client; // Может быть undefined, если данные не загружены
-  tool: Tool | null; // Может быть null для старых документов
+  tool?: Tool | null; // Может быть null для старых документов
+  toolInstance?: Tool | null;
 }
 

@@ -11,6 +11,7 @@ import type { ClientCard as ClientCardResponse } from "../types/client.types";
 import { ToolInstanceSelect } from "./ToolInstanceSelect";
 import { StyledSelect } from "./StyledSelect";
 import { WhatsAppButton } from "./WhatsAppButton";
+import { DownloadExcelButton } from "./DownloadExcelButton";
 
 interface ClientCardProps {
   clientId: number;
@@ -107,13 +108,21 @@ export default function ClientCard({ clientId }: ClientCardProps) {
         toolId: selectedTool! as number
       });
 
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename || `Договор_${client?.fullName || clientId}.xlsx`;
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
+      const finalFilename = filename || `Договор_${client?.fullName || clientId}.xlsx`;
+
+      if (window.contracts) {
+        const buffer = await blob.arrayBuffer();
+        const savedPath = await window.contracts.saveExcel(buffer, finalFilename);
+        await window.contracts.openExcel(savedPath);
+      } else {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = finalFilename;
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+      }
 
       await loadClient();
       await loadTemplateTools(selectedTemplate);
@@ -242,37 +251,10 @@ export default function ClientCard({ clientId }: ClientCardProps) {
         <ul style={{ listStyle: "none", padding: 0 }}>
           {client.activeContracts.map(c => (
             <li key={c.id} style={{ marginBottom: "8px", display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap", padding: "8px", border: "1px solid #eee", borderRadius: "6px" }}>
-              <span>Договор № {c.contractNumber}</span>
-              <button 
-                onClick={async () => {
-                  try {
-                    const { blob, filename } = await contractsAPI.downloadExistingExcel(c.id, `Договор_${c.contractNumber}.xlsx`);
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement("a");
-                    a.href = url;
-                    a.download = filename;
-                    a.click();
-                    a.remove();
-                    window.URL.revokeObjectURL(url);
-                  } catch (err: any) {
-                    alert("Ошибка при скачивании: " + (err?.message || "Неизвестная ошибка"));
-                  }
-                }}
-                style={{
-                  background: "#e8f5e9",
-                  color: "#2e7d32",
-                  border: "1px solid #c8e6c9",
-                  borderRadius: 4,
-                  padding: "4px 8px",
-                  cursor: "pointer",
-                  fontSize: "13px",
-                  fontWeight: 500,
-                  marginLeft: "auto"
-                }}
-                title="Скачать обновленный Excel договор"
-              >
-                ⬇️ Обновить Excel
-              </button>
+              <span>Договор №- {c.contractNumber}</span>
+              <div style={{ marginLeft: "auto" }}>
+                <DownloadExcelButton contractId={c.id} contractNumber={c.contractNumber} />
+              </div>
             </li>
           ))}
         </ul>

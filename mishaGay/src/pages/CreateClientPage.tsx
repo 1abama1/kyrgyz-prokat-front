@@ -13,6 +13,7 @@ export const CreateClientPage: FC = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const isEdit = Boolean(id);
+  const [syncAddress, setSyncAddress] = useState(!isEdit);
 
   // ФИО
   const [fullName, setFullName] = useState("");
@@ -279,9 +280,13 @@ export const CreateClientPage: FC = () => {
                   <input
                     placeholder="Регион / город"
                     value={registrationAddress.region}
-                    onChange={e =>
-                      setRegistrationAddress(a => ({ ...a, region: e.target.value }))
-                    }
+                    onChange={e => {
+                      const val = e.target.value;
+                      setRegistrationAddress(a => ({ ...a, region: val }));
+                      if (syncAddress) {
+                        setLivingAddress(a => ({ ...a, region: val }));
+                      }
+                    }}
                   />
                 </div>
 
@@ -290,9 +295,13 @@ export const CreateClientPage: FC = () => {
                   <input
                     placeholder="Улица / дом / кв"
                     value={registrationAddress.street}
-                    onChange={e =>
-                      setRegistrationAddress(a => ({ ...a, street: e.target.value }))
-                    }
+                    onChange={e => {
+                      const val = e.target.value;
+                      setRegistrationAddress(a => ({ ...a, street: val }));
+                      if (syncAddress) {
+                        setLivingAddress(a => ({ ...a, street: val }));
+                      }
+                    }}
                   />
                 </div>
               </div>
@@ -303,9 +312,10 @@ export const CreateClientPage: FC = () => {
                   <input
                     placeholder="Регион / город"
                     value={livingAddress.region}
-                    onChange={e =>
-                      setLivingAddress(a => ({ ...a, region: e.target.value }))
-                    }
+                    onChange={e => {
+                      setLivingAddress(a => ({ ...a, region: e.target.value }));
+                      setSyncAddress(false);
+                    }}
                   />
                 </div>
 
@@ -314,9 +324,10 @@ export const CreateClientPage: FC = () => {
                   <input
                     placeholder="Улица / дом / кв"
                     value={livingAddress.street}
-                    onChange={e =>
-                      setLivingAddress(a => ({ ...a, street: e.target.value }))
-                    }
+                    onChange={e => {
+                      setLivingAddress(a => ({ ...a, street: e.target.value }));
+                      setSyncAddress(false);
+                    }}
                   />
                 </div>
               </div>
