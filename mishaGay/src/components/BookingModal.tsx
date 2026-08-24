@@ -26,7 +26,7 @@ export const BookingModal: FC<BookingModalProps> = ({
   const [clientName, setClientName] = useState<string>("");
   const [clientPhone, setClientPhone] = useState<string>("");
   const [startDate, setStartDate] = useState<Date | null>(null);
-  const [endDate, setEndDate] = useState<Date | null>(null);
+  const [hours, setHours] = useState<number>(1);
   const [comment, setComment] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,20 +36,15 @@ export const BookingModal: FC<BookingModalProps> = ({
       setClientName("");
       setClientPhone("");
       setStartDate(new Date());
-      setEndDate(null);
+      setHours(1);
       setComment("");
       setError(null);
     }
   }, [isOpen]);
 
   const handleSubmit = async () => {
-    if (!clientName.trim() || !startDate || !endDate) {
+    if (!clientName.trim() || !startDate) {
       setError("Пожалуйста, заполните все обязательные поля (ФИО, Даты)");
-      return;
-    }
-
-    if (startDate >= endDate) {
-      setError("Дата начала должна быть раньше даты окончания");
       return;
     }
 
@@ -57,13 +52,16 @@ export const BookingModal: FC<BookingModalProps> = ({
     setError(null);
 
     try {
+      const pad = (n: number) => n.toString().padStart(2, '0');
+      const localISO = `${startDate.getFullYear()}-${pad(startDate.getMonth() + 1)}-${pad(startDate.getDate())}T${pad(startDate.getHours())}:${pad(startDate.getMinutes())}:${pad(startDate.getSeconds())}`;
+
       await bookingsAPI.createBooking({
         clientName: clientName.trim(),
         clientPhone: clientPhone.trim(),
         templateId,
         toolInstanceId,
-        startDateTime: startDate.toISOString(),
-        endDateTime: endDate.toISOString(),
+        startDateTime: localISO,
+        hours,
         comment
       });
       onSuccess();
@@ -112,24 +110,55 @@ export const BookingModal: FC<BookingModalProps> = ({
 
         <div style={{ marginTop: 15 }}>
           <label>Дата начала *</label>
-          <DatePicker
-            value={startDate}
-            onChange={(date) => setStartDate(date)}
-            placeholder="Выберите дату начала"
-            style={{ marginTop: "5px" }}
-          />
+          <div style={{ display: "flex", gap: "10px", marginTop: "5px" }}>
+            <DatePicker
+              value={startDate}
+              onChange={(date) => {
+                if (startDate) {
+                  date.setHours(startDate.getHours());
+                  date.setMinutes(startDate.getMinutes());
+                } else {
+                  date.setHours(9, 0, 0, 0); // Default to 09:00
+                }
+                setStartDate(date);
+              }}
+              placeholder="Выберите дату начала"
+              style={{ flex: 1 }}
+            />
+            <input
+              type="time"
+              className="form-input"
+              value={startDate ? `${startDate.getHours().toString().padStart(2, '0')}:${startDate.getMinutes().toString().padStart(2, '0')}` : ""}
+              onChange={(e) => {
+                if (!startDate) return;
+                const [hours, minutes] = e.target.value.split(":");
+                const newDate = new Date(startDate);
+                newDate.setHours(parseInt(hours, 10));
+                newDate.setMinutes(parseInt(minutes, 10));
+                setStartDate(newDate);
+              }}
+              disabled={!startDate}
+              style={{ width: "120px", padding: "8px" }}
+            />
+          </div>
         </div>
 
         <div style={{ marginTop: 15 }}>
-          <label>Дата окончания *</label>
-          <DatePicker
-            value={endDate}
-            onChange={(date) => setEndDate(date)}
-            minDate={startDate || undefined}
-            placeholder="Выберите дату окончания"
-            style={{ marginTop: "5px" }}
-            placement="top"
-          />
+          <label>Период аренды (часов) *</label>
+          <div style={{ display: "flex", gap: "10px", marginTop: "5px" }}>
+            <select
+              className="form-input"
+              value={hours}
+              onChange={(e) => setHours(parseInt(e.target.value, 10))}
+              style={{ flex: 1, padding: "8px" }}
+            >
+              {[1, 2, 3, 4, 5, 6].map((h) => (
+                <option key={h} value={h}>
+                  {h} {h === 1 ? "час" : h > 1 && h < 5 ? "часа" : "часов"}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         <div style={{ marginTop: 15 }}>

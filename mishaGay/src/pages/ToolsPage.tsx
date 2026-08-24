@@ -46,25 +46,25 @@ export const ToolsPage = () => {
 
   const filteredAndSortedCategories = useMemo(() => {
     // 1. Sort everything
-    let result = categories.map(cat => ({
+    let result = (categories || []).map(cat => ({
       ...cat,
-      templates: cat.templates.map(tpl => ({
+      templates: (cat.templates || []).map(tpl => ({
         ...tpl,
-        tools: [...tpl.tools].sort((a, b) => (a.instanceNumber || a.id) - (b.instanceNumber || b.id))
-      })).sort((a, b) => a.name.localeCompare(b.name))
-    })).sort((a, b) => a.name.localeCompare(b.name));
+        tools: [...(tpl.tools || [])].sort((a, b) => (a.instanceNumber || a.id) - (b.instanceNumber || b.id))
+      })).sort((a, b) => (a.name || "").localeCompare(b.name || ""))
+    })).sort((a, b) => (a.name || "").localeCompare(b.name || ""));
 
     // 2. Filter if there is a query
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       
       result = result.map(cat => {
-        const catMatch = cat.name.toLowerCase().includes(q);
+        const catMatch = (cat.name || "").toLowerCase().includes(q);
         
-        const filteredTemplates = cat.templates.map(tpl => {
-          const tplMatch = tpl.name.toLowerCase().includes(q);
-          const filteredTools = tpl.tools.filter(tool => 
-            tool.name.toLowerCase().includes(q) ||
+        const filteredTemplates = (cat.templates || []).map(tpl => {
+          const tplMatch = (tpl.name || "").toLowerCase().includes(q);
+          const filteredTools = (tpl.tools || []).filter(tool => 
+            (tool.name || "").toLowerCase().includes(q) ||
             (tool.instanceNumber && String(tool.instanceNumber).includes(q)) ||
             (tool.inventoryNumber && tool.inventoryNumber.toLowerCase().includes(q))
           );
@@ -72,7 +72,7 @@ export const ToolsPage = () => {
           if (catMatch || tplMatch || filteredTools.length > 0) {
             return {
               ...tpl,
-              tools: (catMatch || tplMatch) ? tpl.tools : filteredTools
+              tools: (catMatch || tplMatch) ? (tpl.tools || []) : filteredTools
             };
           }
           return null;
@@ -81,7 +81,7 @@ export const ToolsPage = () => {
         if (catMatch || filteredTemplates.length > 0) {
           return {
             ...cat,
-            templates: catMatch && filteredTemplates.length === 0 ? cat.templates : filteredTemplates
+            templates: catMatch && filteredTemplates.length === 0 ? (cat.templates || []) : filteredTemplates
           };
         }
         return null;
@@ -165,7 +165,7 @@ export const ToolsPage = () => {
         isOpen={bookingModal.isOpen}
         onClose={() => setBookingModal(prev => ({ ...prev, isOpen: false }))}
         onSuccess={() => {
-          // Can show success toast or reload data if needed
+          load(false);
         }}
         toolInstanceId={bookingModal.toolInstanceId}
         toolInstanceNumber={bookingModal.toolInstanceNumber}

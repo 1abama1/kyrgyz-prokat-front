@@ -46,9 +46,11 @@ export interface ToolInstance {
   name: string;
   inventoryNumber: string;
   article: string;
-  depositAmount: number;
-  purchasePrice: number;
-  dailyRentalPrice: number;
+  depositAmount?: number;
+  purchasePrice?: number;
+  dailyRentalPrice?: number;
+  deposit?: number;
+  dailyPrice?: number;
   status: ToolStatus;
   instanceNumber?: number;
 }

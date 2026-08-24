@@ -30,6 +30,11 @@ export const LoginPage: FC = () => {
     }
   };
 
+  const handleOfflineLogin = () => {
+    authAPI.loginOffline();
+    navigate("/dashboard");
+  };
+
   return (
     <div style={{ maxWidth: "400px", margin: "100px auto", padding: "20px" }}>
       <h1>Вход в систему</h1>
@@ -68,10 +73,27 @@ export const LoginPage: FC = () => {
             color: "white",
             border: "none",
             borderRadius: "4px",
-            cursor: "pointer"
+            cursor: "pointer",
+            marginBottom: "12px"
           }}
         >
           {loading ? "Вход..." : "Войти"}
+        </button>
+
+        <button 
+          type="button" 
+          onClick={handleOfflineLogin}
+          style={{ 
+            width: "100%", 
+            padding: "10px",
+            background: "#4b5563",
+            color: "white",
+            border: "none",
+            borderRadius: "4px",
+            cursor: "pointer"
+          }}
+        >
+          Войти в оффлайн-режиме
         </button>
       </form>
     </div>

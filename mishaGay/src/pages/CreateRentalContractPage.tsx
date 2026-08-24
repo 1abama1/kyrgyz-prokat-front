@@ -32,6 +32,7 @@ export const CreateRentalContractPage: FC = () => {
   
   const [tools, setTools] = useState<ToolInstance[]>([]);
   const [toolId, setToolId] = useState<number | null>(null);
+  const [selectedTools, setSelectedTools] = useState<ToolInstance[]>([]);
 
   const [clientId, setClientId] = useState<string | "">("");
 
@@ -98,8 +99,8 @@ export const CreateRentalContractPage: FC = () => {
 
 
   const onCreate = async () => {
-    if (!clientId || !categoryId || !templateId || !toolId) {
-      setError("Заполните все обязательные поля");
+    if (!clientId || selectedTools.length === 0) {
+      setError("Заполните все обязательные поля (выберите клиента и добавьте минимум один инструмент)");
       return;
     }
 
@@ -119,7 +120,7 @@ export const CreateRentalContractPage: FC = () => {
     try {
       await contractsAPI.createContract({
         clientId: Number(clientId),
-        toolId: toolId as number,
+        toolIds: selectedTools.map(t => t.id),
       });
 
       navigate("/contracts/active");
@@ -130,19 +131,36 @@ export const CreateRentalContractPage: FC = () => {
       if (errorMessage.includes("contract_number") || errorMessage.includes("уже существует")) {
         setError("Договор с таким номером уже существует. Пожалуйста, используйте другой номер.");
       } else if (errorMessage.includes("занят") || errorMessage.includes("Инструмент занят") || errorMessage.includes("RENTED")) {
-        setError("Этот инструмент уже в аренде. Выберите другой инструмент.");
-        // Обновляем список доступных инструментов для выбранной модели
-        if (templateId) {
-          templatesAPI.getFull(templateId)
-            .then(full => setTools(full.tools ?? []))
-            .catch(() => {});
-        }
+        setError("Один из инструментов уже в аренде. Удалите его из списка и выберите другой.");
       } else {
         setError(errorMessage);
       }
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleAddTool = () => {
+    if (!toolId) return;
+    const tool = tools.find(t => t.id === toolId);
+    if (!tool) return;
+    if (selectedTools.find(t => t.id === tool.id)) {
+        setError("Этот инструмент уже добавлен");
+        return;
+    }
+    if (selectedTools.length >= 10) {
+        setError("Максимум 10 инструментов в одном договоре");
+        return;
+    }
+    setSelectedTools([...selectedTools, tool]);
+    setCategoryId("");
+    setTemplateId("");
+    setToolId(null);
+    setError(null);
+  };
+
+  const handleRemoveTool = (id: number) => {
+    setSelectedTools(selectedTools.filter(t => t.id !== id));
   };
 
   const clientOptions = clients.map(c => ({
@@ -211,64 +229,105 @@ export const CreateRentalContractPage: FC = () => {
             />
           )}
 
-          <label>Категория</label>
-          <div style={{ marginBottom: 16 }}>
-            <StyledSelect
-              options={categoryOptions}
-              value={categoryId}
-              onChange={(val) => setCategoryId(val ? String(val) : "")}
-              placeholder="Выберите категорию"
-              isClearable
-              noOptionsMessage="Категории не найдены"
-            />
+          <div style={{ marginBottom: 24 }}>
+            <h3 style={{ marginBottom: 12 }}>Выбранные инструменты ({selectedTools.length}/10)</h3>
+            {selectedTools.length === 0 ? (
+                <div style={{ color: "#64748B", fontSize: 14, fontStyle: "italic", marginBottom: 12 }}>
+                    Пока не добавлено ни одного инструмента
+                </div>
+            ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
+                    {selectedTools.map(t => (
+                        <div key={t.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", background: "#F8FAFC", borderRadius: 8, border: "1px solid #E2E8F0" }}>
+                            <div>
+                                <div style={{ fontWeight: 600 }}>{t.name} (№{t.instanceNumber ?? t.id})</div>
+                                <div style={{ fontSize: 12, color: "#64748B" }}>ИНВ: {t.inventoryNumber} | {t.dailyRentalPrice ?? t.dailyPrice} с/сутки</div>
+                            </div>
+                            <button 
+                              onClick={() => handleRemoveTool(t.id)} 
+                              style={{ padding: "6px 12px", background: "#FEE2E2", color: "#DC2626", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 13, fontWeight: 500, transition: "background 0.2s" }}
+                              onMouseEnter={(e) => e.currentTarget.style.background = "#FCA5A5"}
+                              onMouseLeave={(e) => e.currentTarget.style.background = "#FEE2E2"}
+                            >
+                              Удалить
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {selectedTools.length < 10 && (
+                <div style={{ padding: 16, background: "#F1F5F9", borderRadius: 8, border: "1px dashed #CBD5E1" }}>
+                    <h4 style={{ margin: "0 0 12px 0", fontSize: 14, color: "#334155" }}>Добавить инструмент</h4>
+                    <label>Категория</label>
+                    <div style={{ marginBottom: 16 }}>
+                        <StyledSelect
+                        options={categoryOptions}
+                        value={categoryId}
+                        onChange={(val) => setCategoryId(val ? String(val) : "")}
+                        placeholder="Выберите категорию"
+                        isClearable
+                        noOptionsMessage="Категории не найдены"
+                        />
+                    </div>
+
+                    {categoryId && (
+                        <>
+                        <label>Модель</label>
+                        <div style={{ marginBottom: 16 }}>
+                            <StyledSelect
+                            options={templateOptions}
+                            value={templateId}
+                            onChange={(val) => setTemplateId(val ? String(val) : "")}
+                            placeholder="Выберите модель"
+                            isDisabled={!categoryId}
+                            isClearable
+                            noOptionsMessage="Модели не найдены"
+                            />
+                        </div>
+                        </>
+                    )}
+
+                    {templateId && (
+                        <>
+                        <label>Экземпляр инструмента</label>
+                        <div style={{ marginBottom: 16 }}>
+                            <ToolInstanceSelect
+                            tools={tools}
+                            value={toolId}
+                            onChange={setToolId}
+                            placeholder={tools.length === 0 ? "Нет экземпляров" : "Выберите экземпляр"}
+                            />
+                        </div>
+                        {templateId && tools.length === 0 && (
+                            <div className="no-tools-warning">
+                            ⚠ Нет экземпляров для выбранной модели
+                            </div>
+                        )}
+                        </>
+                    )}
+
+                    <button 
+                        disabled={!toolId} 
+                        onClick={handleAddTool}
+                        style={{ width: "100%", padding: "10px", background: toolId ? "#3B82F6" : "#E2E8F0", color: toolId ? "#fff" : "#94A3B8", border: "none", borderRadius: 6, cursor: toolId ? "pointer" : "not-allowed", fontWeight: 600, transition: "background 0.2s" }}
+                    >
+                        Добавить к договору
+                    </button>
+                </div>
+            )}
           </div>
 
-          {categoryId && (
-            <>
-              <label>Модель</label>
-              <div style={{ marginBottom: 16 }}>
-                <StyledSelect
-                  options={templateOptions}
-                  value={templateId}
-                  onChange={(val) => {
-                    setTemplateId(val ? String(val) : "");
-                  }}
-                  placeholder="Выберите модель"
-                  isDisabled={!categoryId}
-                  isClearable
-                  noOptionsMessage="Модели не найдены"
-                />
-              </div>
-
-            </>
-          )}
-
-          {templateId && (
-            <>
-              <label>Экземпляр инструмента</label>
-              <div style={{ marginBottom: 16 }}>
-                <ToolInstanceSelect
-                  tools={tools}
-                  value={toolId}
-                  onChange={setToolId}
-                  placeholder={tools.length === 0 ? "Нет экземпляров" : "Выберите экземпляр"}
-                />
-              </div>
-              {templateId && tools.length === 0 && (
-                <div className="no-tools-warning">
-                  ⚠ Нет экземпляров для выбранной модели
-                </div>
-              )}
-            </>
-          )}
-
           <button
+            className="submit-btn"
             disabled={
               loading ||
               !clientCheck.allowed ||
-              (!!clientCheck.warning && !warningAccepted)
+              (!!clientCheck.warning && !warningAccepted) ||
+              selectedTools.length === 0
             }
             onClick={onCreate}
+            style={{ width: "100%", padding: 14, fontSize: 16, marginTop: 16 }}
           >
             {loading ? "Создание..." : "Создать договор"}
           </button>

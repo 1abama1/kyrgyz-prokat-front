@@ -7,6 +7,7 @@ import { DocumentDetail } from "../types/document.types";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { formatDate } from "../utils/formatters";
 import { DownloadExcelButton } from "../components/DownloadExcelButton";
+import { syncManager } from "../db/syncManager";
 
 export const DocumentDetailPage: FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -28,17 +29,10 @@ export const DocumentDetailPage: FC = () => {
       return;
     }
 
-    const docId = Number(id);
-    if (isNaN(docId) || docId <= 0) {
-      setError("Неверный ID документа");
-      setLoading(false);
-      return;
-    }
-
-    loadDocument(docId);
+    loadDocument(id);
   }, [id]);
 
-  const loadDocument = async (documentId: number) => {
+  const loadDocument = async (documentId: string | number) => {
     try {
       setLoading(true);
       const data = await documentsAPI.getById(documentId);
@@ -66,9 +60,13 @@ export const DocumentDetailPage: FC = () => {
 
     try {
       setClosing(true);
-      await contractsAPI.close(document.id, { paidAmount: Number(paidAmount) || 0, comment });
+      await contractsAPI.close(
+        document.id || undefined,
+        { paidAmount: Number(paidAmount) || 0, comment },
+        (document as any).offlineId
+      );
       setIsModalOpen(false);
-      await loadDocument(document.id);
+      await loadDocument(id || document.id);
     } catch (err: unknown) {
       if (err instanceof Error) {
         setError(err.message);
@@ -120,10 +118,43 @@ export const DocumentDetailPage: FC = () => {
           <DownloadExcelButton
             contractId={document.id}
             contractNumber={document.contractNumber}
+            offlineId={(document as any).offlineId}
           />
         </div>
       </div>
       <ErrorMessage error={error} onClose={() => setError(null)} />
+
+      {(!document.id || document.id === 0) && (
+        <div style={{
+          background: "#fffbeb",
+          border: "1px solid #fde68a",
+          color: "#92400e",
+          padding: "12px 16px",
+          borderRadius: "8px",
+          marginBottom: "20px",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center"
+        }}>
+          <div>
+            <strong>Договор сохранен локально (ожидает отправки на сервер)</strong>
+            <div style={{ fontSize: "13px", marginTop: "2px" }}>
+              При наличии сети договор синхронизируется автоматически.
+            </div>
+          </div>
+          <button
+            type="button"
+            className="btn-small"
+            onClick={async () => {
+              await syncManager.syncNow();
+              await loadDocument(id || (document as any).offlineId);
+            }}
+            style={{ background: "#d97706", color: "white", padding: "6px 12px", border: "none", borderRadius: "4px", cursor: "pointer", fontWeight: 600 }}
+          >
+            ↻ Отправить на сервер
+          </button>
+        </div>
+      )}
 
       <div style={{
         border: "1px solid #ddd",
@@ -187,13 +218,51 @@ export const DocumentDetailPage: FC = () => {
         padding: "20px",
         marginBottom: "20px"
       }}>
-        <h2>Инструмент</h2>
-        {(document.tool || document.toolInstance) && document.toolId ? (
-          <>
-            <p><strong>Название:</strong> {(document.tool || document.toolInstance)?.name}</p>
-            <p><strong>Категория:</strong> {(document.tool || document.toolInstance)?.categoryName || "—"}</p>
-            <p><strong>Инвентарный / Серийный номер:</strong> {(document.tool || document.toolInstance)?.inventoryNumber || (document.tool || document.toolInstance)?.serialNumber || "—"}</p>
-            <p><strong>Статус:</strong>
+        <h2>Инструменты</h2>
+        {document.tools && document.tools.length > 0 ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+            {document.tools.map((t, idx) => (
+              <div key={t.id || idx} style={{ padding: "16px", background: "#f8f9fa", borderRadius: "8px", border: "1px solid #e9ecef" }}>
+                <p style={{ margin: "0 0 8px 0" }}><strong>Название:</strong> {t.name}</p>
+                <p style={{ margin: "0 0 8px 0" }}><strong>Категория:</strong> {t.categoryName || "—"}</p>
+                <p style={{ margin: "0 0 8px 0" }}><strong>Инвентарный / Серийный номер:</strong> {t.inventoryNumber || t.serialNumber || "—"}</p>
+                <p style={{ margin: "0 0 8px 0" }}><strong>Статус:</strong>
+                  <span style={{
+                    background: t.status === "AVAILABLE" ? "#c8e6c9" : "#ffcdd2",
+                    padding: "4px 8px",
+                    borderRadius: "4px",
+                    marginLeft: "8px"
+                  }}>
+                    {t.status === "AVAILABLE" ? "Доступен" : "В аренде"}
+                  </span>
+                </p>
+                {t.id && !isNaN(Number(t.id)) && Number(t.id) > 0 && (
+                  <p style={{ marginTop: "12px", marginBottom: 0 }}>
+                    <button
+                      onClick={() => navigate(`/tools/${t.id}`)}
+                      style={{
+                        padding: "6px 12px",
+                        background: "#1976d2",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "4px",
+                        cursor: "pointer",
+                        fontSize: "14px"
+                      }}
+                    >
+                      Открыть инструмент →
+                    </button>
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (document.tool || document.toolInstance) && document.toolId ? (
+          <div style={{ padding: "16px", background: "#f8f9fa", borderRadius: "8px", border: "1px solid #e9ecef" }}>
+            <p style={{ margin: "0 0 8px 0" }}><strong>Название:</strong> {(document.tool || document.toolInstance)?.name}</p>
+            <p style={{ margin: "0 0 8px 0" }}><strong>Категория:</strong> {(document.tool || document.toolInstance)?.categoryName || "—"}</p>
+            <p style={{ margin: "0 0 8px 0" }}><strong>Инвентарный / Серийный номер:</strong> {(document.tool || document.toolInstance)?.inventoryNumber || (document.tool || document.toolInstance)?.serialNumber || "—"}</p>
+            <p style={{ margin: "0 0 8px 0" }}><strong>Статус:</strong>
               <span style={{
                 background: (document.tool || document.toolInstance)?.status === "AVAILABLE" ? "#c8e6c9" : "#ffcdd2",
                 padding: "4px 8px",
@@ -207,7 +276,7 @@ export const DocumentDetailPage: FC = () => {
               document.toolId !== null &&
               !isNaN(Number(document.toolId)) &&
               Number(document.toolId) > 0 && (
-                <p style={{ marginTop: "12px" }}>
+                <p style={{ marginTop: "12px", marginBottom: 0 }}>
                   <button
                     onClick={() => {
                       const toolId = Number(document.toolId);
@@ -229,7 +298,7 @@ export const DocumentDetailPage: FC = () => {
                   </button>
                 </p>
               )}
-          </>
+          </div>
         ) : (
           <p style={{ color: "#666", fontStyle: "italic" }}>
             Информация об инструменте недоступна (старый договор)

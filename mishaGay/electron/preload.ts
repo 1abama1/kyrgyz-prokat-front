@@ -18,7 +18,10 @@ contextBridge.exposeInMainWorld("contracts", {
     ipcRenderer.invoke("save-contract-excel", { buffer, filename }),
 
   openExcel: (filePath: string): Promise<void> =>
-    ipcRenderer.invoke("open-contract-excel", filePath)
+    ipcRenderer.invoke("open-contract-excel", filePath),
+
+  generateOffline: (contractData: any, filename: string): Promise<string> =>
+    ipcRenderer.invoke("generate-offline-excel", { contractData, filename }),
 });
 
 // Добавляем возможность логирования из фронтенда

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { downloadExcelContract, contractsAPI } from "../api/contracts";
+import { downloadExcelContract } from "../api/contracts";
 import { templatesAPI } from "../api/templates";
 import { categoriesAPI } from "../api/categories";
 import { getClientCard } from "../api/clients";

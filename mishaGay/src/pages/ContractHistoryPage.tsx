@@ -10,6 +10,7 @@ import "../styles/contracts.css";
 
 interface HistoryRow {
   id: number;
+  offlineId?: string;
   clientName: string;
   toolName?: string;
   startDateTime?: string;
@@ -61,7 +62,17 @@ export const ContractHistoryPage = () => {
       }
 
       const historyData = await contractsAPI.getHistoryTable(toolId, from, to);
-      setHistory(historyData || []);
+      const normalized: HistoryRow[] = (historyData || []).map((item: any) => ({
+        id: item.id ?? item.contractId ?? 0,
+        offlineId: item.offlineId,
+        clientName: item.clientName ?? "",
+        toolName: item.toolName ?? "",
+        startDateTime: item.startDateTime ?? item.startDate ?? "",
+        returnDate: item.returnDate ?? item.endDate ?? null,
+        status: item.status ?? "",
+        amount: typeof item.amount === "number" ? item.amount : (typeof item.balance === "number" ? item.balance : null),
+      }));
+      setHistory(normalized);
     } catch (err: any) {
       setError(err?.message || "Ошибка загрузки истории");
     } finally {
@@ -220,9 +231,14 @@ export const ContractHistoryPage = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {group.items.map((item) => (
-                        <tr key={item.id} style={{ borderBottom: "1px solid #f3f4f6" }}>
-                          <td style={{ padding: "12px 16px", color: "#4b5563" }}>{item.id}</td>
+                      {group.items.map((item, itemIdx) => (
+                        <tr
+                          key={item.id ? `contract-${item.id}` : (item.offlineId ? `offline-${item.offlineId}` : `row-${group.date}-${itemIdx}`)}
+                          style={{ borderBottom: "1px solid #f3f4f6" }}
+                        >
+                          <td style={{ padding: "12px 16px", color: "#4b5563" }}>
+                            {item.id ? item.id : (item.offlineId ? `${item.offlineId.slice(0, 8)}...` : "—")}
+                          </td>
                           <td style={{ padding: "12px 16px", fontWeight: 500 }}>{item.clientName}</td>
                           <td style={{ padding: "12px 16px" }}>{item.toolName ?? "—"}</td>
                           <td style={{ padding: "12px 16px", fontSize: 13, color: "#6b7280" }}>
@@ -241,12 +257,18 @@ export const ContractHistoryPage = () => {
                             <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end", alignItems: "center" }}>
                               <button
                                 className="btn-edit"
-                                onClick={() => navigate(`/documents/${item.id}`)}
+                                onClick={() => {
+                                  if (item.id) {
+                                    navigate(`/documents/${item.id}`);
+                                  } else {
+                                    alert("Этот договор еще не синхронизирован, невозможно открыть");
+                                  }
+                                }}
                                 style={{ fontSize: "13px", padding: "4px 8px" }}
                               >
                                 Открыть
                               </button>
-                              {item.status === "CLOSED" && (
+                              {item.status === "CLOSED" && item.id > 0 && (
                                 <button
                                   className="btn-restore"
                                   onClick={() => handleRestore(item.id)}

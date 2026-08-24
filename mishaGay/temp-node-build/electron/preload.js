@@ -10,7 +10,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
 contextBridge.exposeInMainWorld("contracts", {
     checkExists: (filename) => ipcRenderer.invoke("contract-exists", filename),
     saveExcel: (buffer, filename) => ipcRenderer.invoke("save-contract-excel", { buffer, filename }),
-    openExcel: (filePath) => ipcRenderer.invoke("open-contract-excel", filePath)
+    openExcel: (filePath) => ipcRenderer.invoke("open-contract-excel", filePath),
+    generateOffline: (contractData, filename) => ipcRenderer.invoke("generate-offline-excel", { contractData, filename }),
 });
 // Добавляем возможность логирования из фронтенда
 contextBridge.exposeInMainWorld("electronLog", {

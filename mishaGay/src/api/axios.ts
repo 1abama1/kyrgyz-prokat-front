@@ -130,13 +130,24 @@ api.interceptors.response.use(
         // ✅ Повторяем исходный запрос
         originalRequest.headers.Authorization = `Bearer ${accessToken}`;
         return api(originalRequest);
-      } catch (err) {
+      } catch (err: any) {
         // Обрабатываем очередь с ошибкой
         processQueue(err, null);
 
-        // ❗ Refresh token просрочен → logout
-        clearTokens();
-        window.location.href = "/login";
+        // ❗ Если это ошибка сети (сервер недоступен или оффлайн), НЕ разлогиниваем!
+        const isNetworkErr =
+          !navigator.onLine ||
+          err?.code === "ERR_NETWORK" ||
+          err?.code === "ECONNREFUSED" ||
+          err?.message?.includes("Network Error") ||
+          err?.message?.includes("INTERNET_DISCONNECTED") ||
+          err?.message?.includes("fetch");
+
+        if (!isNetworkErr) {
+          // Refresh token действительно просрочен/отклонен сервером → logout
+          clearTokens();
+          window.location.href = "/login";
+        }
         return Promise.reject(err);
       } finally {
         isRefreshing = false;

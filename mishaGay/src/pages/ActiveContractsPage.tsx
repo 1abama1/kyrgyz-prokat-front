@@ -141,7 +141,7 @@ export const ActiveContractsPage = () => {
               </thead>
               <tbody>
                 {rows.map((row, index) => (
-                  <tr key={row.contractId || `contract-${index}`}>
+                  <tr key={row.contractId ? `contract-${row.contractId}` : `offline-${row.offlineId || index}`}>
                     <td>{row.index}</td>
                     <td>{row.clientName}</td>
                     <td>{row.toolName}</td>
@@ -150,11 +150,12 @@ export const ActiveContractsPage = () => {
                       {/* <ReinstallExcelButton contractId={row.contractId} /> */}
                       <button
                         onClick={() => {
-                          if (row.contractId) {
-                            navigate(`/documents/${row.contractId}`);
+                          const targetId = row.contractId || row.offlineId;
+                          if (targetId) {
+                            navigate(`/documents/${targetId}`);
                           } else {
-                            console.error("Invalid contractId:", row.contractId);
-                            alert("Ошибка: этот договор еще не синхронизирован, невозможно открыть");
+                            console.error("Invalid contract identifier:", row);
+                            alert("Ошибка: невозможно открыть договор");
                           }
                         }}
                         className="btn-small"

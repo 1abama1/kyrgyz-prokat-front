@@ -21,7 +21,10 @@ contextBridge.exposeInMainWorld("contracts", {
     ipcRenderer.invoke("open-contract-excel", filePath),
 
   showItemInFolder: (filePath) =>
-    ipcRenderer.invoke("show-item-in-folder", filePath)
+    ipcRenderer.invoke("show-item-in-folder", filePath),
+
+  generateOffline: (contractData, filename) =>
+    ipcRenderer.invoke("generate-offline-excel", { contractData, filename })
 });
 
 contextBridge.exposeInMainWorld("electronLog", {

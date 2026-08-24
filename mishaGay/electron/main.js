@@ -2,6 +2,7 @@ const { app, BrowserWindow, Menu, ipcMain, shell } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const log = require("electron-log");
+const XlsxPopulate = require("xlsx-populate");
 
 // 🔥 Настройка логирования
 log.transports.file.level = "info";
@@ -101,6 +102,134 @@ ipcMain.handle("show-item-in-folder", async (_, filePath) => {
 ipcMain.handle("open-external-url", async (_, url) => {
   log.info(`[IPC] Открытие внешней ссылки: ${url}`);
   await shell.openExternal(url);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Вспомогательная функция: путь к шаблону lermontov.xlsx
+// ─────────────────────────────────────────────────────────────────────────────
+
+const getTemplatePath = () => {
+  const prodPath = path.join(__dirname, "../resources/lermontov.xlsx");
+  if (fs.existsSync(prodPath)) {
+    return prodPath;
+  }
+  const devPath = path.join(app.getAppPath(), "resources/lermontov.xlsx");
+  if (fs.existsSync(devPath)) {
+    return devPath;
+  }
+  const rootPath = path.join(__dirname, "resources/lermontov.xlsx");
+  if (fs.existsSync(rootPath)) {
+    return rootPath;
+  }
+  throw new Error(`Шаблон lermontov.xlsx не найден. Проверьте пути:\n  ${prodPath}\n  ${devPath}`);
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// IPC: Оффлайн-генерация Excel по шаблону
+// ─────────────────────────────────────────────────────────────────────────────
+
+ipcMain.handle("generate-offline-excel", async (_, { contractData, filename }) => {
+  log.info(`[IPC] generate-offline-excel: ${filename}`);
+
+  const templatePath = getTemplatePath();
+  log.info(`[IPC] Using template: ${templatePath}`);
+
+  const workbook = await XlsxPopulate.fromFileAsync(templatePath);
+  const dto = contractData;
+
+  const setCell = (sheet, ref, value) => {
+    if (!sheet || value === null || value === undefined || value === '') return;
+    sheet.cell(ref).value(value);
+  };
+
+  const clearCell = (sheet, ref) => {
+    if (!sheet) return;
+    sheet.cell(ref).value(undefined);
+  };
+
+  // Лист "Дог."
+  const dogSheet = workbook.sheet('Дог.');
+  if (dogSheet) {
+    setCell(dogSheet, 'A12', dto.toolFullName);
+
+    let contacts = dto.client?.whatsappPhone ?? '';
+    if (dto.client?.additionalPhone) {
+      contacts += `, Доп: ${dto.client.additionalPhone}`;
+    }
+    setCell(dogSheet, 'D7', contacts);
+
+    setCell(dogSheet, 'A18', dto.client?.fullName);
+    setCell(dogSheet, 'E19', dto.client?.passportType);
+    setCell(dogSheet, 'G19', dto.client?.passportNumber);
+    setCell(dogSheet, 'J19', dto.client?.passportIssuedBy);
+    setCell(dogSheet, 'K19', dto.client?.passportDepartmentCode);
+    setCell(dogSheet, 'M19', dto.client?.passportIssuedDate);
+
+    if (dto.client?.registrationAddress) {
+      setCell(dogSheet, 'C20', dto.client.registrationAddress.region);
+      setCell(dogSheet, 'J20', dto.client.registrationAddress.street);
+    }
+    if (dto.client?.livingAddress) {
+      setCell(dogSheet, 'A21', dto.client.livingAddress.region);
+      setCell(dogSheet, 'I21', dto.client.livingAddress.street);
+    }
+
+    setCell(dogSheet, 'C22', dto.client?.pin);
+    setCell(dogSheet, 'A23', dto.client?.birthDate);
+    setCell(dogSheet, 'K22', dto.client?.objectAddress);
+  } else {
+    log.warn("[IPC] Sheet 'Дог.' not found in template");
+  }
+
+  // Лист "Пр №1"
+  const pr1Sheet = workbook.sheet('Пр №1');
+  if (pr1Sheet) {
+    if (dto.pricePerDay != null) setCell(pr1Sheet, 'N20', dto.pricePerDay);
+    if (dto.depositAmount != null) setCell(pr1Sheet, 'P20', dto.depositAmount);
+    if (dto.quantity != null) setCell(pr1Sheet, 'I20', dto.quantity);
+  } else {
+    log.warn("[IPC] Sheet 'Пр №1' not found in template");
+  }
+
+  // Лист "Акт расч"
+  const aktSheet = workbook.sheet('Акт расч');
+  if (aktSheet) {
+    if (dto.rental?.actualReturnDate) setCell(aktSheet, 'G21', dto.rental.actualReturnDate);
+    if (dto.rental?.actualReturnTime) setCell(aktSheet, 'G20', dto.rental.actualReturnTime);
+
+    clearCell(aktSheet, 'H20');
+    clearCell(aktSheet, 'H21');
+
+    if (dto.purchasePrice != null) {
+      clearCell(aktSheet, 'N21');
+      setCell(aktSheet, 'N21', dto.purchasePrice);
+    }
+
+    aktSheet.cell('L21').formula('G21-F21');
+  } else {
+    log.warn("[IPC] Sheet 'Акт расч' not found in template");
+  }
+
+  // Лист "Акт прием"
+  const aktPriemSheet =
+    workbook.sheet('Акт прием') ||
+    workbook.sheet('Акт приема') ||
+    workbook.sheet('Акт прием-передач') ||
+    workbook.sheet('Акт приема-передачи') ||
+    workbook.sheet('Акт прием-передачи');
+
+  if (aktPriemSheet && dto.purchasePrice != null) {
+    clearCell(aktPriemSheet, 'N21');
+    setCell(aktPriemSheet, 'N21', dto.purchasePrice);
+  }
+
+  const contractsDir = getContractsDir();
+  const filePath = path.join(contractsDir, filename);
+
+  await workbook.toFileAsync(filePath);
+  log.info(`✅ Offline Excel saved: ${filePath}`);
+
+  return filePath;
 });
 
 console.log("🔥 IPC handlers registered successfully");

@@ -5,10 +5,12 @@ import type { RentalDocument } from "../types/RentalDocument";
 import { apiCall } from "./client";
 import { db } from "../db/db";
 import { syncManager } from "../db/syncManager";
+import { networkStore } from "../store/networkStore";
 
 export interface CreateContractPayload {
   clientId: number;
-  toolId: number;
+  toolId?: number; // Kept for backward compatibility
+  toolIds?: number[];
   contractNumber?: string; // Опционально, если бэкенд генерирует автоматически
   offlineId?: string;
 }
@@ -81,6 +83,58 @@ const extractFilename = (response: Response, fallback = "contract.xlsx") => {
  * GET /api/admin/clients/{clientId}/documents
  */
 export async function getClientDocuments(clientId: number): Promise<RentalDocument[]> {
+  if (networkStore.isOffline) {
+    const allContracts = await db.contracts.toArray();
+    const client = await db.clients.get(Number(clientId));
+    const clientDocs = Array.isArray(client?.documents) ? client.documents : [];
+    const clientDocIds = new Set(clientDocs.map((d: any) => d.id).filter(Boolean));
+
+    let matchedContracts = allContracts.filter(doc => 
+      (doc.clientId && Number(doc.clientId) === Number(clientId)) ||
+      (doc.id && clientDocIds.has(doc.id)) ||
+      (allContracts.length > 0 && (!doc.clientId || doc.clientId === 0) && Number(clientId) === 1)
+    );
+
+    if (matchedContracts.length === 0 && clientDocs.length > 0) {
+      matchedContracts = clientDocs.map((d: any) => ({
+        offlineId: crypto.randomUUID(),
+        id: d.id,
+        clientId: Number(clientId),
+        contractNumber: d.contractNumber,
+        startDateTime: d.startDateTime,
+        amount: d.amount,
+        status: d.status,
+        toolId: d.toolId,
+        toolName: d.toolName,
+        returnDate: d.returnDate,
+        comment: d.comment
+      }));
+    }
+
+    return Promise.all(matchedContracts.map(async (doc) => {
+      let toolName = doc.toolName;
+      if (!toolName && doc.toolId) {
+        const tool = await db.tools.get(Number(doc.toolId));
+        if (tool) toolName = tool.name || tool.inventoryNumber;
+      }
+      return {
+        id: doc.id || 0,
+        contractNumber: doc.contractNumber || "",
+        startDateTime: doc.startDateTime,
+        dailyPrice: doc.amount || 0,
+        amount: doc.amount || 0,
+        createdAt: doc.startDateTime,
+        clientId: Number(clientId),
+        clientName: doc.clientName || client?.fullName || "",
+        toolId: doc.toolId || 0,
+        toolName: toolName || "",
+        returnDate: doc.returnDate,
+        status: doc.status as any,
+        comment: doc.comment
+      } as RentalDocument;
+    }));
+  }
+
   const response = await fetch(
     `${API_BASE_URL}/api/admin/clients/${clientId}/documents`,
     { headers: { ...buildAuthHeaders() } }
@@ -90,7 +144,31 @@ export async function getClientDocuments(clientId: number): Promise<RentalDocume
     await raiseError(response);
   }
 
-  return await response.json();
+  const docs = await response.json();
+  if (Array.isArray(docs)) {
+    for (const doc of docs) {
+      if (!doc.id) continue;
+      const existing = await db.contracts.where('id').equals(doc.id).first();
+      await db.contracts.put({
+        ...existing,
+        offlineId: existing?.offlineId || doc.offlineId || crypto.randomUUID(),
+        id: doc.id,
+        clientId: Number(clientId),
+        clientName: doc.clientName || existing?.clientName,
+        toolId: doc.toolId || existing?.toolId,
+        toolName: doc.toolName || existing?.toolName,
+        contractNumber: doc.contractNumber,
+        startDateTime: doc.startDateTime || doc.createdAt,
+        amount: doc.amount || doc.dailyPrice,
+        status: doc.status as any,
+        returnDate: doc.returnDate,
+        syncStatus: 'synced',
+        updatedAt: Date.now()
+      });
+    }
+  }
+
+  return docs;
 }
 
 /**
@@ -120,20 +198,53 @@ export async function createContract(
   payload: CreateContractPayload
 ): Promise<any> {
   const offlineId = crypto.randomUUID();
+  const now = Date.now();
 
-  // Save to local DB immediately
-  await db.contracts.add({
-    offlineId,
-    clientId: payload.clientId,
-    toolId: payload.toolId,
-    contractNumber: payload.contractNumber,
-    startDateTime: new Date().toISOString(),
-    status: 'ACTIVE',
-    syncStatus: 'pending',
-    updatedAt: Date.now()
+  const toolId = payload.toolIds && payload.toolIds.length > 0 ? payload.toolIds[0] : payload.toolId!;
+  const toolIds = payload.toolIds || (payload.toolId ? [payload.toolId] : []);
+
+  let clientName: string | undefined = undefined;
+  if (payload.clientId) {
+    const client = await db.clients.get(Number(payload.clientId));
+    clientName = client?.fullName;
+  }
+
+  let toolName: string | undefined = undefined;
+  if (toolId) {
+    const tool = await db.tools.get(Number(toolId));
+    toolName = tool?.name || (tool?.inventoryNumber ? `#${tool.inventoryNumber}` : undefined);
+  }
+
+  const normalizedPayload = {
+    ...payload,
+    toolId,
+    toolIds,
+  };
+
+  // Save to local DB and enqueue atomically
+  await db.transaction('rw', db.contracts, db.syncQueue, async () => {
+    await db.contracts.add({
+      offlineId,
+      clientId: payload.clientId,
+      clientName,
+      toolId,
+      toolName,
+      contractNumber: payload.contractNumber,
+      startDateTime: new Date().toISOString(),
+      status: 'ACTIVE',
+      syncStatus: 'pending',
+      updatedAt: now
+    });
+
+    await db.syncQueue.add({
+      type: 'CREATE_CONTRACT',
+      payload: normalizedPayload,
+      offlineId,
+      createdAt: now
+    });
   });
 
-  if (navigator.onLine) {
+  if (!networkStore.isOffline) {
     try {
       const response = await fetch(`${API_BASE_URL}/api/admin/contracts/create`, {
         method: "POST",
@@ -146,17 +257,18 @@ export async function createContract(
 
       if (response.ok) {
         const data = await response.json();
-        // Dexie doesn't allow changing the primary key. We must delete the old record and add a new one.
-        const oldRecord = await db.contracts.where('offlineId').equals(offlineId).first();
-        if (oldRecord) {
-          await db.contracts.delete(oldRecord.id!);
-          await db.contracts.add({
-            ...oldRecord,
+        
+        await db.transaction('rw', db.contracts, db.syncQueue, async () => {
+          // FIX #2: offlineId — первичный ключ, поэтому используем update() вместо
+          // небезопасного delete() + add() (данные терялись при обрыве между операциями).
+          await db.contracts.update(offlineId, {
             id: data.id,
             contractNumber: data.contractNumber,
             syncStatus: 'synced'
           });
-        }
+          await db.syncQueue.where('offlineId').equals(offlineId).filter(q => q.type === 'CREATE_CONTRACT').delete();
+        });
+        
         return data;
       } else {
         await raiseError(response);
@@ -168,10 +280,9 @@ export async function createContract(
       }
       console.warn("Offline: failed to create contract on server, enqueued.", e);
     }
+  } else {
+    syncManager.sync();
   }
-
-  // If offline or failed, add to sync queue
-  await syncManager.enqueueCreation(payload, offlineId);
 
   // Return temporary object
   return { id: undefined, offlineId, ...payload };
@@ -186,22 +297,34 @@ export async function updateContract(
   payload: UpdateContractPayload,
   offlineId?: string
 ): Promise<any> {
-  // Update local DB
-  if (offlineId) {
-    await db.contracts.where('offlineId').equals(offlineId).modify({
-      comment: payload.comment,
-      syncStatus: 'pending',
-      updatedAt: Date.now()
-    });
-  } else if (contractId) {
-    await db.contracts.where('id').equals(contractId).modify({
-      comment: payload.comment,
-      syncStatus: 'pending',
-      updatedAt: Date.now()
-    });
-  }
+  // FIX #4: Первичный ключ — offlineId, поэтому .get(contractId) вернёт undefined.
+  // Ищем по индексированному полю 'id' (backendId).
+  const finalOfflineId = offlineId || (contractId ? (await db.contracts.where('id').equals(contractId).first())?.offlineId : undefined);
+  
+  await db.transaction('rw', db.contracts, db.syncQueue, async () => {
+    if (finalOfflineId) {
+      await db.contracts.where('offlineId').equals(finalOfflineId).modify({
+        comment: payload.comment,
+        syncStatus: 'pending',
+        updatedAt: Date.now()
+      });
+      
+      await db.syncQueue.add({
+        type: 'UPDATE_CONTRACT',
+        payload: { ...payload, id: contractId },
+        offlineId: finalOfflineId,
+        createdAt: Date.now()
+      });
+    } else if (contractId) {
+      await db.contracts.where('id').equals(contractId).modify({
+        comment: payload.comment,
+        syncStatus: 'pending',
+        updatedAt: Date.now()
+      });
+    }
+  });
 
-  if (navigator.onLine && contractId) {
+  if (!networkStore.isOffline && contractId) {
     try {
       const response = await fetch(`${API_BASE_URL}/api/admin/contracts/${contractId}`, {
         method: "PUT",
@@ -214,11 +337,14 @@ export async function updateContract(
 
       if (response.ok) {
         const data = await response.json();
-        if (offlineId) {
-          await db.contracts.where('offlineId').equals(offlineId).modify({ syncStatus: 'synced' });
-        } else {
-          await db.contracts.where('id').equals(contractId).modify({ syncStatus: 'synced' });
-        }
+        await db.transaction('rw', db.contracts, db.syncQueue, async () => {
+          if (finalOfflineId) {
+            await db.contracts.where('offlineId').equals(finalOfflineId).modify({ syncStatus: 'synced' });
+            await db.syncQueue.where('offlineId').equals(finalOfflineId).filter(q => q.type === 'UPDATE_CONTRACT').delete();
+          } else {
+            await db.contracts.where('id').equals(contractId).modify({ syncStatus: 'synced' });
+          }
+        });
         return data;
       } else {
         await raiseError(response);
@@ -229,15 +355,11 @@ export async function updateContract(
       }
       console.warn("Offline: failed to update contract on server, enqueued.", e);
     }
+  } else {
+    syncManager.sync();
   }
 
-  // Enqueue
-  const finalOfflineId = offlineId || (contractId ? (await db.contracts.get(contractId))?.offlineId : undefined);
-  if (finalOfflineId) {
-    await syncManager.enqueueUpdate(contractId, finalOfflineId, payload);
-  }
-
-  return { id: contractId, offlineId, ...payload };
+  return { id: contractId, offlineId: finalOfflineId, ...payload };
 }
 
 /**
@@ -300,18 +422,29 @@ export async function closeContract(
   payload?: { paidAmount?: number; comment?: string; isBroken?: boolean; actualReturnDate?: string },
   offlineId?: string
 ): Promise<any> {
-  // Update local DB
-  const updateData: any = { status: 'CLOSED', syncStatus: 'pending', updatedAt: Date.now() };
-  if (payload?.paidAmount) updateData.amount = payload.paidAmount;
-  if (payload?.comment) updateData.comment = payload.comment;
+  // FIX #4: Первичный ключ — offlineId, поэтому .get(contractId) вернёт undefined.
+  // Ищем по индексированному полю 'id' (backendId).
+  const finalOfflineId = offlineId || (contractId ? (await db.contracts.where('id').equals(contractId).first())?.offlineId : undefined);
+  
+  await db.transaction('rw', db.contracts, db.syncQueue, async () => {
+    const updateData: any = { status: 'CLOSED', syncStatus: 'pending', updatedAt: Date.now() };
+    if (payload?.paidAmount) updateData.amount = payload.paidAmount;
+    if (payload?.comment) updateData.comment = payload.comment;
 
-  if (offlineId) {
-    await db.contracts.where('offlineId').equals(offlineId).modify(updateData);
-  } else if (contractId) {
-    await db.contracts.where('id').equals(contractId).modify(updateData);
-  }
+    if (finalOfflineId) {
+      await db.contracts.where('offlineId').equals(finalOfflineId).modify(updateData);
+      await db.syncQueue.add({
+        type: 'CLOSE_CONTRACT',
+        payload: { ...payload, id: contractId },
+        offlineId: finalOfflineId,
+        createdAt: Date.now()
+      });
+    } else if (contractId) {
+      await db.contracts.where('id').equals(contractId).modify(updateData);
+    }
+  });
 
-  if (navigator.onLine && contractId) {
+  if (!networkStore.isOffline && contractId) {
     try {
       const response = await fetch(
         `${API_BASE_URL}/api/admin/contracts/${contractId}/close`,
@@ -326,11 +459,14 @@ export async function closeContract(
       );
 
       if (response.ok) {
-        if (offlineId) {
-          await db.contracts.where('offlineId').equals(offlineId).modify({ syncStatus: 'synced' });
-        } else {
-          await db.contracts.where('id').equals(contractId).modify({ syncStatus: 'synced' });
-        }
+        await db.transaction('rw', db.contracts, db.syncQueue, async () => {
+          if (finalOfflineId) {
+            await db.contracts.where('offlineId').equals(finalOfflineId).modify({ syncStatus: 'synced' });
+            await db.syncQueue.where('offlineId').equals(finalOfflineId).filter(q => q.type === 'CLOSE_CONTRACT').delete();
+          } else {
+            await db.contracts.where('id').equals(contractId).modify({ syncStatus: 'synced' });
+          }
+        });
         try { return await response.json(); } catch { return null; }
       } else {
         await raiseError(response);
@@ -341,15 +477,11 @@ export async function closeContract(
       }
       console.warn("Offline: failed to close contract on server, enqueued.", e);
     }
+  } else {
+    syncManager.sync();
   }
 
-  // Enqueue
-  const finalOfflineId = offlineId || (contractId ? (await db.contracts.get(contractId))?.offlineId : undefined);
-  if (finalOfflineId) {
-    await syncManager.enqueueClosure(contractId, finalOfflineId, payload);
-  }
-
-  return { status: 'closed', contractId, offlineId };
+  return { status: 'closed', contractId, offlineId: finalOfflineId };
 }
 
 
@@ -396,32 +528,106 @@ export interface ActiveContractRow {
  * GET /api/contracts/active-table
  */
 export async function getActiveTable(): Promise<ActiveContractRow[]> {
-  if (navigator.onLine) {
+  if (!networkStore.isOffline) {
     try {
       const data = await apiCall<ActiveContractRow[]>({
         url: "/api/contracts/active-table",
       });
 
-      // Update local cache
-      for (const row of data) {
-        if (!row.contractId) continue;
-        const existing = await db.contracts.get(row.contractId);
-        if (!existing) {
-          await db.contracts.add({
-            id: row.contractId,
-            offlineId: crypto.randomUUID(), // For existing ones we generate a local offlineId
-            clientId: row.clientId,
-            toolId: 0, // We don't have toolId in the row DTO, but we might need it
-            contractNumber: undefined,
-            startDateTime: row.startDate,
-            amount: row.balance,
-            status: 'ACTIVE',
-            syncStatus: 'synced',
-            updatedAt: Date.now()
-          });
+      // Update local cache asynchronously in background
+      (async () => {
+        try {
+          const allContracts = await db.contracts.toArray();
+          const contractMap = new Map(allContracts.filter(c => c.id).map(c => [c.id!, c]));
+
+          const toAdd: any[] = [];
+          const updatePromises: Promise<any>[] = [];
+
+          for (const row of data) {
+            const contractId = row.contractId || (row as any).id;
+            if (!contractId) continue;
+            const existing = contractMap.get(contractId);
+            if (existing) {
+              updatePromises.push(
+                db.contracts.update(existing.offlineId, {
+                  clientName: row.clientName || existing.clientName,
+                  toolName: row.toolName || existing.toolName,
+                  amount: row.balance,
+                  startDateTime: row.startDate || existing.startDateTime
+                })
+              );
+            } else {
+              toAdd.push({
+                id: contractId,
+                offlineId: crypto.randomUUID(),
+                clientId: row.clientId || 0,
+                clientName: row.clientName,
+                toolId: 0,
+                toolName: row.toolName,
+                contractNumber: undefined,
+                startDateTime: row.startDate,
+                amount: row.balance,
+                status: 'ACTIVE',
+                syncStatus: 'synced',
+                updatedAt: Date.now()
+              });
+            }
+          }
+
+          if (toAdd.length > 0) {
+            await db.contracts.bulkAdd(toAdd);
+          }
+          if (updatePromises.length > 0) {
+            await Promise.all(updatePromises);
+          }
+        } catch (err) {
+          console.warn("Background active contracts cache update error:", err);
         }
+      })();
+
+      // Get pending offline contracts that haven't synced to server yet
+      const pendingDocs = await db.contracts
+        .where('status').equals('ACTIVE')
+        .filter(c => c.syncStatus === 'pending' || !c.id)
+        .toArray();
+
+      const serverContractIds = new Set(data.map(r => r.contractId || (r as any).id));
+
+      const pendingRows: ActiveContractRow[] = await Promise.all(
+        pendingDocs
+          .filter(doc => !doc.id || !serverContractIds.has(doc.id))
+          .map(async (doc, idx) => {
+            let clientName = doc.clientName;
+            if (!clientName && doc.clientId) {
+              const client = await db.clients.get(Number(doc.clientId));
+              if (client) clientName = client.fullName;
+            }
+            let toolName = doc.toolName;
+            if (!toolName && doc.toolId) {
+              const tool = await db.tools.get(Number(doc.toolId));
+              if (tool) toolName = tool.name || tool.inventoryNumber;
+            }
+
+            return {
+              index: idx + 1,
+              contractId: doc.id || 0,
+              offlineId: doc.offlineId,
+              contractNumber: doc.contractNumber,
+              clientId: doc.clientId || 0,
+              clientName: clientName || (doc.clientId ? `Клиент #${doc.clientId}` : "Клиент"),
+              toolName: toolName || (doc.toolId ? `Инструмент #${doc.toolId}` : "Инструмент"),
+              startDate: doc.startDateTime,
+              balance: doc.amount || 0
+            };
+          })
+      );
+
+      // Trigger sync in background if there are pending items
+      if (pendingRows.length > 0) {
+        void syncManager.sync();
       }
-      return data;
+
+      return [...pendingRows, ...data];
     } catch (e) {
       console.warn("Failed to fetch active table, falling back to local DB", e);
     }
@@ -429,16 +635,50 @@ export async function getActiveTable(): Promise<ActiveContractRow[]> {
 
   // Fallback to local DB
   const localDocs = await db.contracts.where('status').equals('ACTIVE').toArray();
-  return localDocs.map((doc, idx) => ({
-    index: idx + 1,
-    contractId: doc.id || 0,
-    offlineId: doc.offlineId,
-    contractNumber: doc.contractNumber,
-    clientId: doc.clientId,
-    clientName: doc.clientName || `Client #${doc.clientId}`,
-    toolName: doc.toolName || `Tool #${doc.toolId}`,
-    startDate: doc.startDateTime,
-    balance: doc.amount || 0
+  const allClients = await db.clients.toArray();
+  const allTools = await db.tools.toArray();
+  
+  return await Promise.all(localDocs.map(async (doc, idx) => {
+    let clientName = doc.clientName;
+    let clientId = doc.clientId;
+
+    if (!clientName || !clientId || clientId === 0) {
+      const matchedClient = allClients.find(c => 
+        (c.id && clientId && Number(c.id) === Number(clientId)) ||
+        (Array.isArray(c.documents) && c.documents.some((d: any) => d.id === doc.id))
+      ) || (allClients.length === 1 ? allClients[0] : undefined);
+
+      if (matchedClient) {
+        clientName = matchedClient.fullName;
+        clientId = matchedClient.id;
+        db.contracts.update(doc.offlineId, { clientName, clientId }).catch(() => {});
+      }
+    } else if (clientId && !clientName) {
+      const client = await db.clients.get(Number(clientId));
+      if (client) {
+        clientName = client.fullName;
+        db.contracts.update(doc.offlineId, { clientName }).catch(() => {});
+      }
+    }
+    
+    let toolName = doc.toolName;
+    let toolId = doc.toolId;
+    if (!toolName && toolId) {
+      const tool = await db.tools.get(Number(toolId));
+      if (tool) toolName = tool.name || tool.inventoryNumber;
+    }
+
+    return {
+      index: idx + 1,
+      contractId: doc.id || 0,
+      offlineId: doc.offlineId,
+      contractNumber: doc.contractNumber,
+      clientId: clientId || 0,
+      clientName: clientName || (clientId ? `Клиент #${clientId}` : (allClients[0]?.fullName || "Клиент")),
+      toolName: toolName || (toolId ? `Инструмент #${toolId}` : (allTools[0]?.name || "Инструмент")),
+      startDate: doc.startDateTime,
+      balance: doc.amount || 0
+    };
   })) as any;
 }
 
@@ -447,9 +687,19 @@ export async function getById(contractId: number): Promise<any> {
     return Promise.reject(new Error("Invalid contract id: id must be a positive number"));
   }
 
-  return apiCall({
-    url: `/api/admin/contracts/${contractId}`,
-  });
+  if (!networkStore.isOffline) {
+    try {
+      return await apiCall({
+        url: `/api/admin/contracts/${contractId}`,
+      });
+    } catch (e) {
+      console.warn(`Failed to fetch contract #${contractId} from server, falling back to IndexedDB:`, e);
+    }
+  }
+
+  const contract = await db.contracts.where('id').equals(Number(contractId)).first();
+  if (contract) return contract;
+  throw new Error(`Договор #${contractId} не найден в локальной базе данных`);
 }
 
 export async function getHistoryByTool(toolId: number): Promise<any[]> {
@@ -468,15 +718,121 @@ export async function getHistoryTable(
   from?: string,
   to?: string
 ): Promise<any[]> {
-  const params: any = {};
-  if (toolId) params.toolId = toolId;
-  if (from) params.from = from;
-  if (to) params.to = to;
-  
-  return apiCall<any[]>({
-    url: `/api/contracts/history-table`,
-    params: Object.keys(params).length > 0 ? params : undefined,
-  });
+  if (!networkStore.isOffline) {
+    try {
+      const params: any = {};
+      if (toolId) params.toolId = toolId;
+      if (from) params.from = from;
+      if (to) params.to = to;
+      
+      const historyRows = await apiCall<any[]>({
+        url: `/api/contracts/history-table`,
+        params: Object.keys(params).length > 0 ? params : undefined,
+      });
+
+      if (Array.isArray(historyRows)) {
+        for (const row of historyRows) {
+          if (!row.id) continue;
+          const existing = await db.contracts.where('id').equals(row.id).first();
+          if (existing) {
+            await db.contracts.update(existing.offlineId, {
+              clientName: row.clientName || existing.clientName,
+              toolName: row.toolName || existing.toolName,
+              contractNumber: row.contractNumber || existing.contractNumber,
+              startDateTime: row.startDateTime || existing.startDateTime,
+              returnDate: row.returnDate || existing.returnDate,
+              status: row.status || existing.status,
+              amount: row.amount !== undefined ? row.amount : existing.amount
+            });
+          } else {
+            await db.contracts.add({
+              id: row.id,
+              offlineId: crypto.randomUUID(),
+              clientId: row.clientId || 0,
+              clientName: row.clientName,
+              toolId: row.toolId || 0,
+              toolName: row.toolName,
+              contractNumber: row.contractNumber,
+              startDateTime: row.startDateTime,
+              returnDate: row.returnDate,
+              status: row.status || 'CLOSED',
+              amount: row.amount || 0,
+              syncStatus: 'synced',
+              updatedAt: Date.now()
+            });
+          }
+        }
+      }
+
+      return historyRows;
+    } catch (e) {
+      console.warn("Failed to fetch history table from server, falling back to local DB", e);
+    }
+  }
+
+  // Fallback to local DB (History = CLOSED or TERMINATED, plus filtering by toolId and dates)
+  let localDocs = await db.contracts.where('status').notEqual('ACTIVE').toArray();
+  const allClients = await db.clients.toArray();
+  const allTools = await db.tools.toArray();
+
+  if (toolId) {
+    localDocs = localDocs.filter(d => d.toolId === Number(toolId));
+  }
+
+  if (from) {
+    const fromTime = new Date(from).getTime();
+    localDocs = localDocs.filter(d => d.startDateTime && new Date(d.startDateTime).getTime() >= fromTime);
+  }
+
+  if (to) {
+    const toTime = new Date(to).getTime();
+    localDocs = localDocs.filter(d => d.startDateTime && new Date(d.startDateTime).getTime() <= toTime);
+  }
+
+  return Promise.all(localDocs.map(async (doc, idx) => {
+    let clientName = doc.clientName;
+    let clientId = doc.clientId;
+
+    if (!clientName || !clientId || clientId === 0) {
+      const matchedClient = allClients.find(c => 
+        (c.id && clientId && Number(c.id) === Number(clientId)) ||
+        (Array.isArray(c.documents) && c.documents.some((d: any) => d.id === doc.id))
+      ) || (allClients.length === 1 ? allClients[0] : undefined);
+
+      if (matchedClient) {
+        clientName = matchedClient.fullName;
+        clientId = matchedClient.id;
+        db.contracts.update(doc.offlineId, { clientName, clientId }).catch(() => {});
+      }
+    } else if (clientId && !clientName) {
+      const client = await db.clients.get(Number(clientId));
+      if (client) {
+        clientName = client.fullName;
+        db.contracts.update(doc.offlineId, { clientName }).catch(() => {});
+      }
+    }
+    
+    let toolName = doc.toolName;
+    let toolId = doc.toolId;
+    if (!toolName && toolId) {
+      const tool = await db.tools.get(Number(toolId));
+      if (tool) toolName = tool.name || tool.inventoryNumber;
+    }
+
+    return {
+      index: idx + 1,
+      contractId: doc.id || 0,
+      offlineId: doc.offlineId,
+      contractNumber: doc.contractNumber,
+      clientId: clientId || 0,
+      clientName: clientName || (clientId ? `Клиент #${clientId}` : (allClients[0]?.fullName || "Клиент")),
+      toolName: toolName || (toolId ? `Инструмент #${toolId}` : (allTools[0]?.name || "Инструмент")),
+      startDate: doc.startDateTime,
+      endDate: doc.returnDate || (doc as any).terminatedAt || "-",
+      status: doc.status === 'CLOSED' ? 'Закрыт' : (doc.status === 'TERMINATED' ? 'Расторгнут' : doc.status),
+      balance: doc.amount || 0
+    };
+  }));
 }
 
 export const contractsAPI = {

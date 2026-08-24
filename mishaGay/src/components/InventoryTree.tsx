@@ -52,8 +52,9 @@ export const InventoryTree = ({
 
   return (
     <div className="inventory-tree">
-      {categories.map((cat) => {
+      {(categories || []).map((cat) => {
         const categoryOpen = searchActive || openCategories.has(cat.id);
+        const templates = cat.templates || [];
 
         return (
           <div key={cat.id} className="tree-category">
@@ -66,7 +67,7 @@ export const InventoryTree = ({
                 <span className={`tree-arrow ${categoryOpen ? "open" : ""}`}>▶</span>
                 <span className="tree-title">{cat.name}</span>
                 <span className="tree-meta">
-                  {cat.templates.length} моделей
+                  {templates.length} моделей
                 </span>
               </button>
 
@@ -85,12 +86,13 @@ export const InventoryTree = ({
 
             {categoryOpen && (
               <div className="tree-category-body">
-                {cat.templates.length === 0 && (
+                {templates.length === 0 && (
                   <p className="tree-empty">Нет моделей</p>
                 )}
 
-                {cat.templates.map((tpl) => {
+                {templates.map((tpl) => {
                   const templateOpen = searchActive || openTemplates.has(tpl.id);
+                  const tools = tpl.tools || [];
 
                   return (
                     <div key={tpl.id} className="tree-template">
@@ -103,7 +105,7 @@ export const InventoryTree = ({
                           <span className={`tree-arrow ${templateOpen ? "open" : ""}`}>▶</span>
                           <span className="tree-title">• {tpl.name}</span>
                           <span className="tree-meta">
-                            {tpl.tools.length} экз.
+                            {tools.length} экз.
                           </span>
                         </button>
                         
@@ -138,11 +140,11 @@ export const InventoryTree = ({
 
                       {templateOpen && (
                         <div className="tree-template-body">
-                          {tpl.tools.length === 0 ? (
+                          {tools.length === 0 ? (
                             <p className="tree-empty nested">Нет экземпляров</p>
                           ) : (
                             <ul className="tree-tools">
-                              {tpl.tools.map((tool) => (
+                              {tools.map((tool) => (
                                 <li key={tool.id} className="tree-tool">
                                   <div className="tree-tool-main">
                                     <span className="tree-tool-name">

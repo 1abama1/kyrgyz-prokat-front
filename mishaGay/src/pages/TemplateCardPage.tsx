@@ -90,7 +90,7 @@ export const TemplateCardPage: FC = () => {
     return <Layout><ErrorMessage error="Модель не найдена" onClose={() => {}} /></Layout>;
   }
 
-  const firstTool = template.tools && template.tools.length > 0 ? template.tools[0] : null;
+
 
   return (
     <Layout>
