@@ -9,31 +9,24 @@ import { db } from "../db/db";
 
 export const categoriesAPI = {
   getAll: async () => {
-    const local = (await db.categories.toArray()) as CategoryDto[];
-    if (local.length > 0) {
-      if (!networkStore.isOffline) {
-        apiCall<CategoryDto[]>({
+    if (!networkStore.isOffline) {
+      try {
+        const categories = await apiCall<CategoryDto[]>({
           url: "/api/categories",
-        }).then(categories => {
-          if (Array.isArray(categories) && categories.length > 0) {
-            db.categories.bulkPut(categories).catch(() => {});
+        });
+        if (Array.isArray(categories)) {
+          await db.categories.clear();
+          if (categories.length > 0) {
+            await db.categories.bulkPut(categories).catch(() => {});
           }
-        }).catch(() => {});
+        }
+        return categories;
+      } catch (error) {
+        console.warn("Failed to fetch categories from server, using local cache", error);
       }
-      return local;
     }
 
-    if (networkStore.isOffline) {
-      return [];
-    }
-
-    const categories = await apiCall<CategoryDto[]>({
-      url: "/api/categories",
-    });
-    if (Array.isArray(categories) && categories.length > 0) {
-      db.categories.bulkPut(categories).catch(err => console.warn("Failed to cache categories to Dexie", err));
-    }
-    return categories;
+    return (await db.categories.toArray()) as CategoryDto[];
   },
 
   getFull: (id: string) => {

@@ -106,29 +106,25 @@ export async function getActiveContracts(clientId: number): Promise<any[]> {
 
 export const clientsAPI = {
   getAll: async (): Promise<Client[]> => {
-    const local = await db.clients.toArray();
-    if (local.length > 0) {
-      if (!networkStore.isOffline) {
-        apiCall<any>("/api/admin/clients?page=0&size=1000").then(res => {
-          const list: Client[] = res.content !== undefined ? res.content : res;
-          if (Array.isArray(list) && list.length > 0) {
-            db.clients.bulkPut(list).catch(() => {});
-          }
-        }).catch(() => {});
-      }
-      return local;
-    }
-
     if (networkStore.isOffline) {
-      return [];
+      return await db.clients.toArray();
     }
 
-    const res = await apiCall<any>("/api/admin/clients?page=0&size=1000");
-    const list: Client[] = res.content !== undefined ? res.content : res;
-    if (Array.isArray(list) && list.length > 0) {
-      db.clients.bulkPut(list).catch(err => console.warn("Failed to cache clients to Dexie", err));
+    try {
+      const res = await apiCall<any>("/api/admin/clients?page=0&size=1000");
+      const list: Client[] = res.content !== undefined ? res.content : res;
+      if (Array.isArray(list)) {
+        await db.clients.clear();
+        if (list.length > 0) {
+          await db.clients.bulkPut(list).catch(err => console.warn("Failed to cache clients to Dexie", err));
+        }
+      }
+      return list;
+    } catch (err: any) {
+      console.warn("Failed to fetch clients, falling back to offline", err);
+      networkStore.setManualOffline(true);
+      return await db.clients.toArray();
     }
-    return list;
   },
   getCard: (id: number): Promise<ClientCard> => {
     if (!id || isNaN(id) || id <= 0) {

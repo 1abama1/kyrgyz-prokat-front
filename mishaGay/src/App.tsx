@@ -1,4 +1,5 @@
-import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
+import { HashRouter, Routes, Route } from "react-router-dom";
+import { SafeNavigate } from "./components/SafeNavigate";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { LoginPage } from "./pages/LoginPage";
 import { DashboardPage } from "./pages/DashboardPage";
@@ -16,10 +17,11 @@ import { CreateTemplatePage } from "./pages/CreateTemplatePage";
 import { TemplateCardPage } from "./pages/TemplateCardPage";
 import { ContractHistoryPage } from "./pages/ContractHistoryPage";
 import { BookingsPage } from "./pages/BookingsPage";
+import { BookingDetailPage } from "./pages/BookingDetailPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { isAuthenticated } from "./utils/auth";
 import { SyncStatus } from "./components/SyncStatus";
-import "./db/syncManager"; // Initialize sync manager
+import "./db/syncManager";
 
 
 function App() {
@@ -30,7 +32,7 @@ function App() {
         <Route
           path="/login"
           element={
-            isAuthenticated() ? <Navigate to="/dashboard" replace /> : <LoginPage />
+            isAuthenticated() ? <SafeNavigate to="/dashboard" replace /> : <LoginPage />
           }
         />
         <Route
@@ -138,6 +140,14 @@ function App() {
           }
         />
         <Route
+          path="/bookings/:id"
+          element={
+            <ProtectedRoute>
+              <BookingDetailPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/tools/:id"
           element={
             <ProtectedRoute>
@@ -201,7 +211,7 @@ function App() {
             </ProtectedRoute>
           }
         />
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/" element={<SafeNavigate to="/dashboard" replace />} />
       </Routes>
     </HashRouter>
   );

@@ -236,7 +236,30 @@ export const CreateClientPage: FC = () => {
             }
           }}
         >
-          <h1>{isEdit ? "Редактирование клиента" : "Создание клиента"}</h1>
+          <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "28px" }}>
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
+              style={{
+                background: "var(--surface-2)",
+                border: "1px solid var(--border)",
+                borderRadius: "var(--r)",
+                padding: "8px 12px",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "var(--text)",
+                transition: "background 0.2s"
+              }}
+              title="Назад"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 12H5M12 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <h1 style={{ margin: 0 }}>{isEdit ? "Редактирование клиента" : "Создание клиента"}</h1>
+          </div>
 
           <ErrorMessage error={error} onClose={() => setError(null)} />
 

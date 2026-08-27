@@ -1,5 +1,5 @@
 import { apiCall } from "./client";
-import { Document, CreateDocumentDto, DocumentDetail } from "../types/document.types";
+import { Document, CreateDocumentDto, DocumentDetail, DocumentStatus } from "../types/document.types";
 import { networkStore } from "../store/networkStore";
 import { db } from "../db/db";
 
@@ -19,10 +19,10 @@ export const documentsAPI = {
               contractNumber: doc.contractNumber,
               clientId: doc.clientId,
               clientName: doc.clientName,
-              toolId: doc.toolId,
+              toolId: doc.toolId ?? 0,
               toolName: doc.toolName,
               startDateTime: doc.startDateTime || doc.createdAt,
-              amount: doc.amount || doc.dailyPrice,
+              amount: doc.amount ?? 0,
               status: doc.status as any,
               returnDate: doc.returnDate,
               syncStatus: 'synced',
@@ -63,7 +63,7 @@ export const documentsAPI = {
         returnDate: doc.returnDate,
         terminatedAt: (doc as any).terminatedAt,
         terminationReason: (doc as any).terminationReason,
-        status: doc.status as "ACTIVE" | "CLOSED" | "TERMINATED",
+        status: doc.status as DocumentStatus,
         comment: doc.comment
       } as Document;
     }));
@@ -89,10 +89,10 @@ export const documentsAPI = {
             contractNumber: doc.contractNumber,
             clientId: doc.clientId,
             clientName: doc.clientName || doc.client?.fullName,
-            toolId: doc.toolId,
+            toolId: doc.toolId ?? 0,
             toolName: doc.toolName || doc.tool?.name || (doc.tools && doc.tools[0]?.name),
             startDateTime: doc.startDateTime || doc.createdAt,
-            amount: doc.amount,
+            amount: doc.amount ?? 0,
             status: doc.status as any,
             returnDate: doc.returnDate,
             syncStatus: 'synced',

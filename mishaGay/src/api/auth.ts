@@ -88,7 +88,8 @@ export const authAPI = {
         error?.code === "ECONNREFUSED" ||
         error?.message?.includes("Network Error") ||
         error?.message?.includes("INTERNET_DISCONNECTED") ||
-        error?.message?.includes("fetch");
+        error?.message?.includes("fetch") ||
+        (error?.response?.status && error.response.status >= 500);
 
       if (isNetworkErr) {
         console.warn("Backend unavailable on login, falling back to offline session:", error);
@@ -138,7 +139,7 @@ export const authAPI = {
 
   logout: (): void => {
     clearTokens();
-    window.location.href = "/login";
+    window.location.hash = "#/login";
   },
 
   isAuthenticated: (): boolean => {

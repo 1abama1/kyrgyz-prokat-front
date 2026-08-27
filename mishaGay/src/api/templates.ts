@@ -12,13 +12,19 @@ export const templatesAPI = {
     if (networkStore.isOffline) {
       return (await db.templates.toArray()) as TemplateDto[];
     }
-    const templates = await apiCall<TemplateDto[]>({
-      url: "/api/templates",
-    });
-    if (Array.isArray(templates) && templates.length > 0) {
-      db.templates.bulkPut(templates).catch(err => console.warn("Failed to cache templates to Dexie", err));
+    try {
+      const templates = await apiCall<TemplateDto[]>({
+        url: "/api/templates",
+      });
+      if (Array.isArray(templates) && templates.length > 0) {
+        db.templates.bulkPut(templates).catch(err => console.warn("Failed to cache templates to Dexie", err));
+      }
+      return templates;
+    } catch (e: any) {
+      console.warn("Failed to fetch templates, falling back to offline", e);
+      networkStore.setManualOffline(true);
+      return (await db.templates.toArray()) as TemplateDto[];
     }
-    return templates;
   },
 
   getByCategory: async (categoryId: string) => {
@@ -60,38 +66,20 @@ export const templatesAPI = {
     if (!id) {
       return Promise.reject(new Error("Invalid template id"));
     }
-    const tmpls = await db.templates.toArray();
-    const tmpl = tmpls.find((t: any) => String(t.id) === String(id));
-    const allTools = await db.tools.toArray();
-    const localTools = allTools.filter((t: any) => String(t.templateId || t.template?.id || t.toolTemplateId) === String(id));
 
-    if (tmpl && localTools.length > 0) {
-      if (!networkStore.isOffline) {
-        apiCall<TemplateFullDto>({
-          url: `/api/templates/${id}`,
-        }).then(full => {
-          if (full) {
-            db.templates.put({ id: full.id, name: full.name, categoryId: full.categoryId }).catch(() => {});
-            if (Array.isArray(full.tools) && full.tools.length > 0) {
-              const normalized = full.tools.map((t: any) => ({
-                ...t,
-                templateId: t.templateId || full.id
-              }));
-              db.tools.bulkPut(normalized).catch(() => {});
-            }
-          }
-        }).catch(() => {});
-      }
-      return { ...tmpl, tools: localTools } as TemplateFullDto;
-    }
-
+    // Офлайн-режим: возвращаем из кеша
     if (networkStore.isOffline) {
+      const tmpls = await db.templates.toArray();
+      const tmpl = tmpls.find((t: any) => String(t.id) === String(id));
+      const allTools = await db.tools.toArray();
+      const localTools = allTools.filter((t: any) => String(t.templateId || t.template?.id || t.toolTemplateId) === String(id));
       if (!tmpl) {
         return { id, name: "Модель", categoryId: "", dailyRentalPrice: 0, depositAmount: 0, purchasePrice: 0, tools: [] } as TemplateFullDto;
       }
       return { ...tmpl, tools: localTools } as TemplateFullDto;
     }
 
+    // Онлайн: всегда запрашиваем свежие данные с сервера (статусы инструментов могут измениться)
     const full = await apiCall<TemplateFullDto>({
       url: `/api/templates/${id}`,
     });

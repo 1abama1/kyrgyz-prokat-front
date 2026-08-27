@@ -1,6 +1,6 @@
-import { Navigate } from "react-router-dom";
 import { ReactNode } from "react";
 import { isAuthenticated } from "../utils/auth";
+import { SafeNavigate } from "./SafeNavigate";
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -8,9 +8,8 @@ interface ProtectedRouteProps {
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
   if (!isAuthenticated()) {
-    return <Navigate to="/login" replace />;
+    return <SafeNavigate to="/login" replace />;
   }
   
   return <>{children}</>;
 }
-

@@ -9,17 +9,23 @@ export const toolsAPI = {
     if (networkStore.isOffline) {
       return (await db.tools.toArray()) as ToolDto[];
     }
-    const tools = await apiCall<ToolDto[]>({
-      url: "/api/tools",
-    });
-    if (Array.isArray(tools) && tools.length > 0) {
-      const normalizedTools = tools.map((t: any) => ({
-        ...t,
-        templateId: t.templateId || t.template?.id || t.toolTemplateId
-      }));
-      db.tools.bulkPut(normalizedTools).catch(err => console.warn("Failed to cache tools to Dexie", err));
+    try {
+      const tools = await apiCall<ToolDto[]>({
+        url: "/api/tools",
+      });
+      if (Array.isArray(tools) && tools.length > 0) {
+        const normalizedTools = tools.map((t: any) => ({
+          ...t,
+          templateId: t.templateId || t.template?.id || t.toolTemplateId
+        }));
+        db.tools.bulkPut(normalizedTools).catch(err => console.warn("Failed to cache tools to Dexie", err));
+      }
+      return tools;
+    } catch (e: any) {
+      console.warn("Failed to fetch tools, falling back to offline", e);
+      networkStore.setManualOffline(true);
+      return (await db.tools.toArray()) as ToolDto[];
     }
-    return tools;
   },
 
   getOne: (id: number) => {

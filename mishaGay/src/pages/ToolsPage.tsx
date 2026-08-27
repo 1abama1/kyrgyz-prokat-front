@@ -155,7 +155,7 @@ export const ToolsPage = () => {
               });
             }}
             onViewBooking={(bookingId) => {
-              navigate(`/bookings?id=${bookingId}`);
+              navigate(`/bookings/${bookingId}`);
             }}
           />
         )}

@@ -63,14 +63,54 @@ api.interceptors.request.use(
   }
 );
 
-// ✅ RESPONSE INTERCEPTOR: обрабатываем 403 и автоматически refresh токена
-api.interceptors.response.use(
-  (response) => response,
-  async (error: AxiosError) => {
-    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+// ✅ Хелпер для сброса авторизации и перехода на логин
+const redirectToLogin = () => {
+  clearTokens();
+  if (window.location.hash !== "#/login") {
+    window.location.hash = "#/login";
+  }
+};
 
-    // ✅ Если 403 и мы ещё не пытались refresh
-    // Пропускаем refresh для самого refresh запроса (чтобы избежать бесконечного цикла)
+// ✅ RESPONSE INTERCEPTOR: обрабатываем 401/403 и автоматически refresh токена
+api.interceptors.response.use(
+  (response) => {
+    // Успешный запрос означает, что сервер доступен
+    import('../store/networkStore').then(({ networkStore }) => {
+      if (networkStore.isManualOffline) {
+        networkStore.setManualOffline(false);
+        console.log("Server is back online, automatically switching to online mode.");
+        import('../db/syncManager').then(({ syncManager }) => {
+          syncManager.syncNow();
+        });
+      }
+    });
+    return response;
+  },
+  async (error: AxiosError) => {
+    const isNetworkErr =
+      !navigator.onLine ||
+      error?.code === "ERR_NETWORK" ||
+      error?.code === "ECONNREFUSED" ||
+      error?.message?.includes("Network Error") ||
+      error?.message?.includes("INTERNET_DISCONNECTED") ||
+      error?.message?.includes("fetch") ||
+      (error?.response?.status && error.response.status >= 500);
+
+    if (isNetworkErr) {
+      import('../store/networkStore').then(({ networkStore }) => {
+        if (!networkStore.isManualOffline) {
+          networkStore.setManualOffline(true);
+          console.warn("Auto-switched to offline mode due to network error in Axios");
+        }
+      });
+      // Если это просто фоновый пинг (например из syncManager), возвращаем ошибку,
+      // но приложение уже будет в оффлайн-режиме, так что UI это отработает нормально.
+    }
+
+    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+    const status = error.response?.status;
+    const isAuthError = status === 401 || status === 403;
+
     const requestUrl = originalRequest?.url || "";
     const fullUrl = originalRequest?.baseURL
       ? `${originalRequest.baseURL}${requestUrl}`
@@ -81,10 +121,19 @@ api.interceptors.response.use(
       fullUrl.includes("/api/auth/refresh") ||
       fullUrl.includes("auth/refresh");
 
+    // 1. Если сам запрос обновления токена вернул 401/403 (refresh token невалиден/просрочен)
+    if (isAuthError && isRefreshRequest) {
+      console.warn("Refresh token is invalid or expired (401/403). Redirecting to login.");
+      redirectToLogin();
+      return Promise.reject(error);
+    }
+
+    // 2. Если обычный запрос вернул 401 или 403 и мы ещё не пытались refresh
     if (
-      error.response?.status === 403 &&
+      isAuthError &&
       originalRequest &&
       !originalRequest._retry &&
+      !originalRequest.skipAuth &&
       !isRefreshRequest
     ) {
       originalRequest._retry = true;
@@ -110,8 +159,7 @@ api.interceptors.response.use(
           throw new Error("Refresh token not found");
         }
 
-        // Backend принимает refresh token через QUERY PARAM
-        // Используем прямой axios.get (не через api), чтобы избежать цикла
+        // Backend принимает refresh token через QUERY PARAM: GET /api/auth/refresh?refreshToken=...
         const response = await axios.get<RefreshResponse>(`${API_BASE_URL}/api/auth/refresh`, {
           params: { refreshToken },
         });
@@ -135,18 +183,26 @@ api.interceptors.response.use(
         processQueue(err, null);
 
         // ❗ Если это ошибка сети (сервер недоступен или оффлайн), НЕ разлогиниваем!
-        const isNetworkErr =
+        const isRefreshNetworkErr =
           !navigator.onLine ||
           err?.code === "ERR_NETWORK" ||
           err?.code === "ECONNREFUSED" ||
           err?.message?.includes("Network Error") ||
           err?.message?.includes("INTERNET_DISCONNECTED") ||
-          err?.message?.includes("fetch");
+          err?.message?.includes("fetch") ||
+          (err?.response?.status && err.response.status >= 500);
 
-        if (!isNetworkErr) {
+        if (!isRefreshNetworkErr) {
           // Refresh token действительно просрочен/отклонен сервером → logout
-          clearTokens();
-          window.location.href = "/login";
+          console.warn("Failed to refresh token, redirecting to login:", err);
+          redirectToLogin();
+        } else {
+          // Если при рефреше упала сеть, также переводим в оффлайн
+          import('../store/networkStore').then(({ networkStore }) => {
+            if (!networkStore.isManualOffline) {
+              networkStore.setManualOffline(true);
+            }
+          });
         }
         return Promise.reject(err);
       } finally {

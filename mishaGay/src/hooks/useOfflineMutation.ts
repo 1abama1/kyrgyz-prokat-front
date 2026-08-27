@@ -44,6 +44,7 @@ export function useOfflineMutation() {
             const now = Date.now();
 
             const entity: LocalContract = {
+                ...data,
                 offlineId,
                 clientId: data.clientId,
                 toolId: data.toolId,
@@ -51,7 +52,6 @@ export function useOfflineMutation() {
                 status: data.status ?? 'ACTIVE',
                 syncStatus: 'pending',
                 updatedAt: now,
-                ...data,
             };
 
             // Атомарная транзакция: сущность + очередь

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, type ReactNode } from 'react';
 import { syncManager, type SyncManagerState } from '../db/syncManager';
 import { useSyncStatus } from '../hooks/useSyncStatus';
 

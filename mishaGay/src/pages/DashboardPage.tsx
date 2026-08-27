@@ -141,7 +141,7 @@ export const DashboardPage: FC = () => {
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 10 }}>
                 <QuickAction label="Новая аренда" icon="➕" desc="Оформить договор аренды" color="#2563EB" onClick={() => navigate("/rentals/create")} />
                 <QuickAction label="Добавить клиента" icon="👤" desc="Зарегистрировать клиента" color="#16A34A" onClick={() => navigate("/clients/create")} />
-                <QuickAction label="Добавить инструмент" icon="🔧" desc="Новый экземпляр в инвентарь" color="#D97706" onClick={() => navigate("/tools/create")} />
+                <QuickAction label="Бронирования" icon="📅" desc="Календарь и список броней" color="#D97706" onClick={() => navigate("/bookings")} />
                 <QuickAction label="Активные аренды" icon="📋" desc="Просмотр текущих договоров" color="#7C3AED" onClick={() => navigate("/contracts/active")} />
               </div>
             </div>

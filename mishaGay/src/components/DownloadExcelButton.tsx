@@ -39,10 +39,11 @@ export const DownloadExcelButton = ({ contractId, contractNumber, offlineId }: P
             onlineErr?.message?.includes("Network Error") ||
             onlineErr?.message?.includes("fetch") ||
             onlineErr?.message?.includes("Failed to fetch") ||
-            onlineErr?.status === undefined; // axios network error has no status
+            onlineErr?.status === undefined ||
+            (onlineErr?.response?.status && onlineErr.response.status >= 500);
 
           if (!isNetworkError) {
-            // Серверная ошибка (4xx/5xx) — пробрасываем как есть
+            // Ошибка клиента (4xx) — пробрасываем как есть
             throw onlineErr;
           }
 

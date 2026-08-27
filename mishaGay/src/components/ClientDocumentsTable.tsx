@@ -111,29 +111,23 @@ export const ClientDocumentsTable: FC<Props> = ({ documents, onRefresh }) => {
           {documents.map(d => (
             <tr key={d.id}>
               <td>{d.contractNumber}</td>
-              <td>{d.amount} сом</td>
+              <td>{d.amount != null ? `${d.amount} сом` : ''}</td>
               <td>
                 <span className={getStatusClass(d.status)}>
                   {getStatusLabel(d.status)}
                 </span>
               </td>
-              <td style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-                {canEdit(d.status) && (
-                  <button
-                    className="btn-edit"
-                    onClick={() => openEdit(d)}
-                  >
-                    ✏️ Редактировать
-                  </button>
-                )}
-                {canClose(d.status) && (
-                  <button
-                    className="btn-danger"
-                    onClick={() => openCloseModal(d.id)}
-                  >
-                    Закрыть
-                  </button>
-                )}
+              <td>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                  {canClose(d.status) && (
+                    <button
+                      className="btn-danger"
+                      onClick={() => openCloseModal(d.id)}
+                    >
+                      Закрыть
+                    </button>
+                  )}
+                </div>
               </td>
             </tr>
           ))}

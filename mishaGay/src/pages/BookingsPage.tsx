@@ -3,13 +3,14 @@ import { Layout } from "../components/Layout";
 import { bookingsAPI } from "../api/bookings";
 import { BookingDto } from "../types/booking.types";
 import { ErrorMessage } from "../components/ErrorMessage";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import "../styles/tools.css";
 
 export const BookingsPage = () => {
   const [bookings, setBookings] = useState<BookingDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
   
   const [searchParams] = useSearchParams();
   const highlightedBookingId = searchParams.get("id");
@@ -41,6 +42,16 @@ export const BookingsPage = () => {
       await loadBookings();
     } catch (err: any) {
       setError(err.message || "Ошибка при отмене брони");
+    }
+  };
+
+  const handleDeleteBooking = async (id: string) => {
+    if (!window.confirm("Вы уверены, что хотите удалить эту бронь?")) return;
+    try {
+      await bookingsAPI.deleteBooking(id);
+      await loadBookings();
+    } catch (err: any) {
+      setError(err.message || "Ошибка при удалении брони");
     }
   };
 
@@ -150,22 +161,52 @@ export const BookingsPage = () => {
                         </div>
                       </td>
                       <td style={{ padding: "12px 16px" }}>
-                        {b.status === "ACTIVE" && (
+                        <div style={{ display: "flex", gap: "8px" }}>
                           <button
-                            onClick={() => handleCancelBooking(b.id)}
+                            onClick={() => navigate(`/bookings/${b.id}`)}
                             style={{
-                              background: "transparent",
-                              border: "1px solid #dc2626",
-                              color: "#dc2626",
+                              background: "#3b82f6",
+                              border: "none",
+                              color: "white",
                               padding: "4px 8px",
                               borderRadius: "4px",
                               cursor: "pointer",
                               fontSize: "12px",
                             }}
                           >
-                            Отменить
+                            Посмотреть
                           </button>
-                        )}
+                          {b.status === "ACTIVE" && (
+                            <button
+                              onClick={() => handleCancelBooking(b.id)}
+                              style={{
+                                background: "transparent",
+                                border: "1px solid #dc2626",
+                                color: "#dc2626",
+                                padding: "4px 8px",
+                                borderRadius: "4px",
+                                cursor: "pointer",
+                                fontSize: "12px",
+                              }}
+                            >
+                              Отменить
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleDeleteBooking(b.id)}
+                            style={{
+                              background: "#dc2626",
+                              border: "none",
+                              color: "white",
+                              padding: "4px 8px",
+                              borderRadius: "4px",
+                              cursor: "pointer",
+                              fontSize: "12px",
+                            }}
+                          >
+                            Удалить
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );

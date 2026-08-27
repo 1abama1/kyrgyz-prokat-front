@@ -13,6 +13,7 @@ export interface ToolTemplate {
 export type ToolStatus =
   | "AVAILABLE"
   | "RENTED"
+  | "BOOKED"
   | "OVERDUE"
   | "BROKEN"
   | "IN_REPAIR"

@@ -36,7 +36,7 @@ export async function apiCall<T>(
     // Определяем формат вызова
     let endpoint: string;
     let callOptions: ApiCallOptions;
-    
+
     if (typeof endpointOrOptions === "string") {
       // Старый формат: apiCall<T>(endpoint, options)
       endpoint = endpointOrOptions;
@@ -103,7 +103,17 @@ export async function apiCall<T>(
     // Обработка ошибок axios
     if (error instanceof AxiosError) {
       const axiosError = error as AxiosError<{ message?: string; error?: string; code?: string }>;
-      
+
+      // Автоматический переход в офлайн при сетевой ошибке
+      if (axiosError.code === 'ERR_NETWORK' || !axiosError.response) {
+        import('../store/networkStore').then(({ networkStore }) => {
+          if (!networkStore.isOffline) {
+            networkStore.setManualOffline(true);
+            console.warn("Auto-switched to offline mode due to network error");
+          }
+        });
+      }
+
       const errorMessage =
         axiosError.response?.data?.message ||
         axiosError.response?.data?.error ||

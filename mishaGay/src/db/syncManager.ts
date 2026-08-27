@@ -89,7 +89,6 @@ class SyncManager {
     /** Подписка на изменения состояния. Возвращает функцию отписки. */
     subscribe(listener: StateListener): () => void {
         this.listeners.add(listener);
-        listener(this.state); // Немедленно уведомляем текущим состоянием
         return () => this.listeners.delete(listener);
     }
 
@@ -155,7 +154,7 @@ class SyncManager {
     // ── Основной цикл ─────────────────────────────────────────────────────────
 
     async sync(): Promise<void> {
-        if (this.isSyncing || networkStore.isOffline) return;
+        if (this.isSyncing || !navigator.onLine) return;
         this.isSyncing = true;
         this.updateState({ isSyncing: true, lastError: null });
 
@@ -384,7 +383,7 @@ class SyncManager {
     // ── Pull ──────────────────────────────────────────────────────────────────
 
     async pull(): Promise<void> {
-        if (networkStore.isOffline) return;
+        if (!navigator.onLine) return;
         console.log('[SyncManager] Starting pull...');
 
         try {

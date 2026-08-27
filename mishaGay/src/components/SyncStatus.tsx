@@ -3,13 +3,11 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/db';
 import { networkStore } from '../store/networkStore';
 import { useSyncStatus } from '../hooks/useSyncStatus';
-import { syncManager } from '../db/syncManager';
+
 
 export const SyncStatus: React.FC = () => {
     // ── Сетевой статус (ручной + браузерный) ──────────────────────────────────
     const isOffline      = useSyncExternalStore(networkStore.subscribe, () => networkStore.isOffline);
-    const isManualOffline = useSyncExternalStore(networkStore.subscribe, () => networkStore.isManualOffline);
-    const isBrowserOffline = useSyncExternalStore(networkStore.subscribe, () => networkStore.isBrowserOffline);
 
     // ── Реактивный статус синхронизации из SyncManager ───────────────────────
     const syncState = useSyncStatus();
@@ -49,31 +47,9 @@ export const SyncStatus: React.FC = () => {
         return () => clearInterval(interval);
     }, [syncState.lastSyncAt]);
 
-    // ── Промпт "Сеть восстановлена" ───────────────────────────────────────────
-    const [showOnlinePrompt, setShowOnlinePrompt] = useState(false);
-
-    useEffect(() => {
-        const handleOnline = () => {
-            if (networkStore.isManualOffline) setShowOnlinePrompt(true);
-        };
-        window.addEventListener('online', handleOnline);
-        return () => window.removeEventListener('online', handleOnline);
-    }, []);
-
     // ── Вычисляемые состояния ─────────────────────────────────────────────────
     const isSyncing = syncState.isSyncing || (totalPending > 0 && !isOffline);
     const hasFailed = v2FailedCount > 0;
-
-    const toggleOfflineMode = () => {
-        if (isBrowserOffline) return;
-        networkStore.setManualOffline(!isManualOffline);
-        setShowOnlinePrompt(false);
-    };
-
-    const handleSyncNow = (e: React.MouseEvent) => {
-        e.stopPropagation();
-        void syncManager.syncNow();
-    };
 
     // ── Цвет индикатора ───────────────────────────────────────────────────────
     const bgColor = isOffline
@@ -86,40 +62,9 @@ export const SyncStatus: React.FC = () => {
 
     return (
         <>
-            {/* Промпт восстановления сети */}
-            {showOnlinePrompt && (
-                <div style={{
-                    position: 'fixed', bottom: '90px', right: '20px',
-                    padding: '16px', borderRadius: '8px',
-                    backgroundColor: '#fff', border: '1px solid #e2e8f0',
-                    boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)',
-                    zIndex: 10000, width: '300px'
-                }}>
-                    <h4 style={{ margin: '0 0 8px 0', color: '#1e293b' }}>Сеть восстановлена</h4>
-                    <p style={{ margin: '0 0 16px 0', fontSize: '14px', color: '#64748b' }}>
-                        Подключение появилось. Перейти в онлайн-режим?
-                    </p>
-                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                        <button
-                            onClick={() => setShowOnlinePrompt(false)}
-                            style={{ padding: '6px 12px', background: 'transparent', border: '1px solid #cbd5e1', borderRadius: '4px', cursor: 'pointer' }}
-                        >
-                            Позже
-                        </button>
-                        <button
-                            onClick={() => { networkStore.setManualOffline(false); setShowOnlinePrompt(false); }}
-                            style={{ padding: '6px 12px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-                        >
-                            Перейти в онлайн
-                        </button>
-                    </div>
-                </div>
-            )}
-
             {/* Основной индикатор */}
             <div
-                onClick={toggleOfflineMode}
-                title={isBrowserOffline ? 'Нет подключения к сети' : 'Нажмите, чтобы переключить режим'}
+                title={isOffline ? 'Нет подключения к сети' : 'Система в сети'}
                 style={{
                     position: 'fixed', bottom: '20px', right: '20px',
                     padding: '10px 15px', borderRadius: '8px',
@@ -127,7 +72,6 @@ export const SyncStatus: React.FC = () => {
                     boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
                     zIndex: 9999, display: 'flex', flexDirection: 'column', gap: '4px',
                     fontSize: '14px', fontWeight: 'bold',
-                    cursor: isBrowserOffline ? 'not-allowed' : 'pointer',
                     transition: 'background-color 0.2s ease',
                     minWidth: '140px',
                 }}
@@ -142,29 +86,13 @@ export const SyncStatus: React.FC = () => {
                     }} />
                     <span>
                         {isOffline
-                            ? (isBrowserOffline ? 'Нет сети' : 'Офлайн режим')
+                            ? 'Офлайн режим'
                             : hasFailed
                                 ? `Ошибки (${v2FailedCount})`
                                 : isSyncing
                                     ? `Синхронизация... (${totalPending})`
                                     : 'В сети'}
                     </span>
-
-                    {/* Кнопка ручного sync (только online и не в процессе) */}
-                    {!isOffline && !isSyncing && (
-                        <button
-                            onClick={handleSyncNow}
-                            title="Синхронизировать сейчас"
-                            style={{
-                                marginLeft: 'auto', background: 'rgba(255,255,255,0.25)',
-                                border: 'none', borderRadius: '4px', color: 'white',
-                                cursor: 'pointer', padding: '2px 6px', fontSize: '13px',
-                                lineHeight: 1,
-                            }}
-                        >
-                            ↻
-                        </button>
-                    )}
                 </div>
 
                 {/* Время последней синхронизации */}
