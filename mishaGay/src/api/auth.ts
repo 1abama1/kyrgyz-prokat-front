@@ -48,18 +48,7 @@ export async function refreshAccessToken(): Promise<boolean> {
 
 export const authAPI = {
   login: async (credentials: LoginRequest): Promise<LoginResponse> => {
-    // Если уже в оффлайне — входим локально
-    if (networkStore.isOffline) {
-      const offlineAccessToken = `offline_token_${Date.now()}`;
-      const offlineRefreshToken = `offline_refresh_${Date.now()}`;
-      setTokens(offlineAccessToken, offlineRefreshToken);
-      localStorage.setItem("last_user", JSON.stringify({ email: credentials.email }));
-      return {
-        accessToken: offlineAccessToken,
-        refreshToken: offlineRefreshToken,
-      };
-    }
-
+    // Всегда сначала пытаемся войти через сервер (даже если ранее был оффлайн)
     try {
       // Login запрос без авторизации
       const response = await apiCall<LoginResponse>("/api/auth/login", {
@@ -75,6 +64,7 @@ export const authAPI = {
       if (accessToken && refreshToken) {
         setTokens(accessToken, refreshToken);
         localStorage.setItem("last_user", JSON.stringify({ email: credentials.email }));
+        networkStore.setManualOffline(false); // При удачном логине переключаем в онлайн
       } else {
         throw new Error("Токены не получены от сервера");
       }

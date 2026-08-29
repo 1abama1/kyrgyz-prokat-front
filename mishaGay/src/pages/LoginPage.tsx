@@ -17,7 +17,7 @@ export const LoginPage: FC = () => {
 
     try {
       // authAPI.login автоматически сохраняет оба токена (access + refresh)
-      await authAPI.login({ email, password });
+      await authAPI.login({ email: email.toLowerCase(), password });
       navigate("/dashboard");
     } catch (err: unknown) {
       if (err instanceof Error) {
@@ -30,10 +30,10 @@ export const LoginPage: FC = () => {
     }
   };
 
-  const handleOfflineLogin = () => {
-    authAPI.loginOffline();
-    navigate("/dashboard");
-  };
+  // const handleOfflineLogin = () => {
+  //   authAPI.loginOffline();
+  //   navigate("/dashboard");
+  // };
 
   return (
     <div style={{ maxWidth: "400px", margin: "100px auto", padding: "20px" }}>
@@ -80,7 +80,7 @@ export const LoginPage: FC = () => {
           {loading ? "Вход..." : "Войти"}
         </button>
 
-        <button 
+        {/* <button 
           type="button" 
           onClick={handleOfflineLogin}
           style={{ 
@@ -94,7 +94,7 @@ export const LoginPage: FC = () => {
           }}
         >
           Войти в оффлайн-режиме
-        </button>
+        </button> */}
       </form>
     </div>
   );

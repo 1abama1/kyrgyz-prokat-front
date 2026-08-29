@@ -28,6 +28,13 @@ import "./db/syncManager";
 
 const { Text } = Typography;
 
+function GuestRoute({ children }: { children: React.ReactNode }) {
+  if (isAuthenticated()) {
+    return <SafeNavigate to="/dashboard" replace />;
+  }
+  return <>{children}</>;
+}
+
 function App() {
   useEffect(() => {
     window.electronAPI?.onUpdateReady?.((data) => {
@@ -70,7 +77,9 @@ function App() {
         <Route
           path="/login"
           element={
-            isAuthenticated() ? <SafeNavigate to="/dashboard" replace /> : <LoginPage />
+            <GuestRoute>
+              <LoginPage />
+            </GuestRoute>
           }
         />
         <Route
