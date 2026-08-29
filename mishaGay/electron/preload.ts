@@ -6,7 +6,11 @@ console.log("✅ PRELOAD SCRIPT LOADED - contracts API will be available");
 contextBridge.exposeInMainWorld("electronAPI", {
   platform: process.platform,
   version: process.versions.electron,
-  openExternalUrl: (url: string) => ipcRenderer.invoke("open-external-url", url)
+  openExternalUrl: (url: string) => ipcRenderer.invoke("open-external-url", url),
+  onUpdateReady: (callback: (data: { version: string, notes: string }) => void) => {
+    ipcRenderer.on('update-ready', (_event, data) => callback(data));
+  },
+  installUpdate: () => ipcRenderer.send('install-update')
 });
 
 // API для работы с Excel-договорами

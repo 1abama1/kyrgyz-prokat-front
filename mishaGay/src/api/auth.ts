@@ -137,8 +137,18 @@ export const authAPI = {
     return response.data;
   },
 
-  logout: (): void => {
+  logout: async (): Promise<void> => {
     clearTokens();
+    // Clear reference tables on logout
+    const { db } = await import("../db/db");
+    await db.clients.clear();
+    await db.tools.clear();
+    await db.categories.clear();
+    await db.templates.clear();
+    await db.contracts.clear();
+    await db.bookings.clear();
+    localStorage.removeItem('lastSyncTimestamp');
+    
     window.location.hash = "#/login";
   },
 

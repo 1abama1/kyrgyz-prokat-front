@@ -15,9 +15,10 @@ interface Props {
   whatsappPhone?: string | null;
   additionalPhone?: string | null;
   tag?: string | null;
+  onDelete?: () => void;
 }
 
-export const ClientExpandableCard: FC<Props> = ({ clientId, fullName, whatsappPhone, additionalPhone, tag }) => {
+export const ClientExpandableCard: FC<Props> = ({ clientId, fullName, whatsappPhone, additionalPhone, tag, onDelete }) => {
   const navigate = useNavigate();
   const [data, setData] = useState<Client | null>(null);
   const [documents, setDocuments] = useState<RentalDocument[]>([]);
@@ -35,9 +36,25 @@ export const ClientExpandableCard: FC<Props> = ({ clientId, fullName, whatsappPh
       setData(client);
       setDocuments(docs);
     } catch (err: any) {
-      setError(err.message || "Ошибка загрузки карточки клиента");
+      setError(err.message || "Ошибка при загрузке клиента");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (window.confirm("Вы уверены, что хотите удалить этого клиента?")) {
+      try {
+        await clientsAPI.delete(clientId);
+        if (onDelete) {
+          onDelete();
+        } else {
+          window.location.reload();
+        }
+      } catch (err: any) {
+        alert(err.message || "Не удалось удалить клиента");
+      }
     }
   };
 
@@ -244,6 +261,21 @@ export const ClientExpandableCard: FC<Props> = ({ clientId, fullName, whatsappPh
                 }}
               >
                 ✏️ Изменить
+              </button>
+
+              <button
+                onClick={handleDelete}
+                style={{
+                  background: "#fee2e2",
+                  color: "#991b1b",
+                  border: "1px solid #fca5a5",
+                  borderRadius: 6,
+                  padding: "10px 16px",
+                  cursor: "pointer",
+                  fontWeight: 500
+                }}
+              >
+                🗑️ Удалить
               </button>
             </div>
           </>

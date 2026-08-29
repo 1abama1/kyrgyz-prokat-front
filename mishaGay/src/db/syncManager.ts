@@ -387,38 +387,93 @@ class SyncManager {
         console.log('[SyncManager] Starting pull...');
 
         try {
-            const lastSyncStr = localStorage.getItem('lastSyncTimestamp');
-            const since = lastSyncStr ? parseInt(lastSyncStr, 10) : 0;
+            let lastSyncStr = localStorage.getItem('lastSyncTimestamp');
+            
+            // Migrate old unix timestamp to ISO string if needed
+            if (lastSyncStr && /^\d+$/.test(lastSyncStr)) {
+                lastSyncStr = new Date(parseInt(lastSyncStr, 10)).toISOString();
+                localStorage.setItem('lastSyncTimestamp', lastSyncStr);
+            }
 
-            const response = await api.get(`/api/v1/sync/pull?since=${since}`);
+            // ISO 8601 string or empty if first sync
+            const sinceQuery = lastSyncStr ? `&since=${lastSyncStr}` : '';
+            const branchId = localStorage.getItem('branchId') || '1'; // Fallback to 1 if not set
+
+            const response = await api.get(`/api/v1/sync/pull?branchId=${branchId}${sinceQuery}`);
             const data = response.data;
 
-            if (data.clients?.length)    await db.clients.bulkPut(data.clients);
-            if (data.categories?.length) await db.categories.bulkPut(data.categories);
-            if (data.templates?.length)  await db.templates.bulkPut(data.templates);
-
-            if (data.tools?.length) {
-                const normalizedTools = data.tools.map((t: any) => ({
-                    ...t,
-                    templateId: t.templateId || t.template?.id || t.toolTemplateId
-                }));
-                await db.tools.bulkPut(normalizedTools);
+            if (data.fullSyncRequired) {
+                console.warn('[SyncManager] Full sync required (90 days elapsed), clearing DB');
+                await db.clients.clear();
+                await db.tools.clear();
+                await db.categories.clear();
+                await db.templates.clear();
+                await db.contracts.clear();
+                // continue with putting the received data since it acts as a full sync
             }
+
+            await db.transaction('rw', [db.tools, db.categories, db.templates, db.clients, db.contracts], async () => {
+                // 1. Клиенты
+                if (data.deletedClientIds?.length) {
+                    await db.clients.bulkDelete(data.deletedClientIds);
+                }
+                if (data.clients?.length) {
+                    await db.clients.bulkPut(data.clients);
+                }
+
+                // 2. Инструменты (tools)
+                if (data.deletedToolIds?.length) {
+                    await db.tools.bulkDelete(data.deletedToolIds);
+                }
+                if (data.tools?.length) {
+                    const normalizedTools = data.tools.map((t: any) => ({
+                        ...t,
+                        templateId: t.templateId || t.template?.id || t.toolTemplateId
+                    }));
+                    await db.tools.bulkPut(normalizedTools);
+                }
+
+                // 3. Категории и Шаблоны
+                if (data.deletedCategoryIds?.length) {
+                    await db.categories.bulkDelete(data.deletedCategoryIds);
+                }
+                if (data.categories?.length) {
+                    await db.categories.bulkPut(data.categories);
+                }
+                
+                if (data.deletedTemplateIds?.length) {
+                    await db.templates.bulkDelete(data.deletedTemplateIds);
+                }
+                if (data.templates?.length) {
+                    await db.templates.bulkPut(data.templates);
+                }
+                
+                // 4. Контракты (Documents)
+                if (data.deletedContractIds?.length) {
+                    await db.contracts.bulkDelete(data.deletedContractIds);
+                }
+            });
 
             if (data.documents?.length) {
                 await this.applyPulledContracts(data.documents);
             }
 
-            if (data.lastSyncTimestamp) {
-                localStorage.setItem('lastSyncTimestamp', String(data.lastSyncTimestamp));
+            if (data.serverTimestamp) {
+                localStorage.setItem('lastSyncTimestamp', data.serverTimestamp);
             }
 
             // Обновляем watermark для syncMeta
             await db.syncMeta.put({ id: 'contracts', lastPulledAt: Date.now() });
 
             console.log('[SyncManager] Pull completed.');
-        } catch (error) {
+        } catch (error: any) {
             console.error('[SyncManager] Pull error:', error);
+            if (error?.response?.status === 410) {
+                 // Gone - 90 days retention hit fallback
+                 console.warn('[SyncManager] 410 Gone, requiring full sync');
+                 localStorage.removeItem('lastSyncTimestamp');
+                 void this.pull(); // Retry immediately as full sync
+            }
         }
     }
 
@@ -434,7 +489,12 @@ class SyncManager {
         const pendingV2EntityIds = new Set(pendingV2.map(item => item.entityId));
 
         for (const doc of documents) {
-            const existing = await db.contracts.where('id').equals(doc.id).first();
+            let existing = await db.contracts.where('id').equals(doc.id).first();
+            if (!existing && doc.offlineId) {
+                // Предотвращаем дублирование: если по ID не нашли, но запись создавалась оффлайн (ID не проставился)
+                existing = await db.contracts.where('offlineId').equals(doc.offlineId).first();
+            }
+            
             const offlineId = existing?.offlineId || doc.offlineId || crypto.randomUUID();
 
             // Пропускаем записи с ожидающими локальными изменениями (Local-Wins)
@@ -455,8 +515,10 @@ class SyncManager {
                 if (tool) toolName = tool.name || tool.inventoryNumber;
             }
 
+            const docUpdatedAt = doc.updatedAt ? new Date(doc.updatedAt).getTime() : 0;
+
             // Last-Write-Wins по updatedAt
-            if (existing && doc.updatedAt && existing.updatedAt > doc.updatedAt) {
+            if (existing && docUpdatedAt && existing.updatedAt > docUpdatedAt) {
                 console.log(`[SyncManager] Local wins for contract ${offlineId}`);
                 continue;
             }
@@ -468,7 +530,7 @@ class SyncManager {
                 toolName:   toolName   || (doc.toolId   ? `Инструмент #${doc.toolId}` : undefined),
                 offlineId,
                 syncStatus: 'synced',
-                updatedAt: doc.updatedAt || Date.now(),
+                updatedAt: docUpdatedAt || Date.now(),
             });
         }
     }

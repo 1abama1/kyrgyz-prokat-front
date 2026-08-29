@@ -1,4 +1,5 @@
 import { app, BrowserWindow, Menu, ipcMain, shell } from "electron";
+import { autoUpdater } from "electron-updater";
 import * as path from "path";
 import * as fs from "fs";
 import log from "electron-log";
@@ -237,6 +238,22 @@ ipcMain.handle("generate-offline-excel", async (_event, { contractData, filename
 app.whenReady().then(() => {
     console.log("🔥 App ready, creating window...");
     createWindow();
+    // Проверяем обновления в фоне
+    autoUpdater.checkForUpdatesAndNotify();
+});
+// Слушаем скачивание обновления и отправляем в React
+autoUpdater.on('update-downloaded', (info) => {
+    const notes = info.releaseNotes
+        ? (Array.isArray(info.releaseNotes) ? info.releaseNotes.map(n => n.note).join('\n') : info.releaseNotes)
+        : 'Нет описания изменений.';
+    mainWindow?.webContents.send('update-ready', {
+        version: info.version,
+        notes: notes
+    });
+});
+// Слушаем команду из React на установку
+ipcMain.on('install-update', () => {
+    autoUpdater.quitAndInstall();
 });
 app.on("window-all-closed", () => {
     if (process.platform !== "darwin") {

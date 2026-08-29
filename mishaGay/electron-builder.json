@@ -1,5 +1,12 @@
 {
   "appId": "com.rental.app",
+  "publish": [
+    {
+      "provider": "github",
+      "owner": "1abama1",
+      "repo": "kyrgyz-prokat-front"
+    }
+  ],
   "productName": "Rental Desktop App",
   "directories": {
     "output": "release"

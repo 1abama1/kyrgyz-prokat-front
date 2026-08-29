@@ -31,10 +31,13 @@ export const SyncStatus: React.FC = () => {
     useEffect(() => {
         const updateLastSync = () => {
             // Сначала пробуем из нового состояния, затем fallback на localStorage
-            const ts = syncState.lastSyncAt
-                ?? (localStorage.getItem('lastSyncTimestamp')
-                    ? parseInt(localStorage.getItem('lastSyncTimestamp')!, 10)
-                    : null);
+            let ts = syncState.lastSyncAt;
+            if (!ts) {
+                const stored = localStorage.getItem('lastSyncTimestamp');
+                if (stored) {
+                    ts = /^\d+$/.test(stored) ? parseInt(stored, 10) : new Date(stored).getTime();
+                }
+            }
 
             if (ts) {
                 const date = new Date(ts);

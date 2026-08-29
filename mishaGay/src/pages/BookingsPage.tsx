@@ -11,7 +11,7 @@ export const BookingsPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
-  
+
   const [searchParams] = useSearchParams();
   const highlightedBookingId = searchParams.get("id");
 
@@ -45,26 +45,26 @@ export const BookingsPage = () => {
     }
   };
 
-  const handleDeleteBooking = async (id: string) => {
-    if (!window.confirm("Вы уверены, что хотите удалить эту бронь?")) return;
-    try {
-      await bookingsAPI.deleteBooking(id);
-      await loadBookings();
-    } catch (err: any) {
-      setError(err.message || "Ошибка при удалении брони");
-    }
-  };
+  // const handleDeleteBooking = async (id: string) => {
+  //   if (!window.confirm("Вы уверены, что хотите удалить эту бронь?")) return;
+  //   try {
+  //     await bookingsAPI.deleteBooking(id);
+  //     await loadBookings();
+  //   } catch (err: any) {
+  //     setError(err.message || "Ошибка при удалении брони");
+  //   }
+  // };
 
   const filteredBookings = useMemo(() => {
     return bookings.filter(b => {
       const matchStatus = statusFilter === "ALL" || b.status === statusFilter;
       const q = searchQuery.toLowerCase();
-      const matchQuery = 
+      const matchQuery =
         b.clientName.toLowerCase().includes(q) ||
         (b.clientPhone && b.clientPhone.toLowerCase().includes(q)) ||
         b.templateName.toLowerCase().includes(q) ||
         (b.comment && b.comment.toLowerCase().includes(q));
-        
+
       return matchStatus && matchQuery;
     });
   }, [bookings, searchQuery, statusFilter]);
@@ -91,8 +91,8 @@ export const BookingsPage = () => {
             onChange={(e) => setSearchQuery(e.target.value)}
             style={{ flex: 1, maxWidth: "500px" }}
           />
-          
-          <select 
+
+          <select
             className="form-input"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
@@ -127,9 +127,9 @@ export const BookingsPage = () => {
                 {filteredBookings.map((b) => {
                   const isHighlighted = b.id === highlightedBookingId;
                   return (
-                    <tr 
-                      key={b.id} 
-                      style={{ 
+                    <tr
+                      key={b.id}
+                      style={{
                         borderBottom: "1px solid #eee",
                         backgroundColor: isHighlighted ? "#eff6ff" : "transparent"
                       }}
@@ -192,7 +192,7 @@ export const BookingsPage = () => {
                               Отменить
                             </button>
                           )}
-                          <button
+                          {/* <button
                             onClick={() => handleDeleteBooking(b.id)}
                             style={{
                               background: "#dc2626",
@@ -205,7 +205,7 @@ export const BookingsPage = () => {
                             }}
                           >
                             Удалить
-                          </button>
+                          </button> */}
                         </div>
                       </td>
                     </tr>

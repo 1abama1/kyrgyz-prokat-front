@@ -69,7 +69,15 @@ export async function apiCall<T>(
       config.headers = { ...callOptions.headers };
     }
 
-    // Для multipart запросов (FormData)
+    // Принудительно отключаем кэширование браузером для GET запросов
+    if (config.method === "GET") {
+      config.headers = config.headers || {};
+      config.headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
+      config.headers["Pragma"] = "no-cache";
+      config.headers["Expires"] = "0";
+    }
+
+    // Обработка multipart запросов (FormData)
     const body = callOptions.data || callOptions.body;
     const isFormDataBody =
       typeof FormData !== "undefined" && body instanceof FormData;

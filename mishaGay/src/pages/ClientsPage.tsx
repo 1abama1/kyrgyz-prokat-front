@@ -129,7 +129,8 @@ export const ClientsPage: FC = () => {
               fullName={client.fullName}
               whatsappPhone={client.whatsappPhone || undefined}
               additionalPhone={client.additionalPhone || undefined}
-              tag={client.tag}
+              tag={client.tag || undefined}
+              onDelete={() => loadClients()}
             />
           ))}
 

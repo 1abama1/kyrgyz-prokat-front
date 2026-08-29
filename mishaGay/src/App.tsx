@@ -1,3 +1,5 @@
+import { useEffect } from 'react';
+import { Modal, Typography } from 'antd';
 import { HashRouter, Routes, Route } from "react-router-dom";
 import { SafeNavigate } from "./components/SafeNavigate";
 import { ProtectedRoute } from "./components/ProtectedRoute";
@@ -24,7 +26,43 @@ import { SyncStatus } from "./components/SyncStatus";
 import "./db/syncManager";
 
 
+const { Text } = Typography;
+
 function App() {
+  useEffect(() => {
+    window.electronAPI?.onUpdateReady?.((data) => {
+      Modal.confirm({
+        title: `Доступна версия ${data.version}`,
+        width: 500, // Делаем окно чуть шире для удобного чтения
+        content: (
+          <div style={{ marginTop: 16 }}>
+            <Text strong>Что нового:</Text>
+            {/* Отрисовываем HTML-описание из GitHub Releases */}
+            <div 
+              style={{ 
+                maxHeight: 200, 
+                overflowY: 'auto', 
+                background: '#f5f5f5', 
+                padding: 10, 
+                marginTop: 8,
+                borderRadius: 6
+              }}
+              dangerouslySetInnerHTML={{ __html: data.notes }}
+            />
+            <div style={{ marginTop: 16 }}>
+              Перезапустить приложение для установки?
+            </div>
+          </div>
+        ),
+        okText: 'Обновить и перезапустить',
+        cancelText: 'Позже',
+        onOk: () => {
+          window.electronAPI?.installUpdate?.();
+        }
+      });
+    });
+  }, []);
+
   return (
     <HashRouter>
       <SyncStatus />

@@ -187,6 +187,14 @@ export const clientsAPI = {
       body: clientData
     });
   },
+  delete: (id: number): Promise<void> => {
+    if (!id || isNaN(id) || id <= 0) {
+      return Promise.reject(new Error("Invalid client id: id must be a positive number"));
+    }
+    return apiCall<void>(`/api/admin/clients/${id}`, {
+      method: "DELETE"
+    });
+  },
   updatePublic: (id: number, clientData: any): Promise<any> => {
     if (!id || isNaN(id) || id <= 0) {
       return Promise.reject(new Error("Invalid client id: id must be a positive number"));
