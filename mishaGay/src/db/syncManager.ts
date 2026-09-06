@@ -105,7 +105,7 @@ class SyncManager {
             offlineId,
             createdAt: Date.now()
         });
-        void this.sync();
+        setTimeout(() => void this.sync(), 0);
     }
 
     async enqueueUpdate(id: number | undefined, offlineId: string, payload: any): Promise<void> {
@@ -115,7 +115,7 @@ class SyncManager {
             offlineId,
             createdAt: Date.now()
         });
-        void this.sync();
+        setTimeout(() => void this.sync(), 0);
     }
 
     async enqueueClosure(id: number | undefined, offlineId: string, payload: any): Promise<void> {
@@ -125,7 +125,7 @@ class SyncManager {
             offlineId,
             createdAt: Date.now()
         });
-        void this.sync();
+        setTimeout(() => void this.sync(), 0);
     }
 
     // ── V2 enqueue с retry-поддержкой ────────────────────────────────────────
@@ -147,7 +147,7 @@ class SyncManager {
             status: 'pending',
         };
         await db.syncQueueV2.add(queueItem);
-        void this.sync();
+        setTimeout(() => void this.sync(), 0);
         return id;
     }
 
@@ -331,17 +331,26 @@ class SyncManager {
             });
 
             // Успех — обновляем сущность данными с сервера и удаляем из очереди
-            await db.transaction('rw', [db.syncQueueV2, db.contracts], async () => {
+            await db.transaction('rw', [db.syncQueueV2, db.contracts, db.clients], async () => {
                 if (item.operation !== 'delete' && response.data) {
                     if (item.entityTable === 'contracts') {
                         await db.contracts.update(item.entityId as any, {
                             ...response.data,
                             syncStatus: 'synced',
                         });
+                    } else if (item.entityTable === 'clients') {
+                        if (item.operation === 'create') {
+                            await db.clients.delete(Number(item.entityId));
+                            await db.clients.put(response.data);
+                        } else {
+                            await db.clients.update(Number(item.entityId), response.data);
+                        }
                     }
                 } else if (item.operation === 'delete') {
                     if (item.entityTable === 'contracts') {
                         await db.contracts.delete(item.entityId as any);
+                    } else if (item.entityTable === 'clients') {
+                        await db.clients.delete(Number(item.entityId));
                     }
                 }
                 await db.syncQueueV2.update(item.id, { status: 'done' as SyncQueueStatus });
@@ -469,10 +478,11 @@ class SyncManager {
         } catch (error: any) {
             console.error('[SyncManager] Pull error:', error);
             if (error?.response?.status === 410) {
-                 // Gone - 90 days retention hit fallback
-                 console.warn('[SyncManager] 410 Gone, requiring full sync');
-                 localStorage.removeItem('lastSyncTimestamp');
-                 void this.pull(); // Retry immediately as full sync
+                // Gone — 90 days retention hit fallback.
+                // Clear the watermark and return; the next scheduled sync cycle
+                // will run a full pull automatically (no recursive call needed).
+                console.warn('[SyncManager] 410 Gone — resetting sync timestamp for next full pull');
+                localStorage.removeItem('lastSyncTimestamp');
             }
         }
     }

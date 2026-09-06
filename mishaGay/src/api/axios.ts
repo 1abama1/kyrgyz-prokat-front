@@ -2,6 +2,7 @@ import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import { API_BASE_URL } from "../utils/constants";
 import { getAccessToken, getRefreshToken, setTokens, clearTokens } from "../utils/auth";
 import { RefreshResponse } from "../types/api.types";
+import { isNetworkError } from "../utils/networkError";
 
 // Создаём axios instance
 export const api = axios.create({
@@ -87,24 +88,13 @@ api.interceptors.response.use(
     return response;
   },
   async (error: AxiosError) => {
-    const isNetworkErr =
-      !navigator.onLine ||
-      error?.code === "ERR_NETWORK" ||
-      error?.code === "ECONNREFUSED" ||
-      error?.message?.includes("Network Error") ||
-      error?.message?.includes("INTERNET_DISCONNECTED") ||
-      error?.message?.includes("fetch") ||
-      (error?.response?.status && error.response.status >= 500);
-
-    if (isNetworkErr) {
+    if (isNetworkError(error)) {
       import('../store/networkStore').then(({ networkStore }) => {
         if (!networkStore.isManualOffline) {
           networkStore.setManualOffline(true);
           console.warn("Auto-switched to offline mode due to network error in Axios");
         }
       });
-      // Если это просто фоновый пинг (например из syncManager), возвращаем ошибку,
-      // но приложение уже будет в оффлайн-режиме, так что UI это отработает нормально.
     }
 
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
@@ -159,9 +149,9 @@ api.interceptors.response.use(
           throw new Error("Refresh token not found");
         }
 
-        // Backend принимает refresh token через QUERY PARAM: GET /api/auth/refresh?refreshToken=...
-        const response = await axios.get<RefreshResponse>(`${API_BASE_URL}/api/auth/refresh`, {
-          params: { refreshToken },
+        // Backend принимает refresh token через POST body
+        const response = await axios.post<RefreshResponse>(`${API_BASE_URL}/api/auth/refresh`, {
+          refreshToken,
         });
 
         const { accessToken, refreshToken: newRefreshToken } = response.data;
@@ -183,16 +173,7 @@ api.interceptors.response.use(
         processQueue(err, null);
 
         // ❗ Если это ошибка сети (сервер недоступен или оффлайн), НЕ разлогиниваем!
-        const isRefreshNetworkErr =
-          !navigator.onLine ||
-          err?.code === "ERR_NETWORK" ||
-          err?.code === "ECONNREFUSED" ||
-          err?.message?.includes("Network Error") ||
-          err?.message?.includes("INTERNET_DISCONNECTED") ||
-          err?.message?.includes("fetch") ||
-          (err?.response?.status && err.response.status >= 500);
-
-        if (!isRefreshNetworkErr) {
+        if (!isNetworkError(err)) {
           // Refresh token действительно просрочен/отклонен сервером → logout
           console.warn("Failed to refresh token, redirecting to login:", err);
           redirectToLogin();

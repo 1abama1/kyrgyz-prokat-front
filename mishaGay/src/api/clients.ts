@@ -5,6 +5,7 @@ import { getToken } from "../utils/auth";
 import type { BackendError } from "./contracts";
 import { networkStore } from "../store/networkStore";
 import { db } from "../db/db";
+import { syncManager } from "../db/syncManager";
 
 const buildAuthHeaders = () => {
   const token = getToken();
@@ -113,11 +114,10 @@ export const clientsAPI = {
     try {
       const res = await apiCall<any>("/api/admin/clients?page=0&size=1000");
       const list: Client[] = res.content !== undefined ? res.content : res;
-      if (Array.isArray(list)) {
-        await db.clients.clear();
-        if (list.length > 0) {
-          await db.clients.bulkPut(list).catch(err => console.warn("Failed to cache clients to Dexie", err));
-        }
+      if (Array.isArray(list) && list.length > 0) {
+        // ✅ bulkPut = upsert — НЕ удаляем существующие записи перед обновлением.
+        // Если сеть упала между clear() и bulkPut() — локальная БД была бы пустой.
+        await db.clients.bulkPut(list).catch(err => console.warn("Failed to cache clients to Dexie", err));
       }
       return list;
     } catch (err: any) {
@@ -153,11 +153,36 @@ export const clientsAPI = {
     }
     return getActiveContracts(clientId);
   },
-  create: (clientData: CreateClientDto): Promise<Client> => {
-    return apiCall<Client>("/api/admin/clients/create", {
+  create: async (clientData: CreateClientDto): Promise<Client> => {
+    if (networkStore.isOffline) {
+      const localId = Date.now(); // Safe positive ID for local offline usage
+      const newClient = {
+        ...clientData,
+        id: localId,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      } as Client;
+
+      await db.transaction('rw', [db.clients, db.syncQueueV2], async () => {
+        await db.clients.put(newClient);
+        await syncManager.enqueueV2({
+          operation: 'create',
+          entityTable: 'clients',
+          entityId: String(localId),
+          payload: clientData,
+          endpoint: '/api/admin/clients/create',
+          method: 'POST'
+        });
+      });
+      return newClient;
+    }
+
+    const res = await apiCall<Client>("/api/admin/clients/create", {
       method: "POST",
       body: clientData
     });
+    await db.clients.put(res).catch(() => {});
+    return res;
   },
   uploadImages: (clientId: number, files: File[]): Promise<void> => {
     if (!clientId || isNaN(clientId) || clientId <= 0) {
@@ -178,14 +203,41 @@ export const clientsAPI = {
     }
     return apiCall<Client>(`/api/admin/clients/${id}`);
   },
-  update: (id: number, clientData: CreateClientDto): Promise<Client> => {
+  update: async (id: number, clientData: CreateClientDto): Promise<Client> => {
     if (!id || isNaN(id) || id <= 0) {
       return Promise.reject(new Error("Invalid client id: id must be a positive number"));
     }
-    return apiCall<Client>(`/api/admin/clients/${id}`, {
+    
+    if (networkStore.isOffline) {
+      const existing = await db.clients.get(id);
+      if (!existing) throw new Error("Клиент не найден в локальной базе");
+      
+      const updatedClient = {
+        ...existing,
+        ...clientData,
+        updatedAt: new Date().toISOString()
+      } as Client;
+
+      await db.transaction('rw', [db.clients, db.syncQueueV2], async () => {
+        await db.clients.put(updatedClient);
+        await syncManager.enqueueV2({
+          operation: 'update',
+          entityTable: 'clients',
+          entityId: String(id),
+          payload: clientData,
+          endpoint: `/api/admin/clients/${id}`,
+          method: 'PUT'
+        });
+      });
+      return updatedClient;
+    }
+
+    const res = await apiCall<Client>(`/api/admin/clients/${id}`, {
       method: "PUT",
       body: clientData
     });
+    await db.clients.put(res).catch(() => {});
+    return res;
   },
   delete: (id: number): Promise<void> => {
     if (!id || isNaN(id) || id <= 0) {

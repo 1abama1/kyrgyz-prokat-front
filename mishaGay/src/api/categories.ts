@@ -14,11 +14,9 @@ export const categoriesAPI = {
         const categories = await apiCall<CategoryDto[]>({
           url: "/api/categories",
         });
-        if (Array.isArray(categories)) {
-          await db.categories.clear();
-          if (categories.length > 0) {
-            await db.categories.bulkPut(categories).catch(() => {});
-          }
+        if (Array.isArray(categories) && categories.length > 0) {
+          // ✅ upsert — не стираем офлайн-созданные категории
+          await db.categories.bulkPut(categories).catch(() => {});
         }
         return categories;
       } catch (error) {

@@ -1,4 +1,6 @@
 import Dexie, { Table } from 'dexie';
+import type { Client } from '../types/client.types';
+import type { Tool, ToolCategory, ToolTemplate } from '../types/tool.types';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Сущности
@@ -63,6 +65,24 @@ export interface SyncMeta {
     lastPulledAt: number; // Unix ms последнего успешного pull
 }
 
+/**
+ * Локальная запись бронирования (зеркало BookingDto для Dexie).
+ */
+export interface LocalBooking {
+    id: string;
+    clientName: string;
+    clientPhone?: string;
+    templateId: string;
+    templateName?: string;
+    toolInstanceId: number;
+    toolInstanceNumber?: number;
+    startDateTime: string;
+    endDateTime: string;
+    status: 'ACTIVE' | 'CANCELLED' | 'COMPLETED';
+    comment?: string;
+    createdAt?: string;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // База данных
 // ─────────────────────────────────────────────────────────────────────────────
@@ -70,11 +90,11 @@ export interface SyncMeta {
 export class AppDatabase extends Dexie {
     contracts!: Table<LocalContract, string>;
     syncQueue!: Table<SyncAction, number>;
-    clients!: Table<any, number>;
-    tools!: Table<any, number>;
-    categories!: Table<any, any>;
-    templates!: Table<any, any>;
-    bookings!: Table<any, string>;
+    clients!: Table<Client, number>;
+    tools!: Table<Tool, number>;
+    categories!: Table<ToolCategory, string>;
+    templates!: Table<ToolTemplate, string>;
+    bookings!: Table<LocalBooking, string>;
 
     // Новые таблицы (v9)
     syncQueueV2!: Table<SyncQueueItemV2, string>;

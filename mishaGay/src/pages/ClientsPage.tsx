@@ -6,69 +6,49 @@ import { Client, CLIENT_TAGS } from "../types/client.types";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { ClientExpandableCard } from "../components/ClientExpandableCard";
 import { matchPhone } from "../utils/phoneMatch";
+import { useLocalFirst } from "../hooks/useLocalFirst";
+import { db } from "../db/db";
 
 export const ClientsPage: FC = () => {
-  const [allClients, setAllClients] = useState<Client[]>([]);
-  const [clients, setClients] = useState<Client[]>([]);
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTag, setSelectedTag] = useState<string>("");
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    loadClients();
-  }, []);
+  // ── Local-First: читаем из Dexie, HTTP обновляет в фоне ─────────────────────
+  const { data: allClients = [], loading, error, refresh } = useLocalFirst<Client[]>(
+    // 1. Реактивный запрос из IndexedDB (useLiveQuery под капотом)
+    () => db.clients.toArray(),
+    // 2. Фоновый HTTP-запрос, который обновит Dexie → компонент перерисуется сам
+    () => clientsAPI.getAll()
+  );
 
-  useEffect(() => {
-    let filtered = allClients;
+  // ── Фильтрация (без запросов к серверу) ─────────────────────────────────────
+  const clients = allClients.filter((client) => {
+    if (selectedTag && client.tag !== selectedTag) return false;
+    if (!searchQuery.trim()) return true;
 
-    if (selectedTag) {
-      filtered = filtered.filter(client => client.tag === selectedTag);
-    }
+    const q = searchQuery.trim().toLowerCase();
+    const fullName = client.fullName?.toLowerCase() ?? "";
+    const whatsapp = client.whatsappPhone?.toLowerCase() ?? "";
+    const additional = client.additionalPhone?.toLowerCase() ?? "";
+    const inn = client.passport?.inn?.toLowerCase() ?? "";
+    const regAddr =
+      `${client.registrationAddress?.region || ""} ${client.registrationAddress?.street || ""}`.toLowerCase();
+    const liveAddr =
+      `${client.livingAddress?.region || ""} ${client.livingAddress?.street || ""}`.toLowerCase();
 
-    if (searchQuery.trim()) {
-      const q = searchQuery.trim().toLowerCase();
-      filtered = filtered.filter((client) => {
-        const fullName = client.fullName?.toLowerCase() ?? "";
-        const whatsapp = client.whatsappPhone?.toLowerCase() ?? "";
-        const additional = client.additionalPhone?.toLowerCase() ?? "";
-        const inn = client.passport?.inn?.toLowerCase() ?? "";
-        const regAddr =
-          `${client.registrationAddress?.region || ""} ${client.registrationAddress?.street || ""}`
-            .toLowerCase();
-        const liveAddr =
-          `${client.livingAddress?.region || ""} ${client.livingAddress?.street || ""}`
-            .toLowerCase();
-        return (
-          fullName.includes(q) ||
-          whatsapp.includes(q) ||
-          matchPhone(client.whatsappPhone, q) ||
-          additional.includes(q) ||
-          matchPhone(client.additionalPhone, q) ||
-          inn.includes(q) ||
-          regAddr.includes(q) ||
-          liveAddr.includes(q)
-        );
-      });
-    }
-
-    setClients(filtered);
-  }, [searchQuery, selectedTag, allClients]);
-
-  const loadClients = async () => {
-    try {
-      setLoading(true);
-      const data = await clientsAPI.getAll();
-      setAllClients(data);
-      setClients(data);
-    } catch (err: any) {
-      setError(err.message || "Ошибка загрузки клиентов");
-    } finally {
-      setLoading(false);
-    }
-  };
+    return (
+      fullName.includes(q) ||
+      whatsapp.includes(q) ||
+      matchPhone(client.whatsappPhone, q) ||
+      additional.includes(q) ||
+      matchPhone(client.additionalPhone, q) ||
+      inn.includes(q) ||
+      regAddr.includes(q) ||
+      liveAddr.includes(q)
+    );
+  });
 
   if (loading) {
     return (
@@ -84,7 +64,7 @@ export const ClientsPage: FC = () => {
         <div className="clients-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "28px", gap: "16px", flexWrap: "wrap" }}>
           <div>
             <h1 style={{ margin: 0, fontSize: "1.6rem" }}>Клиенты</h1>
-            <ErrorMessage error={error} onClose={() => setError(null)} />
+            <ErrorMessage error={error} onClose={() => {}} />
           </div>
 
           <div style={{ display: "flex", gap: "10px", alignItems: "center", flex: 1, justifyContent: "flex-end" }}>
@@ -130,7 +110,7 @@ export const ClientsPage: FC = () => {
               whatsappPhone={client.whatsappPhone || undefined}
               additionalPhone={client.additionalPhone || undefined}
               tag={client.tag || undefined}
-              onDelete={() => loadClients()}
+              onDelete={refresh}
             />
           ))}
 
@@ -140,4 +120,3 @@ export const ClientsPage: FC = () => {
     </Layout>
   );
 };
-

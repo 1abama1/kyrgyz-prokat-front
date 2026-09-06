@@ -1,3 +1,4 @@
+import bcrypt from "bcryptjs";
 import { apiCall } from "./client";
 import { api } from "./axios";
 import { networkStore } from "../store/networkStore";
@@ -12,14 +13,36 @@ import {
   getRefreshToken,
   isAuthenticated as checkAuth
 } from "../utils/auth";
+import { isNetworkError } from "../utils/networkError";
+
+// ── Ключи хранилища ──────────────────────────────────────────────────────────
+
+const OFFLINE_CREDENTIALS_KEY = "offline_pw_hash";
 
 /**
- * Обновляет access token через refresh token
- * Backend принимает refresh token через QUERY PARAM: GET /api/auth/refresh?refreshToken=xxxxx
- * 
- * ⚠️ ВНИМАНИЕ: Эта функция теперь используется только для ручного refresh.
- * Автоматический refresh токена происходит через axios interceptor в api/axios.ts
- * 
+ * Сохраняет bcrypt-хэш пароля при успешном онлайн-логине.
+ * sessionStorage — очищается при закрытии приложения, минимизирует окно риска XSS.
+ */
+function storeOfflineCredentials(password: string): void {
+  const hash = bcrypt.hashSync(password, 10);
+  sessionStorage.setItem(OFFLINE_CREDENTIALS_KEY, hash);
+}
+
+/**
+ * Проверяет пароль против сохранённого bcrypt-хэша.
+ * Возвращает true только если хэш существует и пароль верен.
+ */
+function verifyOfflineCredentials(password: string): boolean {
+  const hash = sessionStorage.getItem(OFFLINE_CREDENTIALS_KEY);
+  if (!hash) return false;
+  return bcrypt.compareSync(password, hash);
+}
+
+// ── Refresh token ─────────────────────────────────────────────────────────────
+
+/**
+ * Обновляет access token через refresh token (ручной вызов).
+ * Автоматический refresh происходит через axios interceptor в api/axios.ts.
  * @returns true если успешно, false если refresh токен невалиден
  */
 export async function refreshAccessToken(): Promise<boolean> {
@@ -30,14 +53,13 @@ export async function refreshAccessToken(): Promise<boolean> {
   }
 
   try {
-    // Используем прямой axios вызов (не через наш instance, чтобы избежать цикла)
-    const response = await api.get<RefreshResponse>("/api/auth/refresh", {
-      params: { refreshToken },
-      skipAuth: true, // Не добавляем Authorization заголовок
+    // POST body — токен не попадает в логи сервера
+    const response = await api.post<RefreshResponse>("/api/auth/refresh", {
+      refreshToken,
+    }, {
+      skipAuth: true,
     });
 
-    // ВАЖНО! Backend возвращает НОВЫЙ refreshToken при каждом refresh
-    // Нужно сохранять ОБА токена, иначе следующий refresh будет использовать старый (revoked) токен
     setTokens(response.data.accessToken, response.data.refreshToken);
     return true;
   } catch (error) {
@@ -46,43 +68,48 @@ export async function refreshAccessToken(): Promise<boolean> {
   }
 }
 
+// ── Auth API ──────────────────────────────────────────────────────────────────
+
 export const authAPI = {
   login: async (credentials: LoginRequest): Promise<LoginResponse> => {
     // Всегда сначала пытаемся войти через сервер (даже если ранее был оффлайн)
     try {
-      // Login запрос без авторизации
       const response = await apiCall<LoginResponse>("/api/auth/login", {
         method: "POST",
         body: credentials,
         skipAuth: true
       });
 
-      // Backend возвращает accessToken и refreshToken
       const accessToken = response.accessToken;
       const refreshToken = response.refreshToken;
 
       if (accessToken && refreshToken) {
         setTokens(accessToken, refreshToken);
         localStorage.setItem("last_user", JSON.stringify({ email: credentials.email }));
-        networkStore.setManualOffline(false); // При удачном логине переключаем в онлайн
+        // ✅ Сохраняем хэш пароля для оффлайн-проверки (Вариант A)
+        storeOfflineCredentials(credentials.password);
+        networkStore.setManualOffline(false);
       } else {
         throw new Error("Токены не получены от сервера");
       }
 
       return response;
     } catch (error: any) {
-      // Если сервер недоступен (нет сети, сбой соединения), входим в оффлайн-режиме
-      const isNetworkErr =
-        !navigator.onLine ||
-        error?.code === "ERR_NETWORK" ||
-        error?.code === "ECONNREFUSED" ||
-        error?.message?.includes("Network Error") ||
-        error?.message?.includes("INTERNET_DISCONNECTED") ||
-        error?.message?.includes("fetch") ||
-        (error?.response?.status && error.response.status >= 500);
+      // Если сервер недоступен — пробуем оффлайн-логин с проверкой пароля
+      if (isNetworkError(error)) {
+        console.warn("Backend unavailable on login, attempting offline login:", error);
 
-      if (isNetworkErr) {
-        console.warn("Backend unavailable on login, falling back to offline session:", error);
+        // ✅ Проверяем пароль против bcrypt-хэша из предыдущего онлайн-логина
+        if (!verifyOfflineCredentials(credentials.password)) {
+          // Либо первый запуск без онлайн-сессии, либо неверный пароль
+          const hasSavedHash = !!sessionStorage.getItem(OFFLINE_CREDENTIALS_KEY);
+          if (hasSavedHash) {
+            throw new Error("Неверный пароль. Оффлайн-доступ запрещён.");
+          } else {
+            throw new Error("Сервер недоступен, а предыдущая сессия не найдена. Войдите онлайн хотя бы один раз.");
+          }
+        }
+
         const offlineAccessToken = `offline_token_${Date.now()}`;
         const offlineRefreshToken = `offline_refresh_${Date.now()}`;
         setTokens(offlineAccessToken, offlineRefreshToken);
@@ -114,14 +141,13 @@ export const authAPI = {
       throw new Error("Refresh token not found");
     }
 
-    // Используем axios instance с skipAuth, чтобы не добавлять Authorization заголовок
-    const response = await api.get<RefreshResponse>("/api/auth/refresh", {
-      params: { refreshToken },
-      skipAuth: true, // Не добавляем Authorization заголовок
+    // POST body — токен не попадает в логи сервера
+    const response = await api.post<RefreshResponse>("/api/auth/refresh", {
+      refreshToken,
+    }, {
+      skipAuth: true,
     });
 
-    // ВАЖНО! Backend возвращает НОВЫЙ refreshToken при каждом refresh
-    // Нужно сохранять ОБА токена, иначе следующий refresh будет использовать старый (revoked) токен
     setTokens(response.data.accessToken, response.data.refreshToken);
 
     return response.data;
@@ -129,6 +155,7 @@ export const authAPI = {
 
   logout: async (): Promise<void> => {
     clearTokens();
+    sessionStorage.removeItem(OFFLINE_CREDENTIALS_KEY);
     // Clear reference tables on logout
     const { db } = await import("../db/db");
     await db.clients.clear();
@@ -146,4 +173,3 @@ export const authAPI = {
     return checkAuth();
   }
 };
-

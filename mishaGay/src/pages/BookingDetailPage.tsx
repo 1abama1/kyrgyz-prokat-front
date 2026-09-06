@@ -28,7 +28,14 @@ export const BookingDetailPage = () => {
       if (!data) {
         throw new Error("Бронирование не найдено");
       }
-      setBooking(data);
+      
+      const bookingDto: BookingDto = {
+        ...data,
+        templateName: data.templateName || "Неизвестный инструмент",
+        createdAt: data.createdAt || data.startDateTime,
+      };
+      
+      setBooking(bookingDto);
     } catch (err: any) {
       setError(err.message || "Ошибка загрузки данных бронирования");
     } finally {

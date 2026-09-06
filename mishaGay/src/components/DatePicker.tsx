@@ -233,12 +233,6 @@ export const DatePicker: React.FC<DatePickerProps> = ({
   const daysGrid = generateGrid();
   const today = new Date();
 
-  // Пресеты
-  const presets = [
-    { label: "Сегодня", date: new Date() },
-    { label: "Вчера", date: addDays(new Date(), -1) },
-    { label: "На прошлой неделе", date: addDays(new Date(), -7) }
-  ];
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let val = e.target.value.replace(/\D/g, "");
@@ -348,24 +342,6 @@ export const DatePicker: React.FC<DatePickerProps> = ({
           <div className="datepicker-overlay" onClick={() => setIsOpen(false)} />
           <div className={`datepicker-popup ${placement === "top" ? "position-top" : ""}`} role="dialog" aria-label="Выбор даты">
             
-            {/* Панель пресетов */}
-            <div className="datepicker-presets">
-              {presets.map((preset, idx) => (
-                <button
-                  key={idx}
-                  className="datepicker-preset-btn"
-                  onClick={() => {
-                    handleDateSelect(preset.date);
-                  }}
-                  style={{ display: "flex", flexDirection: "column" }}
-                >
-                  <span>{preset.label}</span>
-                  <span style={{ fontSize: 11, color: "#6b7280", marginTop: 2 }}>
-                    {formatDateToInput(preset.date)}
-                  </span>
-                </button>
-              ))}
-            </div>
 
             {/* Основной календарь */}
             <div className="datepicker-main">
