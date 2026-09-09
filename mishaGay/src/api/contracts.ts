@@ -107,7 +107,9 @@ export async function getClientDocuments(clientId: number): Promise<RentalDocume
         toolId: d.toolId,
         toolName: d.toolName,
         returnDate: d.returnDate,
-        comment: d.comment
+        comment: d.comment,
+        syncStatus: 'synced',
+        updatedAt: Date.now()
       }));
     }
 
@@ -422,6 +424,16 @@ export async function closeContract(
   payload?: { paidAmount?: number; comment?: string; isBroken?: boolean; actualReturnDate?: string },
   offlineId?: string
 ): Promise<any> {
+  // Нормализуем actualReturnDate: Spring LocalDateTime не принимает суффикс Z (UTC ISO).
+  // Обрезаем до формата "YYYY-MM-DDTHH:mm:ss" который Spring десериализует корректно.
+  const normalizedPayload = payload
+    ? {
+        ...payload,
+        actualReturnDate: payload.actualReturnDate
+          ? payload.actualReturnDate.replace(/Z$/, "").replace(/\.\d+$/, "")
+          : undefined,
+      }
+    : undefined;
   // FIX #4: Первичный ключ — offlineId, поэтому .get(contractId) вернёт undefined.
   // Ищем по индексированному полю 'id' (backendId).
   const finalOfflineId = offlineId || (contractId ? (await db.contracts.where('id').equals(contractId).first())?.offlineId : undefined);
@@ -435,7 +447,7 @@ export async function closeContract(
       await db.contracts.where('offlineId').equals(finalOfflineId).modify(updateData);
       await db.syncQueue.add({
         type: 'CLOSE_CONTRACT',
-        payload: { ...payload, id: contractId },
+        payload: { ...normalizedPayload, id: contractId },
         offlineId: finalOfflineId,
         createdAt: Date.now()
       });
@@ -454,7 +466,7 @@ export async function closeContract(
             "Content-Type": "application/json",
             ...buildAuthHeaders()
           },
-          body: payload ? JSON.stringify(payload) : undefined
+          body: normalizedPayload ? JSON.stringify(normalizedPayload) : undefined
         }
       );
 
@@ -520,6 +532,7 @@ export interface ActiveContractRow {
   toolName: string;
   startDate: string;
   balance: number;
+  dailyPrice?: number;
   offlineId?: string;
 }
 
@@ -736,6 +749,7 @@ export async function getHistoryTable(
           const existing = await db.contracts.where('id').equals(row.id).first();
           if (existing) {
             await db.contracts.update(existing.offlineId, {
+              clientId: row.clientId || existing.clientId,
               clientName: row.clientName || existing.clientName,
               toolName: row.toolName || existing.toolName,
               contractNumber: row.contractNumber || existing.contractNumber,

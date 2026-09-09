@@ -17,7 +17,7 @@ export const toolsAPI = {
         const normalizedTools = tools.map((t: any) => ({
           ...t,
           templateId: t.templateId || t.template?.id || t.toolTemplateId
-        }));
+        })) as unknown as import("../types/tool.types").Tool[];
         db.tools.bulkPut(normalizedTools).catch(err => console.warn("Failed to cache tools to Dexie", err));
       }
       return tools;
@@ -66,9 +66,9 @@ export const toolsAPI = {
         instanceNumber: maxInstNum + 1,
         serialNumber: data.serialNumber,
         templateId: data.templateId,
-      };
+      } as unknown as import("../types/tool.types").Tool;
       await db.tools.put(newTool);
-      return newTool;
+      return newTool as unknown as ToolDto;
     }
     const created = await apiCall<ToolDto>({
       url: "/api/tools",
@@ -76,7 +76,7 @@ export const toolsAPI = {
       data,
     });
     if (created) {
-      db.tools.put({ ...created, templateId: created.templateId || data.templateId }).catch(() => {});
+      db.tools.put({ ...created, templateId: created.templateId || data.templateId } as unknown as import("../types/tool.types").Tool).catch(() => { });
     }
     return created;
   },
@@ -88,7 +88,7 @@ export const toolsAPI = {
       const maxInstNum = existingInTemplate.reduce((max: number, t: any) => Math.max(max, t.instanceNumber || 0), 0);
       const tmpls = await db.templates.toArray();
       const tmpl = tmpls.find((t: any) => String(t.id) === String(data.templateId));
-      
+
       const createdList: ToolDto[] = [];
       const count = data.count || 1;
       for (let i = 1; i <= count; i++) {
@@ -105,9 +105,9 @@ export const toolsAPI = {
           status: "AVAILABLE",
           instanceNumber: nextNum,
           templateId: data.templateId,
-        };
+        } as unknown as import("../types/tool.types").Tool;
         await db.tools.put(newTool);
-        createdList.push(newTool);
+        createdList.push(newTool as unknown as ToolDto);
       }
       return createdList;
     }
@@ -120,31 +120,11 @@ export const toolsAPI = {
       const normalized = tools.map((t: any) => ({
         ...t,
         templateId: t.templateId || data.templateId
-      }));
-      db.tools.bulkPut(normalized).catch(() => {});
+      })) as unknown as import("../types/tool.types").Tool[];
+      db.tools.bulkPut(normalized).catch(() => { });
     }
     return tools;
   },
-
-  getTodayAll: () =>
-    apiCall<ToolDto[]>({
-      url: "/api/tools/today",
-    }),
-
-  getAllOld: () =>
-    apiCall<ToolDto[]>({
-      url: "/api/tools/all-old",
-    }),
-
-  getAvailableAll: () =>
-    apiCall<ToolDto[]>({
-      url: "/api/tools/available",
-    }),
-
-  getAvailableOld: () =>
-    apiCall<ToolDto[]>({
-      url: "/api/tools/available/old",
-    }),
 
   getByTemplate: (templateId: string) =>
     apiCall<ToolDto[]>({

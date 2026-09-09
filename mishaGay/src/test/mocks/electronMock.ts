@@ -31,9 +31,9 @@ export interface MockElectronLog {
 /**
  * Создает изолированный объект моков Electron с vi.fn() или jest.fn()
  */
-export function createElectronMocks(mockFn: <T = any>() => any = () => {
+export function createElectronMocks(mockFn: () => any = () => {
   const fn = (..._args: any[]) => Promise.resolve();
-  fn.mockResolvedValue = (val: any) => { /* mock */ };
+  fn.mockResolvedValue = (_val: any) => { /* mock */ };
   return fn;
 }) {
   const contracts: MockElectronContracts = {

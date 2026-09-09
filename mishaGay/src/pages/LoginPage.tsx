@@ -2,6 +2,7 @@ import { FC, useState, FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { authAPI } from "../api/auth";
 import { ErrorMessage } from "../components/ErrorMessage";
+import { networkStore } from "../store/networkStore";
 
 export const LoginPage: FC = () => {
   const [email, setEmail] = useState("");
@@ -14,6 +15,9 @@ export const LoginPage: FC = () => {
     e.preventDefault();
     setError(null);
     setLoading(true);
+
+    // Принудительно выключаем оффлайн-режим, чтобы всегда пытаться зайти через сеть
+    networkStore.setManualOffline(false);
 
     try {
       // authAPI.login автоматически сохраняет оба токена (access + refresh)

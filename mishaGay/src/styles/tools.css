@@ -1,4 +1,17 @@
 /* ═══ Tools / Inventory Page ═══ */
+
+/* ─── Skeleton Loading ─── */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.skeleton-cell {
+  height: 16px;
+  background: #e5e7eb;
+  border-radius: 4px;
+  animation: pulse 1.5s ease-in-out infinite;
+}
  
 .tools-page {
   max-width: 1100px;
@@ -219,6 +232,17 @@
 }
  
 .active-contracts-table thead { background: var(--surface-2); }
+
+.active-contracts-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--surface-2);
+}
+
+.active-contracts-table tbody tr.row-overdue {
+  background-color: #fef2f2;
+}
  
 .active-contracts-table th {
   padding: 12px 16px;

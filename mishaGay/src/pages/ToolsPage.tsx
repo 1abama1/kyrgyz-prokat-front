@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { useLiveQuery } from "dexie-react-hooks";
+
 import { categoriesAPI } from "../api/categories";
 import { CategoryFullDto } from "../types/inventory.types";
 import { useNavigate } from "react-router-dom";

@@ -9,7 +9,7 @@ export interface TemplateDto {
   categoryId: string;
 }
 
-export type ToolStatusDto = "AVAILABLE" | "RENTED" | "BROKEN" | "IN_REPAIR" | "DECOMMISSIONED" | "LOST" | "WRITTEN_OFF";
+export type ToolStatusDto = "AVAILABLE" | "RENTED" | "BOOKED" | "OVERDUE" | "BROKEN" | "IN_REPAIR" | "DECOMMISSIONED" | "LOST" | "WRITTEN_OFF";
 
 export interface ToolDto {
   id: number;
@@ -23,7 +23,7 @@ export interface ToolDto {
   instanceNumber?: number;
   serialNumber?: string | null;
   categoryId?: string;
-  templateId?: string;
+  templateId: string;
   activeBookingId?: string;
 }
 
