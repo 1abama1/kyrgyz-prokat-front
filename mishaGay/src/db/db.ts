@@ -1,3 +1,4 @@
+import { currentOwner, databaseName } from './account';
 import Dexie, { Table } from 'dexie';
 import type { Client } from '../types/client.types';
 import type { Tool, ToolCategory, ToolTemplate } from '../types/tool.types';
@@ -12,6 +13,8 @@ export interface LocalContract {
     clientId: number;
     clientName?: string;
     toolId: number;
+    toolIds?: number[];
+    serverUpdatedAt?: string;
     toolName?: string;
     contractNumber?: string;
     startDateTime: string;
@@ -29,6 +32,11 @@ export interface SyncAction {
     payload: any;
     offlineId: string;
     createdAt: number;
+    operationId?: string;
+    status?: 'pending' | 'failed';
+    error?: string;
+    retryCount?: number;
+    nextRetryAt?: number;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -63,6 +71,7 @@ export interface SyncQueueItemV2 {
 export interface SyncMeta {
     id: string;           // Имя таблицы (первичный ключ)
     lastPulledAt: number; // Unix ms последнего успешного pull
+    backendId?: number;
 }
 
 /**
@@ -100,8 +109,8 @@ export class AppDatabase extends Dexie {
     syncQueueV2!: Table<SyncQueueItemV2, string>;
     syncMeta!: Table<SyncMeta, string>;
 
-    constructor() {
-        super('RentalDocsDB');
+    constructor(name = databaseName(currentOwner())) {
+        super(name);
 
         // ── v3–v8: Существующая цепочка (не удалять!) ────────────────────────
         this.version(3).stores({
@@ -129,16 +138,12 @@ export class AppDatabase extends Dexie {
             tools: 'id, name, inventoryNumber, status, updatedAt',
             categories: 'id, name',
             templates: 'id, name, categoryId'
-        }).upgrade(async (tx) => {
-            await tx.table('contracts').clear();
-            await tx.table('syncQueue').clear();
-            await tx.table('clients').clear();
-            await tx.table('tools').clear();
-            await tx.table('categories').clear();
-            await tx.table('templates').clear();
-            localStorage.removeItem('lastSyncTimestamp');
         });
 
+        this.version(5.5).stores({ contractBackup: 'offlineId' }).upgrade(async tx => {
+            const rows = await tx.table('contracts').toArray();
+            await tx.table('contractBackup').bulkPut(rows.map(row => ({ ...row, offlineId: row.offlineId || crypto.randomUUID() })));
+        });
         this.version(6).stores({
             contracts: null,
             syncQueue: '++id, type, offlineId, createdAt',
@@ -146,9 +151,6 @@ export class AppDatabase extends Dexie {
             tools: 'id, name, inventoryNumber, status, updatedAt',
             categories: 'id, name',
             templates: 'id, name, categoryId'
-        }).upgrade((tx) => {
-            tx.table('syncQueue').clear();
-            localStorage.removeItem('lastSyncTimestamp');
         });
 
         this.version(7).stores({
@@ -160,6 +162,10 @@ export class AppDatabase extends Dexie {
             templates: 'id, name, categoryId'
         });
 
+        this.version(7.5).stores({ contractBackup: 'offlineId' }).upgrade(async tx => {
+            const rows = await tx.table('contractBackup').toArray();
+            await tx.table('contracts').bulkPut(rows);
+        });
         this.version(8).stores({
             contracts: 'offlineId, id, clientId, toolId, status, syncStatus, updatedAt',
             syncQueue: '++id, type, offlineId, createdAt',
@@ -184,7 +190,15 @@ export class AppDatabase extends Dexie {
             syncQueueV2: 'id, entityTable, entityId, status, createdAt, nextRetryAt',
             syncMeta: 'id'
         });
+        this.version(10).stores({ contractBackup: 'offlineId', recovery: 'key' });
     }
 }
 
-export const db = new AppDatabase();
+export let db = new AppDatabase();
+export async function switchAccountDatabase(owner: string | null): Promise<void> {
+    const name = databaseName(owner);
+    if (db.name === name) return;
+    db.close();
+    db = new AppDatabase(name);
+    await db.open();
+}

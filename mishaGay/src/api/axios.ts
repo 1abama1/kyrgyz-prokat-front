@@ -1,12 +1,13 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import { API_BASE_URL } from "../utils/constants";
-import { getAccessToken, getRefreshToken, setTokens, clearTokens } from "../utils/auth";
+import { getAccessToken, getRefreshToken, setTokens, clearTokens, getSessionEpoch } from "../utils/auth";
 import { RefreshResponse } from "../types/api.types";
 import { isNetworkError } from "../utils/networkError";
 
 // Создаём axios instance
 export const api = axios.create({
   baseURL: API_BASE_URL,
+  timeout: 30000,
   headers: {
     "Content-Type": "application/json",
   },
@@ -37,17 +38,22 @@ const processQueue = (error: unknown | null, token: string | null = null) => {
 declare module 'axios' {
   export interface AxiosRequestConfig {
     skipAuth?: boolean;
+    sessionEpoch?: number;
   }
   export interface InternalAxiosRequestConfig {
     skipAuth?: boolean;
+    sessionEpoch?: number;
   }
 }
 
 // ✅ REQUEST INTERCEPTOR: подставляем access token в каждый запрос
 api.interceptors.request.use(
   (config) => {
+    config.sessionEpoch ??= getSessionEpoch();
+    if (config.sessionEpoch !== getSessionEpoch()) return Promise.reject(new Error("Сессия изменилась"));
     // Если skipAuth установлен, не добавляем Authorization заголовок
     if (config.skipAuth) {
+      delete config.headers.Authorization;
       return config;
     }
 
@@ -55,6 +61,8 @@ api.interceptors.request.use(
 
     if (accessToken) {
       config.headers.Authorization = `Bearer ${accessToken}`;
+    } else {
+      delete config.headers.Authorization;
     }
 
     return config;
@@ -75,6 +83,7 @@ const redirectToLogin = () => {
 // ✅ RESPONSE INTERCEPTOR: обрабатываем 401/403 и автоматически refresh токена
 api.interceptors.response.use(
   (response) => {
+    if (response.config.sessionEpoch !== getSessionEpoch()) return Promise.reject(new Error("Сессия изменилась"));
     // Успешный запрос означает, что сервер доступен
     import('../store/networkStore').then(({ networkStore }) => {
       if (networkStore.isManualOffline) {
@@ -98,8 +107,9 @@ api.interceptors.response.use(
     }
 
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+    if (originalRequest?.sessionEpoch !== undefined && originalRequest.sessionEpoch !== getSessionEpoch()) return Promise.reject(error);
     const status = error.response?.status;
-    const isAuthError = status === 401 || status === 403;
+    const isAuthError = status === 401;
 
     const requestUrl = originalRequest?.url || "";
     const fullUrl = originalRequest?.baseURL
@@ -152,15 +162,16 @@ api.interceptors.response.use(
         // Backend принимает refresh token через POST body
         const response = await axios.post<RefreshResponse>(`${API_BASE_URL}/api/auth/refresh`, {
           refreshToken,
-        });
+        }, { timeout: 30000 });
 
         const { accessToken, refreshToken: newRefreshToken } = response.data;
 
+        if (originalRequest.sessionEpoch !== getSessionEpoch() || getRefreshToken() !== refreshToken) throw new Error("Сессия изменилась");
         // ✅ Сохраняем новые токены
         setTokens(accessToken, newRefreshToken);
 
         // Обновляем дефолтный заголовок
-        api.defaults.headers.common.Authorization = `Bearer ${accessToken}`;
+        delete api.defaults.headers.common.Authorization;
 
         // Обрабатываем очередь успешно
         processQueue(null, accessToken);
@@ -173,6 +184,7 @@ api.interceptors.response.use(
         processQueue(err, null);
 
         // ❗ Если это ошибка сети (сервер недоступен или оффлайн), НЕ разлогиниваем!
+        if (originalRequest.sessionEpoch !== getSessionEpoch()) return Promise.reject(err);
         if (!isNetworkError(err)) {
           // Refresh token действительно просрочен/отклонен сервером → logout
           console.warn("Failed to refresh token, redirecting to login:", err);

@@ -1,3 +1,5 @@
+const security = require('../electron/security.cjs');
+const { pathToFileURL } = require('node:url');
 const { app, BrowserWindow, Menu, ipcMain, shell } = require("electron");
 const path = require("path");
 const fs = require("fs");
@@ -44,6 +46,18 @@ log.info("GPU hardware acceleration disabled");
 
 let mainWindow = null;
 
+const expectedRendererUrl = () => process.env.NODE_ENV === 'development' && !app.isPackaged
+  ? 'http://localhost:5173/' : pathToFileURL(path.join(__dirname, '../dist/index.html')).href;
+const registerHandle = ipcMain.handle.bind(ipcMain);
+ipcMain.handle = (channel, listener) => registerHandle(channel, (event, ...args) => {
+  security.trustedSender(event, mainWindow, expectedRendererUrl());
+  return listener(event, ...args);
+});
+const registerOn = ipcMain.on.bind(ipcMain);
+ipcMain.on = (channel, listener) => registerOn(channel, (event, ...args) => {
+  try { security.trustedSender(event, mainWindow, expectedRendererUrl()); listener(event, ...args); }
+  catch (error) { log.warn('Rejected IPC event', channel); }
+});
 // Папка для хранения Excel-договоров
 const getContractsDir = () => {
   const contractsDir = path.join(
@@ -67,7 +81,7 @@ console.log("🔥 Registering IPC handlers...");
 ipcMain.handle("contract-exists", async (_, filename) => {
   log.info(`[IPC] Вызов contract-exists для файла: ${filename}`);
   const contractsDir = getContractsDir();
-  const filePath = path.join(contractsDir, filename);
+  const filePath = security.contractPath(contractsDir, filename);
 
   if (fs.existsSync(filePath)) {
     log.info(`🔥 Contract file exists: ${filePath}`);
@@ -81,9 +95,9 @@ ipcMain.handle("save-contract-excel", async (_, { buffer, filename }) => {
   log.info(`[IPC] Вызов save-contract-excel: ${filename} (размер: ${buffer.byteLength} байт)`);
 
   const contractsDir = getContractsDir();
-  const filePath = path.join(contractsDir, filename);
+  const filePath = security.contractPath(contractsDir, filename);
 
-  fs.writeFileSync(filePath, Buffer.from(buffer));
+  fs.writeFileSync(filePath, security.excelBuffer(buffer));
   log.info(`✅ Excel file saved successfully: ${filePath}`);
 
   return filePath;
@@ -91,17 +105,17 @@ ipcMain.handle("save-contract-excel", async (_, { buffer, filename }) => {
 
 ipcMain.handle("open-contract-excel", async (_, filePath) => {
   log.info(`[IPC] Вызов open-contract-excel для пути: ${filePath}`);
-  return shell.openPath(filePath);
+  return shell.openPath(security.existingContractPath(getContractsDir(), filePath));
 });
 
 ipcMain.handle("show-item-in-folder", async (_, filePath) => {
   log.info(`[IPC] Вызов show-item-in-folder для пути: ${filePath}`);
-  shell.showItemInFolder(filePath);
+  shell.showItemInFolder(security.existingContractPath(getContractsDir(), filePath));
 });
 
 ipcMain.handle("open-external-url", async (_, url) => {
   log.info(`[IPC] Открытие внешней ссылки: ${url}`);
-  await shell.openExternal(url);
+  await shell.openExternal(security.externalUrl(url));
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -224,7 +238,7 @@ ipcMain.handle("generate-offline-excel", async (_, { contractData, filename }) =
   }
 
   const contractsDir = getContractsDir();
-  const filePath = path.join(contractsDir, filename);
+  const filePath = security.contractPath(contractsDir, filename);
 
   await workbook.toFileAsync(filePath);
   log.info(`✅ Offline Excel saved: ${filePath}`);
@@ -236,7 +250,7 @@ console.log("🔥 IPC handlers registered successfully");
 
 // Прием логов из фронтенда
 ipcMain.on("log-to-file", (event, level, message) => {
-  if (log[level]) {
+  if (['info', 'warn', 'error'].includes(level) && typeof message === 'string' && message.length <= 10000) {
     log[level](`[Renderer] ${message}`);
   } else {
     log.info(`[Renderer] ${message}`);
@@ -252,7 +266,8 @@ function createWindow() {
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      sandbox: true
     },
     icon: path.join(__dirname, "../src/assets/logo.png")
   });
@@ -261,7 +276,7 @@ function createWindow() {
   Menu.setApplicationMenu(null);
 
   // Development URL или production build
-  if (process.env.NODE_ENV === "development") {
+  if (process.env.NODE_ENV === "development" && !app.isPackaged) {
     mainWindow.loadURL("http://localhost:5173");
     mainWindow.webContents.openDevTools();
   } else {
@@ -272,10 +287,11 @@ function createWindow() {
     });
   }
 
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    if (url.split('#')[0] !== expectedRendererUrl().split('#')[0]) event.preventDefault();
+  });
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith("http:") || url.startsWith("https:")) {
-      shell.openExternal(url);
-    }
+    try { void shell.openExternal(security.externalUrl(url)); } catch { /* Deny unsafe protocols. */ }
     return { action: "deny" };
   });
 

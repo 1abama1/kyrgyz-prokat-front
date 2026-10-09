@@ -22,7 +22,7 @@ const raiseClientError = async (response: Response): Promise<never> => {
         ...data,
         status: data?.status ?? response.status
       };
-      throw error;
+      return Promise.reject(error);
     } catch {
       const fallback: BackendError = {
         message: raw,
@@ -40,14 +40,15 @@ const raiseClientError = async (response: Response): Promise<never> => {
 };
 
 export async function getClientCard(clientId: number): Promise<ClientCard> {
+const requestDb = db;
   if (!clientId || isNaN(clientId) || clientId <= 0) {
     throw new Error("Invalid client id: id must be a positive number");
   }
 
   if (networkStore.isOffline) {
-    const client = await db.clients.get(Number(clientId));
+    const client = await requestDb.clients.get(Number(clientId));
     if (!client) throw new Error("Клиент не найден в офлайн-режиме");
-    const allContracts = await db.contracts.toArray();
+    const allContracts = await requestDb.contracts.toArray();
     const activeContracts = allContracts.filter(c => 
       ((c.clientId && Number(c.clientId) === Number(clientId)) || (Array.isArray(client.documents) && client.documents.some((d: any) => d.id === c.id))) &&
       c.status === 'ACTIVE'
@@ -81,12 +82,13 @@ export async function getClientCard(clientId: number): Promise<ClientCard> {
  * GET /api/admin/clients/{clientId}/contracts/active
  */
 export async function getActiveContracts(clientId: number): Promise<any[]> {
+const requestDb = db;
   if (!clientId || isNaN(clientId) || clientId <= 0) {
     throw new Error("Invalid client id: id must be a positive number");
   }
 
   if (networkStore.isOffline) {
-    const allContracts = await db.contracts.toArray();
+    const allContracts = await requestDb.contracts.toArray();
     return allContracts.filter(c => 
       (c.clientId && Number(c.clientId) === Number(clientId)) &&
       c.status === 'ACTIVE'
@@ -107,8 +109,9 @@ export async function getActiveContracts(clientId: number): Promise<any[]> {
 
 export const clientsAPI = {
   getAll: async (): Promise<Client[]> => {
+const requestDb = db;
     if (networkStore.isOffline) {
-      return await db.clients.toArray();
+      return await requestDb.clients.toArray();
     }
 
     try {
@@ -117,13 +120,13 @@ export const clientsAPI = {
       if (Array.isArray(list) && list.length > 0) {
         // ✅ bulkPut = upsert — НЕ удаляем существующие записи перед обновлением.
         // Если сеть упала между clear() и bulkPut() — локальная БД была бы пустой.
-        await db.clients.bulkPut(list).catch(err => console.warn("Failed to cache clients to Dexie", err));
+        await requestDb.clients.bulkPut(list).catch(err => console.warn("Failed to cache clients to Dexie", err));
       }
       return list;
     } catch (err: any) {
       console.warn("Failed to fetch clients, falling back to offline", err);
       networkStore.setManualOffline(true);
-      return await db.clients.toArray();
+      return await requestDb.clients.toArray();
     }
   },
   getCard: (id: number): Promise<ClientCard> => {
@@ -133,17 +136,18 @@ export const clientsAPI = {
     return getClientCard(id);
   },
   getById: async (id: number): Promise<Client> => {
+const requestDb = db;
     if (!id || isNaN(id) || id <= 0) {
       return Promise.reject(new Error("Invalid client id: id must be a positive number"));
     }
     if (networkStore.isOffline) {
-      const local = await db.clients.get(id);
+      const local = await requestDb.clients.get(id);
       if (local) return local;
       throw new Error("Клиент не найден локально в офлайн-режиме");
     }
     const client = await apiCall<Client>(`/api/admin/clients/${id}`);
     if (client) {
-      db.clients.put(client).catch(() => {});
+      requestDb.clients.put(client).catch(() => {});
     }
     return client;
   },
@@ -154,6 +158,7 @@ export const clientsAPI = {
     return getActiveContracts(clientId);
   },
   create: async (clientData: CreateClientDto): Promise<Client> => {
+const requestDb = db;
     if (networkStore.isOffline) {
       const localId = Date.now(); // Safe positive ID for local offline usage
       const newClient = {
@@ -163,8 +168,8 @@ export const clientsAPI = {
         updatedAt: new Date().toISOString()
       } as Client;
 
-      await db.transaction('rw', [db.clients, db.syncQueueV2], async () => {
-        await db.clients.put(newClient);
+      await requestDb.transaction('rw', [requestDb.clients, requestDb.syncQueueV2], async () => {
+        await requestDb.clients.put(newClient);
         await syncManager.enqueueV2({
           operation: 'create',
           entityTable: 'clients',
@@ -181,7 +186,7 @@ export const clientsAPI = {
       method: "POST",
       body: clientData
     });
-    await db.clients.put(res).catch(() => {});
+    await requestDb.clients.put(res).catch(() => {});
     return res;
   },
   uploadImages: (clientId: number, files: File[]): Promise<void> => {
@@ -204,12 +209,13 @@ export const clientsAPI = {
     return apiCall<Client>(`/api/admin/clients/${id}`);
   },
   update: async (id: number, clientData: CreateClientDto): Promise<Client> => {
+const requestDb = db;
     if (!id || isNaN(id) || id <= 0) {
       return Promise.reject(new Error("Invalid client id: id must be a positive number"));
     }
     
     if (networkStore.isOffline) {
-      const existing = await db.clients.get(id);
+      const existing = await requestDb.clients.get(id);
       if (!existing) throw new Error("Клиент не найден в локальной базе");
       
       const updatedClient = {
@@ -218,8 +224,8 @@ export const clientsAPI = {
         updatedAt: new Date().toISOString()
       } as Client;
 
-      await db.transaction('rw', [db.clients, db.syncQueueV2], async () => {
-        await db.clients.put(updatedClient);
+      await requestDb.transaction('rw', [requestDb.clients, requestDb.syncQueueV2], async () => {
+        await requestDb.clients.put(updatedClient);
         await syncManager.enqueueV2({
           operation: 'update',
           entityTable: 'clients',
@@ -236,7 +242,7 @@ export const clientsAPI = {
       method: "PUT",
       body: clientData
     });
-    await db.clients.put(res).catch(() => {});
+    await requestDb.clients.put(res).catch(() => {});
     return res;
   },
   delete: (id: number): Promise<void> => {

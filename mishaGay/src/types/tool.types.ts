@@ -8,6 +8,9 @@ export interface ToolTemplate {
   name: string;
   categoryId: string;
   categoryName?: string;
+  dailyRentalPrice?: number;
+  depositAmount?: number;
+  purchasePrice?: number;
 }
 
 export type ToolStatus =

@@ -1,581 +1,259 @@
-import { db } from './db';
+import { db, type SyncAction, type SyncQueueItemV2, type LocalContract } from './db';
 import { api } from '../api/axios';
 import { networkStore } from '../store/networkStore';
-import type { SyncQueueItemV2, SyncQueueStatus } from './db';
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Конфигурация
-// ─────────────────────────────────────────────────────────────────────────────
-
-const RETRY_CONFIG = {
-    BASE_DELAY_MS: 1_000,
-    MAX_DELAY_MS: 5 * 60 * 1_000,  // 5 минут
-    MAX_RETRIES: 5,
-    SYNC_INTERVAL_MS: 60_000,       // pull каждые 60 сек
-} as const;
-
-function calcNextRetryAt(retryCount: number): number {
-    const delay = Math.min(
-        RETRY_CONFIG.BASE_DELAY_MS * Math.pow(2, retryCount),
-        RETRY_CONFIG.MAX_DELAY_MS,
-    );
-    // Jitter ±15% — предотвращает thundering herd
-    const jitter = delay * 0.15 * (Math.random() * 2 - 1);
-    return Date.now() + delay + jitter;
-}
-
-function isRetryableHttpStatus(status: number): boolean {
-    return status === 429 || status >= 500;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Публичный статус синхронизации (для хуков / SyncStatus компонента)
-// ─────────────────────────────────────────────────────────────────────────────
+import { tokenSubject, databaseName, currentOwner } from './account';
+import { businessDateTime } from '../utils/businessDateTime';
 
 export interface SyncManagerState {
-    isOnline: boolean;
-    isSyncing: boolean;
-    pendingCount: number;
-    failedCount: number;
-    lastSyncAt: number | null;
-    lastError: string | null;
+  isOnline: boolean; isSyncing: boolean; pendingCount: number; failedCount: number;
+  lastSyncAt: number | null; lastError: string | null;
 }
-
-type StateListener = (state: SyncManagerState) => void;
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SyncManager
-// ─────────────────────────────────────────────────────────────────────────────
+type Row = Record<string, any>;
+interface PullResponse {
+  fullSyncRequired?: boolean; fullSnapshot?: boolean; serverTimestamp: string;
+  clients: Row[]; tools: Row[]; categories: Row[]; templates: Row[];
+  contracts: Row[]; deletedClientIds?: number[]; deletedToolIds?: number[];
+  deletedCategoryIds?: string[]; deletedTemplateIds?: string[]; deletedContractIds?: number[];
+}
+const errorStatus = (error: unknown): number | undefined => (error as { response?: { status?: number } })?.response?.status;
+const message = (error: unknown): string => (error as { response?: { data?: { message?: string } } })?.response?.data?.message
+  ?? (error instanceof Error ? error.message : 'Ошибка синхронизации');
+const retryAt = (count: number) => Date.now() + Math.min(300_000, 1000 * 2 ** Math.min(count, 9));
 
 class SyncManager {
-    private isSyncing = false;
-    private pullTimer: ReturnType<typeof setInterval> | null = null;
+  private running: Promise<void> | null = null;
+  private paused = false;
+  private controller = new AbortController();
+  private listeners = new Set<(state: SyncManagerState) => void>();
+  private state: SyncManagerState = { isOnline: !networkStore.isOffline, isSyncing: false,
+    pendingCount: 0, failedCount: 0, lastSyncAt: null, lastError: null };
 
-    private state: SyncManagerState = {
-        isOnline: !networkStore.isOffline,
-        isSyncing: false,
-        pendingCount: 0,
-        failedCount: 0,
-        lastSyncAt: null,
-        lastError: null,
-    };
-    private listeners = new Set<StateListener>();
-
-    constructor() {
-        // ── Подписки на сетевые события ─────────────────────────────────────
-        window.addEventListener('online', this.handleNetworkChange);
-        window.addEventListener('offline', this.handleNetworkChange);
-
-        // ── Подписка на ручной toggle offline-режима ─────────────────────────
-        networkStore.subscribe(() => {
-            this.updateState({ isOnline: !networkStore.isOffline });
-            if (!networkStore.isOffline) {
-                void this.sync();
-            }
-        });
-
-        // ── Первоначальный запуск ─────────────────────────────────────────────
-        void this.sync();
-        this.startPullInterval();
+  constructor() {
+    networkStore.subscribe(() => {
+      this.updateState({ isOnline: !networkStore.isOffline });
+      if (!networkStore.isOffline) void this.sync();
+    });
+    window.addEventListener('online', () => void this.sync());
+    setInterval(() => void this.sync(), 60_000);
+  }
+  subscribe(listener: (state: SyncManagerState) => void): () => void {
+    this.listeners.add(listener); return () => { this.listeners.delete(listener); };
+  }
+  getState(): SyncManagerState { return this.state; }
+  async stop(): Promise<void> {
+    this.paused = true; this.controller.abort();
+    await this.running;
+    this.updateState({ isSyncing: false, lastSyncAt: null, lastError: null, pendingCount: 0, failedCount: 0 });
+  }
+  resume(): void { this.controller = new AbortController(); this.paused = false; void this.sync(); }
+  syncNow(): Promise<void> { return this.sync(); }
+  sync(): Promise<void> {
+    if (this.running) return this.running;
+    if (databaseName(currentOwner()) !== db.name || this.paused || networkStore.isOffline || !tokenSubject(localStorage.getItem('accessToken'))) return Promise.resolve();
+    this.running = this.run().finally(() => { this.running = null; });
+    return this.running;
+  }
+  private async run(): Promise<void> {
+    this.updateState({ isSyncing: true, lastError: null });
+    try {
+      const work = async () => {
+        if (this.paused) return;
+        await this.pushClients();
+        await this.pushContracts();
+        if (!this.paused) await this.pull();
+      };
+      if (navigator.locks) await navigator.locks.request(`sync:${db.name}`, { signal: this.controller.signal }, work);
+      else await work();
+      if (!this.paused) this.updateState({ lastSyncAt: Date.now() });
+    } catch (error) {
+      if (!this.paused) this.updateState({ lastError: message(error) });
+    } finally {
+      if (!this.paused) {
+        const legacy = await db.syncQueue.toArray();
+        const v2 = await db.syncQueueV2.toArray();
+        this.updateState({ pendingCount: legacy.filter(x => x.status !== 'failed').length + v2.filter(x => x.status !== 'done' && x.status !== 'failed').length,
+          failedCount: legacy.filter(x => x.status === 'failed').length + v2.filter(x => x.status === 'failed').length });
+      }
+      this.updateState({ isSyncing: false });
     }
-
-    // ── Публичный API ─────────────────────────────────────────────────────────
-
-    /** Форсированный запуск синхронизации (кнопка "Синк" в UI) */
-    async syncNow(): Promise<void> {
-        return this.sync();
-    }
-
-    /** Подписка на изменения состояния. Возвращает функцию отписки. */
-    subscribe(listener: StateListener): () => void {
-        this.listeners.add(listener);
-        return () => this.listeners.delete(listener);
-    }
-
-    getState(): SyncManagerState {
-        return this.state;
-    }
-
-    // ── Legacy enqueue (обратная совместимость) ───────────────────────────────
-
-    async enqueueCreation(payload: any, offlineId: string): Promise<void> {
-        await db.syncQueue.add({
-            type: 'CREATE_CONTRACT',
-            payload,
-            offlineId,
-            createdAt: Date.now()
-        });
-        setTimeout(() => void this.sync(), 0);
-    }
-
-    async enqueueUpdate(id: number | undefined, offlineId: string, payload: any): Promise<void> {
-        await db.syncQueue.add({
-            type: 'UPDATE_CONTRACT',
-            payload: { ...payload, id },
-            offlineId,
-            createdAt: Date.now()
-        });
-        setTimeout(() => void this.sync(), 0);
-    }
-
-    async enqueueClosure(id: number | undefined, offlineId: string, payload: any): Promise<void> {
-        await db.syncQueue.add({
-            type: 'CLOSE_CONTRACT',
-            payload: { ...payload, id },
-            offlineId,
-            createdAt: Date.now()
-        });
-        setTimeout(() => void this.sync(), 0);
-    }
-
-    // ── V2 enqueue с retry-поддержкой ────────────────────────────────────────
-
-    /**
-     * Добавить операцию в расширенную очередь syncQueueV2.
-     * Вызывать ВНУТРИ транзакции Dexie вместе с основной мутацией сущности.
-     */
-    async enqueueV2(
-        item: Omit<SyncQueueItemV2, 'id' | 'createdAt' | 'retryCount' | 'nextRetryAt' | 'status'>
-    ): Promise<string> {
-        const id = crypto.randomUUID();
-        const queueItem: SyncQueueItemV2 = {
-            ...item,
-            id,
-            createdAt: Date.now(),
-            retryCount: 0,
-            nextRetryAt: Date.now(),
-            status: 'pending',
-        };
-        await db.syncQueueV2.add(queueItem);
-        setTimeout(() => void this.sync(), 0);
-        return id;
-    }
-
-    // ── Основной цикл ─────────────────────────────────────────────────────────
-
-    async sync(): Promise<void> {
-        if (this.isSyncing || !navigator.onLine) return;
-        this.isSyncing = true;
-        this.updateState({ isSyncing: true, lastError: null });
-
-        try {
-            await this.pushLegacyQueue();
-            await this.pushV2Queue();
-            await this.pull();
-
-            await this.refreshCounts();
-            this.updateState({ lastSyncAt: Date.now() });
-        } catch (error) {
-            const msg = error instanceof Error ? error.message : String(error);
-            console.error('[SyncManager] Sync cycle error:', msg);
-            this.updateState({ lastError: msg });
-        } finally {
-            this.isSyncing = false;
-            this.updateState({ isSyncing: false });
-        }
-    }
-
-    // ── Legacy push ───────────────────────────────────────────────────────────
-
-    private async pushLegacyQueue(): Promise<void> {
-        let queue = await db.syncQueue.toArray();
-
-        // 🔍 Проверяем локальные договоры, которые еще не имеют ID на сервере
-        const pendingContracts = await db.contracts.filter(c => c.syncStatus === 'pending' || !c.id).toArray();
-        for (const c of pendingContracts) {
-            const alreadyInQueue = queue.some(q => q.offlineId === c.offlineId);
-            if (!alreadyInQueue && c.offlineId) {
-                const item = {
-                    type: 'CREATE_CONTRACT' as const,
-                    payload: {
-                        clientId: c.clientId,
-                        toolId: c.toolId,
-                        toolIds: c.toolId ? [c.toolId] : [],
-                        contractNumber: c.contractNumber
-                    },
-                    offlineId: c.offlineId,
-                    createdAt: c.updatedAt || Date.now()
-                };
-                const id = await db.syncQueue.add(item);
-                queue.push({ ...item, id });
-            }
-        }
-
-        if (queue.length === 0) return;
-
-        console.log(`[SyncManager] Legacy push: ${queue.length} items`);
-
-        const creations = queue.filter(a => a.type === 'CREATE_CONTRACT').map(a => {
-            const payload = a.payload || {};
-            const toolId = payload.toolId || (payload.toolIds && payload.toolIds.length > 0 ? payload.toolIds[0] : undefined);
-            const toolIds = payload.toolIds || (payload.toolId ? [payload.toolId] : undefined);
-            return {
-                ...payload,
-                toolId,
-                toolIds,
-                offlineId: a.offlineId
-            };
-        });
-        const updates   = queue.filter(a => a.type === 'UPDATE_CONTRACT').map(a => ({ ...a.payload, offlineId: a.offlineId }));
-        const closures  = queue.filter(a => a.type === 'CLOSE_CONTRACT').map(a => ({ ...a.payload, offlineId: a.offlineId }));
-
-        try {
-            const response = await api.post('/api/v1/sync/contracts', { creations, updates, closures });
-            const result = response.data;
-
-            if (result.idMappings) {
-                await db.transaction('rw', db.contracts, async () => {
-                    for (const mapping of result.idMappings) {
-                        await db.contracts.update(mapping.offlineId, {
-                            id: mapping.backendId,
-                            contractNumber: mapping.contractNumber,
-                            syncStatus: 'synced'
-                        });
-                    }
-                });
-            }
-
-            const others = queue.filter(a => a.type !== 'CREATE_CONTRACT');
-            for (const action of others) {
-                await db.contracts
-                    .where('offlineId').equals(action.offlineId)
-                    .modify({ syncStatus: 'synced' });
-            }
-
-            const idsToRemove = queue.map(q => q.id).filter((id): id is number => id !== undefined);
-            await db.syncQueue.bulkDelete(idsToRemove);
-
-            console.log('[SyncManager] Legacy push completed.');
-        } catch (error: any) {
-            console.error('[SyncManager] Legacy bulk push failed:', error);
-            const status = error.response?.status;
-
-            if (status >= 400 && status < 500) {
-                // Fallback: поэлементно, чтобы изолировать невалидные записи
-                await this.pushLegacyItemByItem(queue);
-            }
-            // 5xx / сеть — просто ждём следующего цикла
-        }
-    }
-
-    private async pushLegacyItemByItem(queue: any[]): Promise<void> {
-        for (const action of queue) {
-            try {
-                const payload = {
-                    creations: action.type === 'CREATE_CONTRACT' ? [{
-                        ...action.payload,
-                        toolId: action.payload?.toolId || (action.payload?.toolIds && action.payload?.toolIds.length > 0 ? action.payload?.toolIds[0] : undefined),
-                        toolIds: action.payload?.toolIds || (action.payload?.toolId ? [action.payload?.toolId] : undefined),
-                        offlineId: action.offlineId
-                    }] : [],
-                    updates:   action.type === 'UPDATE_CONTRACT' ? [{ ...action.payload, offlineId: action.offlineId }] : [],
-                    closures:  action.type === 'CLOSE_CONTRACT'  ? [{ ...action.payload, offlineId: action.offlineId }] : []
-                };
-                const res = await api.post('/api/v1/sync/contracts', payload);
-                const resData = res.data;
-
-                if (resData.idMappings?.length > 0) {
-                    const mapping = resData.idMappings[0];
-                    await db.transaction('rw', db.contracts, async () => {
-                        await db.contracts.update(mapping.offlineId, {
-                            id: mapping.backendId,
-                            contractNumber: mapping.contractNumber,
-                            syncStatus: 'synced'
-                        });
-                    });
-                } else if (action.type !== 'CREATE_CONTRACT') {
-                    await db.contracts.where('offlineId').equals(action.offlineId).modify({ syncStatus: 'synced' });
-                }
-
-                if (action.id !== undefined) {
-                    await db.syncQueue.delete(action.id);
-                }
-            } catch (itemError: any) {
-                console.error(`[SyncManager] Item ${action.id} push failed:`, itemError);
-                const itemStatus = itemError.response?.status;
-                // 4xx (кроме 429) — невалидные данные, удаляем из очереди чтобы не блокировать
-                if (itemStatus >= 400 && itemStatus < 500 && itemStatus !== 429) {
-                    console.warn(`[SyncManager] Dropping invalid item ${action.id} (HTTP ${itemStatus})`);
-                    if (action.id !== undefined) await db.syncQueue.delete(action.id);
-                }
-                // 5xx / 429 / сеть — оставляем для следующего retry
-            }
-        }
-    }
-
-    // ── V2 push с exponential backoff ────────────────────────────────────────
-
-    private async pushV2Queue(): Promise<void> {
-        const now = Date.now();
-        const items = await db.syncQueueV2
-            .where('status').anyOf(['pending', 'processing'])
-            .and(item => item.nextRetryAt <= now)
-            .sortBy('createdAt');
-
-        if (items.length === 0) return;
-        console.log(`[SyncManager] V2 push: ${items.length} items`);
-
-        for (const item of items) {
-            await this.pushV2Item(item);
-        }
-    }
-
-    private async pushV2Item(item: SyncQueueItemV2): Promise<void> {
-        await db.syncQueueV2.update(item.id, { status: 'processing' as SyncQueueStatus });
-
-        try {
-            const response = await api.request({
-                url: item.endpoint,
-                method: item.method,
-                data: item.operation !== 'delete' ? item.payload : undefined,
+  }
+  async retryFailed(): Promise<void> {
+    await db.transaction('rw', db.syncQueue, db.syncQueueV2, async () => {
+      await db.syncQueue.toCollection().modify({ status: 'pending', nextRetryAt: 0 });
+      await db.syncQueueV2.where('status').equals('failed').modify({ status: 'pending', nextRetryAt: 0 });
+    });
+    await this.sync();
+  }
+  async enqueueCreation(payload: Row, offlineId: string): Promise<void> { await this.enqueue('CREATE_CONTRACT', payload, offlineId); }
+  async enqueueUpdate(id: number | undefined, offlineId: string, payload: Row): Promise<void> { await this.enqueue('UPDATE_CONTRACT', { ...payload, id }, offlineId); }
+  async enqueueClosure(id: number | undefined, offlineId: string, payload: Row): Promise<void> { await this.enqueue('CLOSE_CONTRACT', { ...payload, id }, offlineId); }
+  private async enqueue(type: SyncAction['type'], payload: Row, offlineId: string): Promise<void> {
+    await db.syncQueue.add({ type, payload, offlineId, operationId: crypto.randomUUID(), status: 'pending', createdAt: Date.now() });
+    setTimeout(() => void this.sync(), 0);
+  }
+  async enqueueV2(item: Omit<SyncQueueItemV2, 'id' | 'createdAt' | 'retryCount' | 'nextRetryAt' | 'status'>): Promise<string> {
+    const id = crypto.randomUUID();
+    await db.syncQueueV2.add({ ...item, id, createdAt: Date.now(), retryCount: 0, nextRetryAt: 0, status: 'pending' });
+    setTimeout(() => void this.sync(), 0); return id;
+  }
+  private async pushClients(): Promise<void> {
+    const items = await db.syncQueueV2.orderBy('createdAt').toArray();
+    const blocked = new Set<string>();
+    for (const item of items) {
+      if (item.status === 'done') continue;
+      if (this.paused) return;
+      if (blocked.has(item.entityId)) continue;
+      if (item.status === 'failed' || item.nextRetryAt > Date.now()) { blocked.add(item.entityId); continue; }
+      if (item.entityTable !== 'clients') {
+        await db.syncQueueV2.update(item.id, { status: 'failed', error: 'Неподдерживаемая старая операция: сохранена для ручного восстановления' });
+        blocked.add(item.entityId); continue;
+      }
+      try {
+        const response = await api.request<Row>({ url: item.endpoint, method: item.method,
+          data: item.payload, headers: { 'Idempotency-Key': item.id }, signal: this.controller.signal });
+        if (this.paused) return;
+        await db.transaction('rw', [db.clients, db.contracts, db.syncQueue, db.syncQueueV2, db.syncMeta], async () => {
+          const oldId = Number(item.entityId);
+          const later = await db.syncQueueV2.filter(q => q.entityTable === 'clients' && q.entityId === item.entityId && q.id !== item.id).count();
+          if (item.operation === 'create') {
+            if (!Number.isSafeInteger(response.data.id)) throw new Error('Сервер не вернул ID клиента');
+            const newId = response.data.id as number;
+            const local = await db.clients.get(oldId);
+            await db.clients.delete(oldId);
+            await db.clients.put({ ...response.data, ...(later ? local : {}), id: newId } as any);
+            await db.syncMeta.put({ id: `client:${oldId}`, backendId: newId, lastPulledAt: Date.now() });
+            await db.contracts.where('clientId').equals(oldId).modify({ clientId: newId });
+            await db.syncQueue.toCollection().modify(q => { if (q.payload?.clientId === oldId) q.payload.clientId = newId; });
+            await db.syncQueueV2.toCollection().modify(q => {
+              if (q.id !== item.id && q.entityTable === 'clients' && q.entityId === item.entityId) {
+                q.entityId = String(newId); q.endpoint = `/api/admin/clients/${newId}`;
+              }
             });
-
-            // Успех — обновляем сущность данными с сервера и удаляем из очереди
-            await db.transaction('rw', [db.syncQueueV2, db.contracts, db.clients], async () => {
-                if (item.operation !== 'delete' && response.data) {
-                    if (item.entityTable === 'contracts') {
-                        await db.contracts.update(item.entityId as any, {
-                            ...response.data,
-                            syncStatus: 'synced',
-                        });
-                    } else if (item.entityTable === 'clients') {
-                        if (item.operation === 'create') {
-                            await db.clients.delete(Number(item.entityId));
-                            await db.clients.put(response.data);
-                        } else {
-                            await db.clients.update(Number(item.entityId), response.data);
-                        }
-                    }
-                } else if (item.operation === 'delete') {
-                    if (item.entityTable === 'contracts') {
-                        await db.contracts.delete(item.entityId as any);
-                    } else if (item.entityTable === 'clients') {
-                        await db.clients.delete(Number(item.entityId));
-                    }
-                }
-                await db.syncQueueV2.update(item.id, { status: 'done' as SyncQueueStatus });
-            });
-        } catch (error: any) {
-            const httpStatus = error.response?.status as number | undefined;
-
-            if (httpStatus && !isRetryableHttpStatus(httpStatus)) {
-                // 4xx (кроме 429) — постоянная ошибка, не ретраить
-                await db.syncQueueV2.update(item.id, {
-                    status: 'failed' as SyncQueueStatus,
-                    error: `HTTP ${httpStatus} (non-retryable)`,
-                });
-                console.error(`[SyncManager] V2 item ${item.id} permanently failed: HTTP ${httpStatus}`);
-                return;
-            }
-
-            // Retryable (5xx / 429 / сеть)
-            const newRetryCount = item.retryCount + 1;
-            if (newRetryCount >= RETRY_CONFIG.MAX_RETRIES) {
-                await db.syncQueueV2.update(item.id, {
-                    status: 'failed' as SyncQueueStatus,
-                    error: `Max retries (${RETRY_CONFIG.MAX_RETRIES}) exceeded`,
-                    retryCount: newRetryCount,
-                });
-                console.error(`[SyncManager] V2 item ${item.id} max retries exceeded.`);
-                return;
-            }
-
-            await db.syncQueueV2.update(item.id, {
-                status: 'pending' as SyncQueueStatus,
-                retryCount: newRetryCount,
-                nextRetryAt: calcNextRetryAt(newRetryCount),
-                error: error.message ?? String(error),
-            });
-        }
-    }
-
-    // ── Pull ──────────────────────────────────────────────────────────────────
-
-    async pull(): Promise<void> {
-        if (!navigator.onLine) return;
-        console.log('[SyncManager] Starting pull...');
-
-        try {
-            let lastSyncStr = localStorage.getItem('lastSyncTimestamp');
-            
-            // Migrate old unix timestamp to ISO string if needed
-            if (lastSyncStr && /^\d+$/.test(lastSyncStr)) {
-                lastSyncStr = new Date(parseInt(lastSyncStr, 10)).toISOString();
-                localStorage.setItem('lastSyncTimestamp', lastSyncStr);
-            }
-
-            // ISO 8601 string or empty if first sync
-            const sinceQuery = lastSyncStr ? `&since=${lastSyncStr}` : '';
-            const branchId = localStorage.getItem('branchId') || '1'; // Fallback to 1 if not set
-
-            const response = await api.get(`/api/v1/sync/pull?branchId=${branchId}${sinceQuery}`);
-            const data = response.data;
-
-            if (data.fullSyncRequired) {
-                console.warn('[SyncManager] Full sync required (90 days elapsed), clearing DB');
-                await db.clients.clear();
-                await db.tools.clear();
-                await db.categories.clear();
-                await db.templates.clear();
-                await db.contracts.clear();
-                // continue with putting the received data since it acts as a full sync
-            }
-
-            await db.transaction('rw', [db.tools, db.categories, db.templates, db.clients, db.contracts], async () => {
-                // 1. Клиенты
-                if (data.deletedClientIds?.length) {
-                    await db.clients.bulkDelete(data.deletedClientIds);
-                }
-                if (data.clients?.length) {
-                    await db.clients.bulkPut(data.clients);
-                }
-
-                // 2. Инструменты (tools)
-                if (data.deletedToolIds?.length) {
-                    await db.tools.bulkDelete(data.deletedToolIds);
-                }
-                if (data.tools?.length) {
-                    const normalizedTools = data.tools.map((t: any) => ({
-                        ...t,
-                        templateId: t.templateId || t.template?.id || t.toolTemplateId
-                    }));
-                    await db.tools.bulkPut(normalizedTools);
-                }
-
-                // 3. Категории и Шаблоны
-                if (data.deletedCategoryIds?.length) {
-                    await db.categories.bulkDelete(data.deletedCategoryIds);
-                }
-                if (data.categories?.length) {
-                    await db.categories.bulkPut(data.categories);
-                }
-                
-                if (data.deletedTemplateIds?.length) {
-                    await db.templates.bulkDelete(data.deletedTemplateIds);
-                }
-                if (data.templates?.length) {
-                    await db.templates.bulkPut(data.templates);
-                }
-                
-                // 4. Контракты (Documents)
-                if (data.deletedContractIds?.length) {
-                    await db.contracts.bulkDelete(data.deletedContractIds);
-                }
-            });
-
-            if (data.documents?.length) {
-                await this.applyPulledContracts(data.documents);
-            }
-
-            if (data.serverTimestamp) {
-                localStorage.setItem('lastSyncTimestamp', data.serverTimestamp);
-            }
-
-            // Обновляем watermark для syncMeta
-            await db.syncMeta.put({ id: 'contracts', lastPulledAt: Date.now() });
-
-            console.log('[SyncManager] Pull completed.');
-        } catch (error: any) {
-            console.error('[SyncManager] Pull error:', error);
-            if (error?.response?.status === 410) {
-                // Gone — 90 days retention hit fallback.
-                // Clear the watermark and return; the next scheduled sync cycle
-                // will run a full pull automatically (no recursive call needed).
-                console.warn('[SyncManager] 410 Gone — resetting sync timestamp for next full pull');
-                localStorage.removeItem('lastSyncTimestamp');
-            }
-        }
-    }
-
-    private async applyPulledContracts(documents: any[]): Promise<void> {
-        // Получаем offlineId всех записей с ожидающими изменениями
-        const pendingQueue = await db.syncQueue.toArray();
-        const pendingOfflineIds = new Set(pendingQueue.map(item => item.offlineId));
-
-        const pendingV2 = await db.syncQueueV2
-            .where('status').anyOf(['pending', 'processing'])
-            .and(item => item.entityTable === 'contracts')
-            .toArray();
-        const pendingV2EntityIds = new Set(pendingV2.map(item => item.entityId));
-
-        for (const doc of documents) {
-            let existing = await db.contracts.where('id').equals(doc.id).first();
-            if (!existing && doc.offlineId) {
-                // Предотвращаем дублирование: если по ID не нашли, но запись создавалась оффлайн (ID не проставился)
-                existing = await db.contracts.where('offlineId').equals(doc.offlineId).first();
-            }
-            
-            const offlineId = existing?.offlineId || doc.offlineId || crypto.randomUUID();
-
-            // Пропускаем записи с ожидающими локальными изменениями (Local-Wins)
-            if (pendingOfflineIds.has(offlineId) || pendingV2EntityIds.has(offlineId)) {
-                console.log(`[SyncManager] Skipping pull for pending contract ${offlineId}`);
-                continue;
-            }
-
-            let clientName = doc.clientName || existing?.clientName;
-            if (!clientName && doc.clientId) {
-                const client = await db.clients.get(doc.clientId);
-                if (client) clientName = client.fullName;
-            }
-
-            let toolName = doc.toolName || existing?.toolName;
-            if (!toolName && doc.toolId) {
-                const tool = await db.tools.get(doc.toolId);
-                if (tool) toolName = tool.name || tool.inventoryNumber;
-            }
-
-            const docUpdatedAt = doc.updatedAt ? new Date(doc.updatedAt).getTime() : 0;
-
-            // Last-Write-Wins по updatedAt
-            if (existing && docUpdatedAt && existing.updatedAt > docUpdatedAt) {
-                console.log(`[SyncManager] Local wins for contract ${offlineId}`);
-                continue;
-            }
-
-            await db.contracts.put({
-                ...existing,
-                ...doc,
-                clientName: clientName || (doc.clientId ? `Клиент #${doc.clientId}` : undefined),
-                toolName:   toolName   || (doc.toolId   ? `Инструмент #${doc.toolId}` : undefined),
-                offlineId,
-                syncStatus: 'synced',
-                updatedAt: docUpdatedAt || Date.now(),
-            });
-        }
-    }
-
-    // ── Утилиты ───────────────────────────────────────────────────────────────
-
-    private async refreshCounts(): Promise<void> {
-        const [pendingLegacy, pendingV2, failedV2] = await Promise.all([
-            db.syncQueue.count(),
-            db.syncQueueV2.where('status').anyOf(['pending', 'processing']).count(),
-            db.syncQueueV2.where('status').equals('failed').count(),
-        ]);
-        this.updateState({
-            pendingCount: pendingLegacy + pendingV2,
-            failedCount: failedV2,
+          } else if (item.operation === 'delete') await db.clients.delete(oldId);
+          else if (!later) await db.clients.update(oldId, response.data);
+          await db.syncQueueV2.delete(item.id);
         });
+        if (item.operation === 'create') blocked.add(item.entityId);
+      } catch (error) {
+        blocked.add(item.entityId);
+        if (this.paused) return;
+        const status = errorStatus(error);
+        if (status === 401 || status === 403) throw error;
+        const permanent = status !== undefined && status >= 400 && status < 500 && status !== 429;
+        await db.syncQueueV2.update(item.id, { status: permanent ? 'failed' : 'pending', error: message(error),
+          retryCount: item.retryCount + 1, nextRetryAt: retryAt(item.retryCount + 1) });
+        this.updateState({ lastError: message(error) });
+      }
     }
-
-    private updateState(patch: Partial<SyncManagerState>): void {
-        this.state = { ...this.state, ...patch };
-        this.listeners.forEach(l => l(this.state));
+  }
+  private async pushContracts(): Promise<void> {
+    const pendingClients = await db.syncQueueV2.toArray();
+    const localClients = new Set(pendingClients.filter(q => q.entityTable === 'clients' && q.operation === 'create').map(q => Number(q.entityId)));
+    const queue = await db.syncQueue.orderBy('createdAt').toArray();
+    const blocked = new Set<string>();
+    for (const queued of queue) {
+      const action = await db.syncQueue.get(queued.id!);
+      if (!action) continue;
+      if (this.paused) return;
+      if (blocked.has(action.offlineId)) continue;
+      if (action.status === 'failed' || (action.nextRetryAt ?? 0) > Date.now() || localClients.has(action.payload?.clientId)) {
+        blocked.add(action.offlineId); continue;
+      }
+      if (action.type === 'CREATE_CONTRACT' && !action.payload.startDateTime) {
+        const local = await db.contracts.get(action.offlineId);
+        if (local?.startDateTime) action.payload.startDateTime = businessDateTime(local.startDateTime);
+      }
+      if (action.payload.actualReturnDate) action.payload.actualReturnDate = businessDateTime(action.payload.actualReturnDate);
+      const operationId = action.operationId ?? crypto.randomUUID();
+      await db.syncQueue.update(action.id!, { operationId, payload: action.payload });
+      const key = action.type === 'CREATE_CONTRACT' ? 'creations' : action.type === 'UPDATE_CONTRACT' ? 'updates' : 'closures';
+      try {
+        const { data } = await api.post('/api/v1/sync/contracts', { [key]: [{ ...action.payload, offlineId: action.offlineId }] },
+          { headers: { 'Idempotency-Key': operationId }, signal: this.controller.signal });
+        if (this.paused) return;
+        const mapping = data.idMappings?.find((x: Row) => x.offlineId === action.offlineId || x.backendId === action.payload.id);
+        if (action.type === 'CREATE_CONTRACT' && !mapping) throw new Error('Не получено подтверждение создания договора');
+        await db.transaction('rw', db.contracts, db.syncQueue, async () => {
+          await db.syncQueue.delete(action.id!);
+          if (mapping?.updatedAt) {
+            await db.syncQueue.where('offlineId').equals(action.offlineId).modify(q => {
+              if (q.payload.expectedUpdatedAt === action.payload.expectedUpdatedAt)
+                q.payload.expectedUpdatedAt = mapping.updatedAt;
+            });
+          }
+          const remains = await db.syncQueue.where('offlineId').equals(action.offlineId).count();
+          await db.contracts.update(action.offlineId, { ...(mapping ? { id: mapping.backendId, contractNumber: mapping.contractNumber, serverUpdatedAt: mapping.updatedAt } : {}),
+            syncStatus: remains ? 'pending' : 'synced' });
+        });
+      } catch (error) {
+        blocked.add(action.offlineId);
+        if (this.paused) return;
+        const status = errorStatus(error);
+        if (status === 401 || status === 403) throw error;
+        const permanent = status !== undefined && status >= 400 && status < 500 && status !== 429;
+        const count = (action.retryCount ?? 0) + 1;
+        await db.syncQueue.update(action.id!, { status: permanent ? 'failed' : 'pending', error: message(error), retryCount: count, nextRetryAt: retryAt(count) });
+        this.updateState({ lastError: message(error) });
+      }
     }
-
-    private handleNetworkChange = (): void => {
-        const isOnline = !networkStore.isOffline;
-        this.updateState({ isOnline });
-        if (isOnline) {
-            void this.sync();
+  }
+  async pull(): Promise<void> {
+    if (this.paused) return;
+    let { data } = await api.get<PullResponse>('/api/v1/sync/pull', { params: { branchId: localStorage.getItem('branchId') || '1' }, signal: this.controller.signal });
+    if (data.fullSyncRequired) {
+      data = (await api.get<PullResponse>('/api/v1/sync/pull', { params: { branchId: localStorage.getItem('branchId') || '1' }, signal: this.controller.signal })).data;
+      if (data.fullSyncRequired) throw new Error('Полная синхронизация недоступна');
+    }
+    if (this.paused) return;
+    for (const field of ['clients', 'tools', 'categories', 'templates', 'contracts'] as const)
+      if (!Array.isArray(data[field])) throw new Error(`Неверный формат синхронизации: ${field}`);
+    await db.transaction('rw', db.tables, async () => {
+      const legacy = await db.syncQueue.toArray();
+      const v2 = await db.syncQueueV2.toArray();
+      const pendingContracts = new Set([...legacy.map(q => q.offlineId), ...v2.filter(q => q.entityTable === 'contracts').map(q => q.entityId)]);
+      const pendingClients = new Set(v2.filter(q => q.entityTable === 'clients').map(q => Number(q.entityId)));
+      if (data.fullSnapshot) {
+        // Quarantine legacy local-only catalogue entries before removing them from
+        // the active catalogue. They must not remain selectable as server inventory.
+        for (const name of ['tools', 'categories', 'templates'] as const) {
+          const serverIds = new Set(data[name].map(row => String(row.id)));
+          const table = db.table(name);
+          const absent = await table.filter(row => !serverIds.has(String(row.id))).toArray();
+          await db.table('recovery').bulkPut(absent.map(row => ({ key: `${name}:${row.id}`, table: name, data: row, savedAt: Date.now() })));
+          await table.bulkDelete(absent.map(row => row.id));
         }
-    };
-
-    private startPullInterval(): void {
-        if (this.pullTimer) clearInterval(this.pullTimer);
-        this.pullTimer = setInterval(() => void this.sync(), RETRY_CONFIG.SYNC_INTERVAL_MS);
-    }
+        const ids = new Set(data.contracts.map(c => c.id));
+        await db.contracts.filter(c => !ids.has(c.id) && !pendingContracts.has(c.offlineId) && c.syncStatus !== 'pending').delete();
+        const clients = new Set(data.clients.map(c => c.id));
+        await db.clients.filter(c => !clients.has(c.id) && !pendingClients.has(c.id)).delete();
+      }
+      for (const id of data.deletedContractIds ?? []) {
+        await db.contracts.where('id').equals(id).filter(c => !pendingContracts.has(c.offlineId) && c.syncStatus !== 'pending').delete();
+      }
+      for (const client of data.clients) if (!pendingClients.has(client.id)) await db.clients.put(client as any);
+      await db.clients.bulkDelete((data.deletedClientIds ?? []).filter(id => !pendingClients.has(id)));
+      await db.tools.bulkDelete(data.deletedToolIds ?? []);
+      await db.categories.bulkDelete(data.deletedCategoryIds ?? []);
+      await db.templates.bulkDelete(data.deletedTemplateIds ?? []);
+      for (const tool of data.tools) {
+        if (!tool.id || !tool.templateId) throw new Error('Инструмент без ID модели');
+        const old = await db.tools.get(tool.id);
+        await db.tools.put({ ...old, ...tool } as any);
+      }
+      await db.categories.bulkPut(data.categories as any);
+      for (const template of data.templates) await db.templates.put({ ...await db.templates.get(template.id), ...template } as any);
+      for (const doc of data.contracts) {
+        const existing = await db.contracts.where('id').equals(doc.id).first();
+        const offlineId = existing?.offlineId || doc.offlineId || `server:${doc.id}`;
+        if (pendingContracts.has(offlineId) || existing?.syncStatus === 'pending') continue;
+        await db.contracts.put({ ...existing, ...doc, offlineId, syncStatus: 'synced', serverUpdatedAt: doc.updatedAt,
+          updatedAt: Date.now() } as LocalContract);
+      }
+      await db.syncMeta.put({ id: 'contracts', lastPulledAt: Date.now() });
+    });
+  }
+  private updateState(patch: Partial<SyncManagerState>): void {
+    this.state = { ...this.state, ...patch }; this.listeners.forEach(listener => listener(this.state));
+  }
 }
-
 export const syncManager = new SyncManager();

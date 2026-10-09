@@ -1,0 +1,38 @@
+<!doctype html><meta charset="utf-8"><title>IndexedDB migration regression</title>
+<h1>IndexedDB migration regression</h1><pre id="results">Running…</pre>
+<script type="module">
+import Dexie from '/node_modules/dexie/dist/dexie.mjs';
+import { AppDatabase } from '/src/db/db.ts';
+const output = document.querySelector('#results');
+const results = [];
+const base = {
+  syncQueue: '++id, type, offlineId, createdAt', clients: 'id, fullName, whatsappPhone, updatedAt',
+  tools: 'id, name, inventoryNumber, status, updatedAt', categories: 'id, name', templates: 'id, name, categoryId'
+};
+for (const version of [3,4,5,6,7,8,9]) {
+  const name = 'audit-migration-' + version + '-' + crypto.randomUUID();
+  let old, upgraded;
+  try {
+    old = new Dexie(name);
+    const schema = { ...base };
+    if (version < 6) schema.contracts = '++id, offlineId, clientId, toolId, status, syncStatus, updatedAt';
+    if (version >= 7) schema.contracts = 'offlineId, id, clientId, toolId, status, syncStatus, updatedAt';
+    if (version >= 8) { schema.tools = 'id, name, inventoryNumber, status, templateId, categoryId, updatedAt'; schema.bookings = 'id, clientName, clientPhone, templateId, toolInstanceId, status, startDateTime, endDateTime'; }
+    if (version >= 9) { schema.syncQueueV2 = 'id, entityTable, entityId, status, createdAt, nextRetryAt'; schema.syncMeta = 'id'; }
+    old.version(version).stores(schema);
+    await old.open();
+    if (version !== 6) await old.table('contracts').put({ id: 19, offlineId: 'pending-doc', clientId: 7, toolId: 8, startDateTime: '2026-09-01T10:00:00', status: 'ACTIVE', syncStatus: 'pending', updatedAt: 1 });
+    await old.table('syncQueue').add({ type: 'CREATE_CONTRACT', offlineId: 'pending-doc', payload: { clientId: 7, toolId: 8 }, createdAt: 1 });
+    old.close();
+    upgraded = new AppDatabase(name);
+    await upgraded.open();
+    if (version !== 6 && !(await upgraded.contracts.get('pending-doc'))) throw new Error('contract lost');
+    if (await upgraded.syncQueue.count() !== 1) throw new Error('queue lost');
+    if (!upgraded.tables.some(t => t.name === 'recovery')) throw new Error('recovery store missing');
+    results.push('PASS v' + version + ' → v10: ' + (version === 6 ? 'queue preserved (v6 has no contracts store)' : 'contract and queue preserved'));
+  } catch (error) { results.push('FAIL v' + version + ': ' + error.name + ': ' + error.message); }
+  finally { old?.close(); upgraded?.close(); await Dexie.delete(name); }
+  output.textContent = results.join('\n');
+}
+output.textContent += '\nCOMPLETE';
+</script>

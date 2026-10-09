@@ -11,8 +11,6 @@
     "rootDir": "."
   },
   "include": [
-    "electron/**/*.ts",
-    "electron/**/*.d.ts",
     "vite.config.ts"
   ]
 }

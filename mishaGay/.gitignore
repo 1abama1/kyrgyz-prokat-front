@@ -29,3 +29,8 @@ release
 # Env
 .env
 .env.*
+
+# Generated Electron CommonJS and TypeScript build state
+electron-build/
+temp-node-build/
+*.tsbuildinfo

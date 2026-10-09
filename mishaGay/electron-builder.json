@@ -16,7 +16,8 @@
     "electron/**/*",
     "resources/**/*",
     "src/assets/logo.png",
-    "package.json"
+    "package.json",
+    "electron-build/**/*"
   ],
   "win": {
     "target": "nsis",

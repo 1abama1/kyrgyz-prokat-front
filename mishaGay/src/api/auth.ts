@@ -1,3 +1,6 @@
+import { syncManager } from '../db/syncManager';
+import { switchAccountDatabase } from '../db/db';
+import { tokenSubject } from '../db/account';
 import bcrypt from "bcryptjs";
 import { apiCall } from "./client";
 import { api } from "./axios";
@@ -9,6 +12,9 @@ import {
 } from "../types/api.types";
 import {
   setTokens,
+  getAccessToken,
+  invalidateSession,
+  getSessionEpoch,
   clearTokens,
   getRefreshToken,
   isAuthenticated as checkAuth
@@ -46,6 +52,7 @@ function verifyOfflineCredentials(password: string): boolean {
  * @returns true если успешно, false если refresh токен невалиден
  */
 export async function refreshAccessToken(): Promise<boolean> {
+  const epoch = getSessionEpoch();
   const refreshToken = getRefreshToken();
 
   if (!refreshToken) {
@@ -60,6 +67,7 @@ export async function refreshAccessToken(): Promise<boolean> {
       skipAuth: true,
     });
 
+    if (getSessionEpoch() !== epoch) throw new Error("Сессия изменилась");
     setTokens(response.data.accessToken, response.data.refreshToken);
     return true;
   } catch (error) {
@@ -84,7 +92,13 @@ export const authAPI = {
       const refreshToken = response.refreshToken;
 
       if (accessToken && refreshToken) {
+        invalidateSession();
+        await syncManager.stop();
+        const owner = tokenSubject(accessToken);
+        if (!owner) throw new Error('Сервер вернул токен без пользователя');
+        await switchAccountDatabase(owner);
         setTokens(accessToken, refreshToken);
+        syncManager.resume();
         localStorage.setItem("last_user", JSON.stringify({ email: credentials.email }));
         // ✅ Сохраняем хэш пароля для оффлайн-проверки (Вариант A)
         storeOfflineCredentials(credentials.password);
@@ -100,7 +114,7 @@ export const authAPI = {
         console.warn("Backend unavailable on login, attempting offline login:", error);
 
         // ✅ Проверяем пароль против bcrypt-хэша из предыдущего онлайн-логина
-        if (!verifyOfflineCredentials(credentials.password)) {
+        if (credentials.email !== JSON.parse(localStorage.getItem('last_user') || '{}').email || !verifyOfflineCredentials(credentials.password)) {
           // Либо первый запуск без онлайн-сессии, либо неверный пароль
           const hasSavedHash = !!sessionStorage.getItem(OFFLINE_CREDENTIALS_KEY);
           if (hasSavedHash) {
@@ -110,8 +124,9 @@ export const authAPI = {
           }
         }
 
-        const offlineAccessToken = `offline_token_${Date.now()}`;
-        const offlineRefreshToken = `offline_refresh_${Date.now()}`;
+        const offlineAccessToken = getAccessToken();
+        const offlineRefreshToken = getRefreshToken();
+        if (!offlineAccessToken || !offlineRefreshToken || !tokenSubject(offlineAccessToken)) throw new Error("Для входа требуется подключение к серверу");
         setTokens(offlineAccessToken, offlineRefreshToken);
         localStorage.setItem("last_user", JSON.stringify({ email: credentials.email }));
         networkStore.setManualOffline(true);
@@ -125,18 +140,9 @@ export const authAPI = {
     }
   },
 
-  loginOffline: (): void => {
-    const lastUserStr = localStorage.getItem("last_user");
-    const email = lastUserStr ? JSON.parse(lastUserStr).email : "offline@user.local";
-    const offlineAccessToken = `offline_token_${Date.now()}`;
-    const offlineRefreshToken = `offline_refresh_${Date.now()}`;
-    setTokens(offlineAccessToken, offlineRefreshToken);
-    localStorage.setItem("last_user", JSON.stringify({ email }));
-    networkStore.setManualOffline(true);
-  },
-
   refresh: async (): Promise<RefreshResponse> => {
-    const refreshToken = getRefreshToken();
+    const epoch = getSessionEpoch();
+  const refreshToken = getRefreshToken();
     if (!refreshToken) {
       throw new Error("Refresh token not found");
     }
@@ -148,6 +154,7 @@ export const authAPI = {
       skipAuth: true,
     });
 
+    if (getSessionEpoch() !== epoch) throw new Error("Сессия изменилась");
     setTokens(response.data.accessToken, response.data.refreshToken);
 
     return response.data;
@@ -155,17 +162,10 @@ export const authAPI = {
 
   logout: async (): Promise<void> => {
     clearTokens();
+    await syncManager.stop();
     sessionStorage.removeItem(OFFLINE_CREDENTIALS_KEY);
-    // Clear reference tables on logout
-    const { db } = await import("../db/db");
-    await db.clients.clear();
-    await db.tools.clear();
-    await db.categories.clear();
-    await db.templates.clear();
-    await db.contracts.clear();
-    await db.bookings.clear();
+    await switchAccountDatabase(null);
     localStorage.removeItem('lastSyncTimestamp');
-    
     window.location.hash = "#/login";
   },
 

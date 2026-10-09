@@ -39,12 +39,14 @@ export const CreateRentalInline: FC<CreateRentalInlineProps> = ({ defaultClientI
 
   // Загрузка клиентов и категорий при монтировании
   useEffect(() => {
-    clientsAPI.getAll().then(setClients).catch(err => {
-      setError(err.message || "Ошибка загрузки клиентов");
+    let active = true;
+    clientsAPI.getAll().then(value => { if (active) setClients(value); }).catch(err => {
+      active && setError(err.message || "Ошибка загрузки клиентов");
     });
-    categoriesAPI.getAll().then(setCategories).catch(err => {
-      setError(err.message || "Ошибка загрузки категорий");
+    categoriesAPI.getAll().then(value => { if (active) setCategories(value); }).catch(err => {
+      active && setError(err.message || "Ошибка загрузки категорий");
     });
+      return () => { active = false; };
   }, []);
 
   useEffect(() => {
@@ -56,11 +58,13 @@ export const CreateRentalInline: FC<CreateRentalInlineProps> = ({ defaultClientI
 
   // Загрузка моделей при выборе категории
   useEffect(() => {
+    let active = true;
+    setTools([]);
     if (categoryId) {
       templatesAPI.getByCategory(categoryId)
-        .then(setTemplates)
+        .then(value => { if (active) setTemplates(value); })
         .catch(err => {
-          setError(err.message || "Ошибка загрузки моделей");
+          active && setError(err.message || "Ошибка загрузки моделей");
         });
       // Сброс выбранной модели и инструмента
       setTemplateId("");
@@ -72,15 +76,18 @@ export const CreateRentalInline: FC<CreateRentalInlineProps> = ({ defaultClientI
       setToolId(null);
       setTools([]);
     }
+      return () => { active = false; };
   }, [categoryId]);
 
   // Загрузка экземпляров при выборе модели (все статусы)
   useEffect(() => {
+    let active = true;
+    setTools([]);
     if (templateId) {
       templatesAPI.getFull(templateId)
-        .then((fullTemplate) => setTools(fullTemplate.tools ?? []))
+        .then((fullTemplate) => { if (active) setTools(fullTemplate.tools ?? []); })
         .catch(err => {
-          setError(err.message || "Ошибка загрузки инструментов");
+          active && setError(err.message || "Ошибка загрузки инструментов");
         });
       // Сброс выбранного инструмента
       setToolId(null);
@@ -88,6 +95,7 @@ export const CreateRentalInline: FC<CreateRentalInlineProps> = ({ defaultClientI
       setTools([]);
       setToolId(null);
     }
+      return () => { active = false; };
   }, [templateId]);
 
   const create = async () => {

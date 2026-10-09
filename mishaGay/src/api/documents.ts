@@ -5,14 +5,16 @@ import { db } from "../db/db";
 
 export const documentsAPI = {
   getAll: async (): Promise<Document[]> => {
+const requestDb = db;
     if (!networkStore.isOffline) {
       try {
         const docs = await apiCall<Document[]>("/api/admin/documents");
         if (Array.isArray(docs) && docs.length > 0) {
           for (const doc of docs) {
             if (!doc.id) continue;
-            const existing = await db.contracts.where('id').equals(doc.id).first();
-            await db.contracts.put({
+            const existing = await requestDb.contracts.where('id').equals(doc.id).first();
+            if (existing?.syncStatus === 'pending') continue;
+            await requestDb.contracts.put({
               ...existing,
               offlineId: existing?.offlineId || (doc as any).offlineId || crypto.randomUUID(),
               id: doc.id,
@@ -20,6 +22,8 @@ export const documentsAPI = {
               clientId: doc.clientId,
               clientName: doc.clientName,
               toolId: doc.toolId ?? 0,
+            toolIds: (doc as any).toolIds,
+            serverUpdatedAt: (doc as any).updatedAt,
               toolName: doc.toolName,
               startDateTime: doc.startDateTime || doc.createdAt,
               amount: doc.amount ?? 0,
@@ -35,17 +39,17 @@ export const documentsAPI = {
         console.warn("Failed to fetch documents from server, falling back to local DB", e);
       }
     }
-    const localDocs = await db.contracts.toArray();
+    const localDocs = await requestDb.contracts.toArray();
     return Promise.all(localDocs.map(async (doc) => {
       let clientName = "";
       if (doc.clientId) {
-        const client = await db.clients.get(doc.clientId);
+        const client = await requestDb.clients.get(doc.clientId);
         if (client) clientName = client.fullName;
       }
 
       let toolName = "";
       if (doc.toolId) {
-        const tool = await db.tools.get(doc.toolId);
+        const tool = await requestDb.tools.get(doc.toolId);
         if (tool) toolName = tool.name || tool.inventoryNumber;
       }
 
@@ -70,6 +74,7 @@ export const documentsAPI = {
   },
   
   getById: async (id: number | string): Promise<DocumentDetail> => {
+const requestDb = db;
     if (!id) {
       return Promise.reject(new Error("Invalid document id"));
     }
@@ -81,8 +86,9 @@ export const documentsAPI = {
         const doc = await apiCall<DocumentDetail>(`/api/admin/documents/${numericId}`);
         if (doc) {
           // Update local cache
-          const existing = await db.contracts.where('id').equals(doc.id).first();
-          await db.contracts.put({
+          const existing = await requestDb.contracts.where('id').equals(doc.id).first();
+          if (existing?.syncStatus === 'pending') return documentsAPI.getById(existing.offlineId);
+          await requestDb.contracts.put({
             ...existing,
             offlineId: existing?.offlineId || (doc as any).offlineId || crypto.randomUUID(),
             id: doc.id,
@@ -90,6 +96,8 @@ export const documentsAPI = {
             clientId: doc.clientId,
             clientName: doc.clientName || doc.client?.fullName,
             toolId: doc.toolId ?? 0,
+            toolIds: (doc as any).toolIds ?? doc.tools?.map(t => t.id),
+            serverUpdatedAt: (doc as any).updatedAt,
             toolName: doc.toolName || doc.tool?.name || (doc.tools && doc.tools[0]?.name),
             startDateTime: doc.startDateTime || doc.createdAt,
             amount: doc.amount ?? 0,
@@ -99,7 +107,7 @@ export const documentsAPI = {
             updatedAt: Date.now()
           });
           if (doc.client) {
-            await db.clients.put(doc.client).catch(() => {});
+            await requestDb.clients.put(doc.client).catch(() => {});
           }
         }
         return doc;
@@ -111,10 +119,10 @@ export const documentsAPI = {
     // Offline / Network Fallback from IndexedDB (by numeric id or offlineId)
     let contract: any = undefined;
     if (numericId && numericId > 0) {
-      contract = await db.contracts.where('id').equals(numericId).first();
+      contract = await requestDb.contracts.where('id').equals(numericId).first();
     }
     if (!contract) {
-      contract = await db.contracts.where('offlineId').equals(String(id)).first();
+      contract = await requestDb.contracts.where('offlineId').equals(String(id)).first();
     }
 
     if (!contract) {
@@ -123,13 +131,16 @@ export const documentsAPI = {
 
     let client: any = undefined;
     if (contract.clientId) {
-      client = await db.clients.get(Number(contract.clientId));
+      client = await requestDb.clients.get(Number(contract.clientId));
     }
 
     let tool: any = null;
     let tools: any[] = [];
-    if (contract.toolId) {
-      tool = await db.tools.get(Number(contract.toolId));
+    if (contract.toolIds?.length) {
+      tools = (await requestDb.tools.bulkGet(contract.toolIds)).filter(Boolean);
+      tool = tools[0] ?? null;
+    } else if (contract.toolId) {
+      tool = await requestDb.tools.get(Number(contract.toolId));
       if (tool) {
         tools = [tool];
       }

@@ -9,29 +9,33 @@ import { db } from "../db/db";
 
 export const templatesAPI = {
   getAll: async () => {
+const requestDb = db;
     if (networkStore.isOffline) {
-      return (await db.templates.toArray()) as TemplateDto[];
+      return (await requestDb.templates.toArray()) as TemplateDto[];
     }
     try {
       const templates = await apiCall<TemplateDto[]>({
         url: "/api/templates",
       });
       if (Array.isArray(templates) && templates.length > 0) {
-        db.templates.bulkPut(templates).catch(err => console.warn("Failed to cache templates to Dexie", err));
+        requestDb.transaction('rw', requestDb.templates, async () => {
+          for (const template of templates) await requestDb.templates.put({ ...await requestDb.templates.get(template.id), ...template });
+        }).catch(err => console.warn("Failed to cache templates to Dexie", err));
       }
       return templates;
     } catch (e: any) {
       console.warn("Failed to fetch templates, falling back to offline", e);
       networkStore.setManualOffline(true);
-      return (await db.templates.toArray()) as TemplateDto[];
+      return (await requestDb.templates.toArray()) as TemplateDto[];
     }
   },
 
   getByCategory: async (categoryId: string) => {
+const requestDb = db;
     if (!categoryId) {
       return Promise.reject(new Error("Invalid category id"));
     }
-    const allTmpls = await db.templates.toArray();
+    const allTmpls = await requestDb.templates.toArray();
     const local = allTmpls.filter((t: any) => String(t.categoryId) === String(categoryId)) as TemplateDto[];
 
     if (local.length > 0) {
@@ -41,7 +45,9 @@ export const templatesAPI = {
           params: { categoryId },
         }).then(templates => {
           if (Array.isArray(templates) && templates.length > 0) {
-            db.templates.bulkPut(templates).catch(() => {});
+            requestDb.transaction('rw', requestDb.templates, async () => {
+          for (const template of templates) await requestDb.templates.put({ ...await requestDb.templates.get(template.id), ...template });
+        }).catch(() => {});
           }
         }).catch(() => {});
       }
@@ -57,24 +63,27 @@ export const templatesAPI = {
       params: { categoryId },
     });
     if (Array.isArray(templates) && templates.length > 0) {
-      db.templates.bulkPut(templates).catch(err => console.warn("Failed to cache templates to Dexie", err));
+      requestDb.transaction('rw', requestDb.templates, async () => {
+          for (const template of templates) await requestDb.templates.put({ ...await requestDb.templates.get(template.id), ...template });
+        }).catch(err => console.warn("Failed to cache templates to Dexie", err));
     }
     return templates;
   },
 
   getFull: async (id: string) => {
+const requestDb = db;
     if (!id) {
       return Promise.reject(new Error("Invalid template id"));
     }
 
     // Офлайн-режим: возвращаем из кеша
     if (networkStore.isOffline) {
-      const tmpls = await db.templates.toArray();
+      const tmpls = await requestDb.templates.toArray();
       const tmpl = tmpls.find((t: any) => String(t.id) === String(id));
-      const allTools = await db.tools.toArray();
+      const allTools = await requestDb.tools.toArray();
       const localTools = allTools.filter((t: any) => String(t.templateId || t.template?.id || t.toolTemplateId) === String(id));
       if (!tmpl) {
-        return { id, name: "Модель", categoryId: "", dailyRentalPrice: 0, depositAmount: 0, purchasePrice: 0, tools: [] } as TemplateFullDto;
+        throw new Error('Модель отсутствует в локальном каталоге. Выполните синхронизацию.');
       }
       return { ...tmpl, tools: localTools } as TemplateFullDto;
     }
@@ -84,31 +93,22 @@ export const templatesAPI = {
       url: `/api/templates/${id}`,
     });
     if (full) {
-      db.templates.put({ id: full.id, name: full.name, categoryId: full.categoryId }).catch(() => {});
+      requestDb.templates.put({ ...full }).catch(() => {});
       if (Array.isArray(full.tools) && full.tools.length > 0) {
         const normalized = full.tools.map((t: any) => ({
           ...t,
           templateId: t.templateId || full.id
         }));
-        db.tools.bulkPut(normalized).catch(() => {});
+        requestDb.tools.bulkPut(normalized).catch(() => {});
       }
     }
     return full;
   },
 
   create: async (data: CreateTemplateRequest) => {
+const requestDb = db;
     if (networkStore.isOffline) {
-      const localId = crypto.randomUUID();
-      const localTmpl = {
-        id: localId,
-        name: data.name,
-        categoryId: data.categoryId,
-        dailyRentalPrice: data.dailyRentalPrice || 0,
-        depositAmount: data.depositAmount || 0,
-        purchasePrice: data.purchasePrice || 0
-      };
-      await db.templates.put(localTmpl);
-      return localTmpl as TemplateDto;
+      throw new Error('Создание каталога доступно только онлайн. Подключитесь к серверу.');
     }
     const created = await apiCall<TemplateDto>({
       url: "/api/templates",
@@ -116,7 +116,7 @@ export const templatesAPI = {
       data,
     });
     if (created) {
-      db.templates.put(created).catch(() => {});
+      requestDb.templates.put(created).catch(() => {});
     }
     return created;
   },

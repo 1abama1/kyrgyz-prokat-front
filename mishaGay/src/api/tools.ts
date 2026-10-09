@@ -6,8 +6,9 @@ import { db } from "../db/db";
 
 export const toolsAPI = {
   getAll: async () => {
+const requestDb = db;
     if (networkStore.isOffline) {
-      return (await db.tools.toArray()) as ToolDto[];
+      return (await requestDb.tools.toArray()) as ToolDto[];
     }
     try {
       const tools = await apiCall<ToolDto[]>({
@@ -18,13 +19,13 @@ export const toolsAPI = {
           ...t,
           templateId: t.templateId || t.template?.id || t.toolTemplateId
         })) as unknown as import("../types/tool.types").Tool[];
-        db.tools.bulkPut(normalizedTools).catch(err => console.warn("Failed to cache tools to Dexie", err));
+        requestDb.tools.bulkPut(normalizedTools).catch(err => console.warn("Failed to cache tools to Dexie", err));
       }
       return tools;
     } catch (e: any) {
       console.warn("Failed to fetch tools, falling back to offline", e);
       networkStore.setManualOffline(true);
-      return (await db.tools.toArray()) as ToolDto[];
+      return (await requestDb.tools.toArray()) as ToolDto[];
     }
   },
 
@@ -47,28 +48,9 @@ export const toolsAPI = {
   },
 
   create: async (data: CreateToolRequest) => {
+const requestDb = db;
     if (networkStore.isOffline) {
-      const allTools = await db.tools.toArray();
-      const existingInTemplate = allTools.filter((t: any) => String(t.templateId || t.template?.id) === String(data.templateId));
-      const maxInstNum = existingInTemplate.reduce((max: number, t: any) => Math.max(max, t.instanceNumber || 0), 0);
-      const tmpls = await db.templates.toArray();
-      const tmpl = tmpls.find((t: any) => String(t.id) === String(data.templateId));
-      const fakeId = Date.now() + Math.floor(Math.random() * 1000);
-      const newTool: ToolDto = {
-        id: fakeId,
-        name: tmpl?.name || "Новый инструмент",
-        inventoryNumber: data.inventoryNumber || `OFFLINE-${fakeId}`,
-        article: "",
-        depositAmount: 0,
-        purchasePrice: 0,
-        dailyRentalPrice: 0,
-        status: "AVAILABLE",
-        instanceNumber: maxInstNum + 1,
-        serialNumber: data.serialNumber,
-        templateId: data.templateId,
-      } as unknown as import("../types/tool.types").Tool;
-      await db.tools.put(newTool);
-      return newTool as unknown as ToolDto;
+      throw new Error('Создание каталога доступно только онлайн. Подключитесь к серверу.');
     }
     const created = await apiCall<ToolDto>({
       url: "/api/tools",
@@ -76,40 +58,15 @@ export const toolsAPI = {
       data,
     });
     if (created) {
-      db.tools.put({ ...created, templateId: created.templateId || data.templateId } as unknown as import("../types/tool.types").Tool).catch(() => { });
+      requestDb.tools.put({ ...created, templateId: created.templateId || data.templateId } as unknown as import("../types/tool.types").Tool).catch(() => { });
     }
     return created;
   },
 
   createBatch: async (data: any) => {
+const requestDb = db;
     if (networkStore.isOffline) {
-      const allTools = await db.tools.toArray();
-      const existingInTemplate = allTools.filter((t: any) => String(t.templateId || t.template?.id) === String(data.templateId));
-      const maxInstNum = existingInTemplate.reduce((max: number, t: any) => Math.max(max, t.instanceNumber || 0), 0);
-      const tmpls = await db.templates.toArray();
-      const tmpl = tmpls.find((t: any) => String(t.id) === String(data.templateId));
-
-      const createdList: ToolDto[] = [];
-      const count = data.count || 1;
-      for (let i = 1; i <= count; i++) {
-        const nextNum = maxInstNum + i;
-        const fakeId = Date.now() + Math.floor(Math.random() * 1000) + i;
-        const newTool: ToolDto = {
-          id: fakeId,
-          name: tmpl?.name || `Экземпляр #${nextNum}`,
-          inventoryNumber: `OFFLINE-${fakeId}`,
-          article: "",
-          depositAmount: 0,
-          purchasePrice: 0,
-          dailyRentalPrice: 0,
-          status: "AVAILABLE",
-          instanceNumber: nextNum,
-          templateId: data.templateId,
-        } as unknown as import("../types/tool.types").Tool;
-        await db.tools.put(newTool);
-        createdList.push(newTool as unknown as ToolDto);
-      }
-      return createdList;
+      throw new Error('Создание каталога доступно только онлайн. Подключитесь к серверу.');
     }
     const tools = await apiCall<ToolDto[]>({
       url: "/api/tools/batch",
@@ -121,7 +78,7 @@ export const toolsAPI = {
         ...t,
         templateId: t.templateId || data.templateId
       })) as unknown as import("../types/tool.types").Tool[];
-      db.tools.bulkPut(normalized).catch(() => { });
+      requestDb.tools.bulkPut(normalized).catch(() => { });
     }
     return tools;
   },

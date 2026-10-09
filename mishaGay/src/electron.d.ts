@@ -57,7 +57,7 @@ declare global {
             platform: string;
             version: string;
             openExternalUrl?: (url: string) => Promise<void>;
-            onUpdateReady?: (callback: (data: { version: string, notes: string }) => void) => void;
+            onUpdateReady?: (callback: (data: { version: string, notes: string }) => void) => (() => void);
             installUpdate?: () => void;
         };
     }

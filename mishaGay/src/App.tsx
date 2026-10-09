@@ -26,6 +26,8 @@ import { SyncStatus } from "./components/SyncStatus";
 import "./db/syncManager";
 
 
+import { ToastProvider } from "./context/ToastContext";
+
 const { Text } = Typography;
 
 function GuestRoute({ children }: { children: React.ReactNode }) {
@@ -37,7 +39,7 @@ function GuestRoute({ children }: { children: React.ReactNode }) {
 
 function App() {
   useEffect(() => {
-    window.electronAPI?.onUpdateReady?.((data) => {
+    return window.electronAPI?.onUpdateReady?.((data) => {
       Modal.confirm({
         title: `Доступна версия ${data.version}`,
         width: 500, // Делаем окно чуть шире для удобного чтения
@@ -54,8 +56,9 @@ function App() {
                 marginTop: 8,
                 borderRadius: 6
               }}
-              dangerouslySetInnerHTML={{ __html: data.notes }}
-            />
+              >
+              {data.notes}
+            </div>
             <div style={{ marginTop: 16 }}>
               Перезапустить приложение для установки?
             </div>
@@ -71,7 +74,8 @@ function App() {
   }, []);
 
   return (
-    <HashRouter>
+    <ToastProvider>
+      <HashRouter>
       <SyncStatus />
       <Routes>
         <Route
@@ -260,7 +264,8 @@ function App() {
         />
         <Route path="/" element={<SafeNavigate to="/dashboard" replace />} />
       </Routes>
-    </HashRouter>
+      </HashRouter>
+    </ToastProvider>
   );
 }
 

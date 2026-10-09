@@ -1,3 +1,9 @@
+let sessionEpoch = 0;
+export const getSessionEpoch = () => sessionEpoch;
+export const invalidateSession = () => { ++sessionEpoch; };
+window.addEventListener('storage', event => {
+  if (event.key === 'accessToken' || event.key === 'refresh_token') window.location.reload();
+});
 // Access token
 export const getAccessToken = (): string | null => {
   return localStorage.getItem("accessToken");
@@ -23,6 +29,7 @@ export const setTokens = (access: string, refresh: string): void => {
 };
 
 export const clearTokens = (): void => {
+  invalidateSession();
   localStorage.removeItem("accessToken");
   localStorage.removeItem("refresh_token");
 };

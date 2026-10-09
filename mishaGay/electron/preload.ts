@@ -8,7 +8,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
   version: process.versions.electron,
   openExternalUrl: (url: string) => ipcRenderer.invoke("open-external-url", url),
   onUpdateReady: (callback: (data: { version: string, notes: string }) => void) => {
-    ipcRenderer.on('update-ready', (_event, data) => callback(data));
+    const listener = (_event: Electron.IpcRendererEvent, data: { version: string; notes: string }) => callback(data);
+    ipcRenderer.on('update-ready', listener);
+    return () => ipcRenderer.removeListener('update-ready', listener);
   },
   installUpdate: () => ipcRenderer.send('install-update')
 });
@@ -24,6 +26,7 @@ contextBridge.exposeInMainWorld("contracts", {
   openExcel: (filePath: string): Promise<void> =>
     ipcRenderer.invoke("open-contract-excel", filePath),
 
+  showItemInFolder: (filePath: string) => ipcRenderer.invoke('show-item-in-folder', filePath),
   generateOffline: (contractData: any, filename: string): Promise<string> =>
     ipcRenderer.invoke("generate-offline-excel", { contractData, filename }),
 });

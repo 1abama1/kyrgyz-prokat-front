@@ -40,13 +40,15 @@ export const CreateRentalContractPage: FC = () => {
 
   // Фоновый HTTP-прогрев кэша при монтировании (если онлайн)
   useEffect(() => {
+    let active = true;
     // Клиенты — обновятся в Dexie, useLiveQuery среагирует автоматически
     categoriesAPI.getAll().catch(() => {});
     // getAll для clients уже вызывается в фоне через SyncManager,
     // но явный прогрев ускоряет первое появление данных
     import("../api/clients").then(({ clientsAPI }) => {
-      clientsAPI.getAll().catch(() => {});
+      if (active) clientsAPI.getAll().catch(() => {});
     });
+      return () => { active = false; };
   }, []);
 
   // ── Инструменты — живой HTTP-запрос (статусы RENTED/AVAILABLE меняются!) ────
@@ -64,6 +66,8 @@ export const CreateRentalContractPage: FC = () => {
 
   // Загрузка шаблонов при выборе категории
   useEffect(() => {
+    let active = true;
+    setTools([]);
     if (!categoryId) {
       setTemplates([]);
       setTemplateId("");
@@ -73,15 +77,18 @@ export const CreateRentalContractPage: FC = () => {
     }
     templatesAPI
       .getByCategory(categoryId)
-      .then(setTemplates)
-      .catch((err) => setError(err.message || "Ошибка загрузки моделей"));
+      .then(value => { if (active) setTemplates(value); })
+      .catch((err) => active && setError(err.message || "Ошибка загрузки моделей"));
     setTemplateId("");
     setToolId(null);
     setTools([]);
+      return () => { active = false; };
   }, [categoryId]);
 
   // Загрузка экземпляров при выборе шаблона — всегда свежие статусы с сервера
   useEffect(() => {
+    let active = true;
+    setTools([]);
     if (!templateId) {
       setTools([]);
       setToolId(null);
@@ -89,9 +96,10 @@ export const CreateRentalContractPage: FC = () => {
     }
     templatesAPI
       .getFull(templateId)
-      .then((fullTemplate) => setTools(fullTemplate.tools ?? []))
-      .catch((err) => setError(err.message || "Ошибка загрузки инструментов"));
+      .then((fullTemplate) => { if (active) setTools(fullTemplate.tools ?? []); })
+      .catch((err) => active && setError(err.message || "Ошибка загрузки инструментов"));
     setToolId(null);
+      return () => { active = false; };
   }, [templateId]);
 
   // Автоматически выбираем клиента из URL параметра

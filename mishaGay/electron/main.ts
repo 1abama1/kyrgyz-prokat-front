@@ -1,3 +1,5 @@
+const security = require('../electron/security.cjs');
+const { pathToFileURL } = require('node:url');
 import { app, BrowserWindow, Menu, ipcMain, shell } from "electron";
 import { autoUpdater } from "electron-updater";
 import * as path from "path";
@@ -48,11 +50,23 @@ log.info("GPU hardware acceleration disabled");
 
 let mainWindow: BrowserWindow | null = null;
 
+const expectedRendererUrl = () => process.env.NODE_ENV === 'development' && !app.isPackaged
+  ? 'http://localhost:5173/' : pathToFileURL(path.join(__dirname, '../dist/index.html')).href;
+const registerHandle = ipcMain.handle.bind(ipcMain);
+ipcMain.handle = (channel, listener) => registerHandle(channel, (event, ...args) => {
+  security.trustedSender(event, mainWindow, expectedRendererUrl());
+  return listener(event, ...args);
+});
+const registerOn = ipcMain.on.bind(ipcMain);
+ipcMain.on = (channel, listener) => registerOn(channel, (event, ...args) => {
+  try { security.trustedSender(event, mainWindow, expectedRendererUrl()); listener(event, ...args); }
+  catch (error) { log.warn('Rejected IPC event', channel); }
+});
 // Папка для хранения Excel-договоров
 const getContractsDir = (): string => {
   const contractsDir = path.join(
     app.getPath("documents"),
-    "MishaCRM",
+    "Level",
     "Contracts"
   );
 
@@ -73,7 +87,8 @@ function createWindow(): void {
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      sandbox: true
     },
     icon: path.join(__dirname, "../src/assets/logo.png")
   });
@@ -82,7 +97,7 @@ function createWindow(): void {
   Menu.setApplicationMenu(null);
 
   // Development URL или production build
-  if (process.env.NODE_ENV === "development") {
+  if (process.env.NODE_ENV === "development" && !app.isPackaged) {
     mainWindow.loadURL("http://localhost:5173");
     mainWindow.webContents.openDevTools();
   } else {
@@ -94,10 +109,11 @@ function createWindow(): void {
   }
 
   // Перехватываем создание новых окон (например, при window.open)
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    if (url.split('#')[0] !== expectedRendererUrl().split('#')[0]) event.preventDefault();
+  });
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith("http:") || url.startsWith("https:")) {
-      shell.openExternal(url);
-    }
+    try { void shell.openExternal(security.externalUrl(url)); } catch { /* Deny unsafe protocols. */ }
     return { action: "deny" };
   });
 
@@ -119,7 +135,7 @@ ipcMain.on("log-to-file", (_event, level, message) => {
 ipcMain.handle("contract-exists", async (_event, filename: string) => {
   log.info(`[IPC] Вызов contract-exists для файла: ${filename}`);
   const contractsDir = getContractsDir();
-  const filePath = path.join(contractsDir, filename);
+  const filePath = security.contractPath(contractsDir, filename);
 
   if (fs.existsSync(filePath)) {
     log.info(`🔥 Contract file exists: ${filePath}`);
@@ -133,9 +149,9 @@ ipcMain.handle("save-contract-excel", async (_event, { buffer, filename }: { buf
   log.info(`[IPC] Вызов save-contract-excel: ${filename} (размер: ${buffer.byteLength} байт)`);
 
   const contractsDir = getContractsDir();
-  const filePath = path.join(contractsDir, filename);
+  const filePath = security.contractPath(contractsDir, filename);
 
-  fs.writeFileSync(filePath, Buffer.from(buffer));
+  fs.writeFileSync(filePath, security.excelBuffer(buffer));
   log.info(`✅ Excel file saved successfully: ${filePath}`);
 
   return filePath;
@@ -143,12 +159,12 @@ ipcMain.handle("save-contract-excel", async (_event, { buffer, filename }: { buf
 
 ipcMain.handle("open-contract-excel", async (_event, filePath: string) => {
   log.info(`[IPC] Вызов open-contract-excel для пути: ${filePath}`);
-  return shell.openPath(filePath);
+  return shell.openPath(security.existingContractPath(getContractsDir(), filePath));
 });
 
 ipcMain.handle("open-external-url", async (_event, url: string) => {
   log.info(`[IPC] Открытие внешней ссылки: ${url}`);
-  await shell.openExternal(url);
+  await shell.openExternal(security.externalUrl(url));
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -279,7 +295,7 @@ ipcMain.handle("generate-offline-excel", async (_event, { contractData, filename
   // ── Сохранить файл ───────────────────────────────────────────────────────
 
   const contractsDir = getContractsDir();
-  const filePath = path.join(contractsDir, filename);
+  const filePath = security.contractPath(contractsDir, filename);
 
   await workbook.toFileAsync(filePath);
   log.info(`✅ Offline Excel saved: ${filePath}`);
@@ -324,3 +340,7 @@ app.on("activate", () => {
   }
 });
 
+
+ipcMain.handle('show-item-in-folder', async (_event, filePath: string) => {
+  shell.showItemInFolder(security.existingContractPath(getContractsDir(), filePath));
+});

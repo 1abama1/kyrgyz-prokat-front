@@ -1,5 +1,20 @@
-/* ═══ Layout ═══ */
- 
+.skip-link {
+  position: absolute;
+  top: -60px;
+  left: 16px;
+  background: var(--brand);
+  color: #fff;
+  padding: 8px 16px;
+  z-index: 10000;
+  border-radius: var(--r-sm, 6px);
+  font-weight: 600;
+  text-decoration: none;
+  transition: top 0.15s;
+}
+.skip-link:focus {
+  top: 16px;
+}
+
 .layout {
   display: flex;
   min-height: 100vh;

@@ -9,6 +9,7 @@ import { db } from "../db/db";
 
 export const categoriesAPI = {
   getAll: async () => {
+const requestDb = db;
     if (!networkStore.isOffline) {
       try {
         const categories = await apiCall<CategoryDto[]>({
@@ -16,7 +17,7 @@ export const categoriesAPI = {
         });
         if (Array.isArray(categories) && categories.length > 0) {
           // ✅ upsert — не стираем офлайн-созданные категории
-          await db.categories.bulkPut(categories).catch(() => {});
+          await requestDb.categories.bulkPut(categories).catch(() => {});
         }
         return categories;
       } catch (error) {
@@ -24,7 +25,7 @@ export const categoriesAPI = {
       }
     }
 
-    return (await db.categories.toArray()) as CategoryDto[];
+    return (await requestDb.categories.toArray()) as CategoryDto[];
   },
 
   getFull: (id: string) => {
@@ -37,10 +38,11 @@ export const categoriesAPI = {
   },
 
   getAllFull: async () => {
+const requestDb = db;
     if (networkStore.isOffline) {
-      const cats = await db.categories.toArray();
-      const tmpls = await db.templates.toArray();
-      const tools = await db.tools.toArray();
+      const cats = await requestDb.categories.toArray();
+      const tmpls = await requestDb.templates.toArray();
+      const tools = await requestDb.tools.toArray();
       return (cats || []).map(c => ({
         ...c,
         templates: (tmpls || [])
@@ -64,7 +66,7 @@ export const categoriesAPI = {
       full.forEach(c => {
         if (Array.isArray(c.templates)) {
           c.templates.forEach(t => {
-            tmplsToSave.push({ id: t.id, name: t.name, categoryId: c.id });
+            tmplsToSave.push({ ...t, categoryId: c.id });
             if (Array.isArray(t.tools)) {
               t.tools.forEach(tool => {
                 toolsToSave.push({ ...tool, templateId: t.id });
@@ -73,20 +75,18 @@ export const categoriesAPI = {
           });
         }
       });
-      if (catsToSave.length > 0) db.categories.bulkPut(catsToSave).catch(() => {});
-      if (tmplsToSave.length > 0) db.templates.bulkPut(tmplsToSave).catch(() => {});
-      if (toolsToSave.length > 0) db.tools.bulkPut(toolsToSave).catch(() => {});
+      if (catsToSave.length > 0) requestDb.categories.bulkPut(catsToSave).catch(() => {});
+      if (tmplsToSave.length > 0) requestDb.templates.bulkPut(tmplsToSave).catch(() => {});
+      if (toolsToSave.length > 0) requestDb.tools.bulkPut(toolsToSave).catch(() => {});
     }
     return full;
   },
 
 
   create: async (data: CreateCategoryRequest) => {
+const requestDb = db;
     if (networkStore.isOffline) {
-      const localId = crypto.randomUUID();
-      const localCat = { id: localId, name: data.name };
-      await db.categories.put(localCat);
-      return localCat as CategoryDto;
+      throw new Error('Создание каталога доступно только онлайн. Подключитесь к серверу.');
     }
     const created = await apiCall<CategoryDto>({
       url: "/api/categories",
@@ -94,7 +94,7 @@ export const categoriesAPI = {
       data,
     });
     if (created) {
-      db.categories.put(created).catch(() => {});
+      requestDb.categories.put(created).catch(() => {});
     }
     return created;
   },
